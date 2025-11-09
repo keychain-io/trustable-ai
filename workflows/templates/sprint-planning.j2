@@ -1,0 +1,470 @@
+# Sprint Planning Orchestration
+
+Coordinate a complete sprint planning session across multiple specialized agents for {{ project.name }}.
+
+**This workflow uses:**
+- ✅ Workflow state management (re-entrant, idempotent)
+- ✅ Workflow profiling (timing, tokens, costs)
+- ✅ Comprehensive descriptions for ALL work items
+- ✅ Deployment task automation
+- ✅ Verified work item creation
+
+## Prerequisites
+
+```python
+# Initialize workflow infrastructure
+import sys
+sys.path.insert(0, ".claude/skills")
+
+from workflow_state import WorkflowState
+from workflow_profiler import WorkflowProfiler
+from azure_bulk_operations import AzureBulkOps
+from azure_cli_wrapper import azure_cli
+import json
+import subprocess
+from pathlib import Path
+from datetime import datetime, timedelta
+from typing import Dict, List, Any
+```
+
+## Workflow Initialization
+
+```python
+# Get sprint information from user
+sprint_number = input("Sprint number: ")
+team_capacity = int(input("Team capacity (story points): "))
+
+# Initialize state management
+workflow_id = f"sprint-{sprint_number}"
+state = WorkflowState("sprint-planning", workflow_id)
+profiler = WorkflowProfiler(f"sprint-planning-{sprint_number}")
+
+# Check for existing state
+if state.state["status"] == "completed":
+    print("⚠️  Sprint planning already completed for Sprint", sprint_number)
+    state.print_summary()
+    user_choice = input("Continue anyway? (yes/no): ")
+    if user_choice.lower() != "yes":
+        exit()
+elif state.state["status"] == "in_progress":
+    print("⚠️  Sprint planning in progress")
+    print(f"Last step: {state.state.get('current_step', {}).get('name')}")
+    print(f"Completed steps: {len(state.state['completed_steps'])}")
+    user_choice = input("Resume from last checkpoint? (yes/no): ")
+    if user_choice.lower() != "yes":
+        exit()
+
+# Store metadata
+state.set_metadata("sprint_number", sprint_number)
+state.set_metadata("team_capacity", team_capacity)
+```
+
+## Workflow Steps
+
+Execute the following steps in sequence, spawning each agent with fresh context using the Task tool:
+
+### Step 1: Business Analyst - Prioritized Backlog
+
+{% if 'business-analyst' in agent_config.enabled_agents %}
+```python
+if not state.is_step_completed("business-analyst"):
+    state.start_step("business-analyst", {"sprint": sprint_number})
+
+    # Start profiling
+    call_data = profiler.start_agent_call(
+        agent_name="business-analyst",
+        task_description=f"Prepare prioritized backlog for Sprint {sprint_number} with business value scores",
+        model="{{ agent_config.models.analyst|default('sonnet') }}"
+    )
+```
+
+1. **Read agent definition:** `{{ workflow_config.state_directory }}/../agents/business-analyst.md`
+2. **Task:** "Prepare prioritized backlog for Sprint {sprint_number} with business value scores for {{ project.name }}"
+3. **Spawn agent** using Task tool with model="{{ agent_config.models.analyst|default('sonnet') }}"
+4. **Collect:** Prioritized backlog with business value scores
+
+```python
+    # After agent completes
+    print("\n" + "=" * 80)
+    print("📊 BUSINESS ANALYST OUTPUT")
+    print("=" * 80)
+    print(agent_output)
+    print("=" * 80 + "\n")
+
+    profiler.complete_agent_call(
+        call_data,
+        success=True,
+        output_length=len(agent_output)
+    )
+
+    state.complete_step("business-analyst", result={
+        "backlog": prioritized_backlog,
+        "features": feature_list
+    })
+else:
+    print("✓ Business analyst step already completed, loading cached result")
+    prioritized_backlog = state.get_step_result("business-analyst")["backlog"]
+    feature_list = state.get_step_result("business-analyst")["features"]
+```
+{% else %}
+**NOTE:** Business Analyst agent is disabled. Enable with: `cwf agent enable business-analyst`
+{% endif %}
+
+### Step 2: Project Architect - Architecture Review
+
+{% if 'project-architect' in agent_config.enabled_agents %}
+```python
+if not state.is_step_completed("project-architect"):
+    state.start_step("project-architect")
+    call_data = profiler.start_agent_call(
+        "project-architect",
+        f"Review architecture readiness for Sprint {sprint_number}",
+        "{{ agent_config.models.architect|default('opus') }}"
+    )
+```
+
+1. **Read agent definition:** `{{ workflow_config.state_directory }}/../agents/project-architect.md`
+2. **Task:** "Review architecture readiness for the planned features: {features from Step 1}
+
+   **Tech Stack Context:**
+   {{ tech_stack_context }}
+
+   **Required Outputs:**
+   - Architecture decisions
+   - Technical risks
+   - Infrastructure requirements
+   - Deployment requirements checklist:
+     ✓ {% if deployment_config.deployment_tasks_enabled %}Local Docker build/test needed?{% endif %}
+     ✓ {% if 'dev' in deployment_config.environments %}Dev server deployment needed?{% endif %}
+     ✓ {% if 'uat' in deployment_config.environments %}UAT server deployment needed?{% endif %}
+     ✓ Configuration changes needed?
+     ✓ Database migrations required?
+     ✓ Infrastructure provisioning needed?
+   "
+
+3. **Spawn agent** using Task tool with model="{{ agent_config.models.architect|default('opus') }}"
+4. **Collect:** Architecture decisions, technical risks, infrastructure requirements, deployment checklist
+
+```python
+    print("\n" + "=" * 80)
+    print("🏗️  PROJECT ARCHITECT OUTPUT")
+    print("=" * 80)
+    print(agent_output)
+    print("=" * 80 + "\n")
+
+    profiler.complete_agent_call(call_data, success=True, output_length=len(agent_output))
+    state.complete_step("project-architect", result={
+        "architecture": architecture_decisions,
+        "risks": technical_risks,
+        "infrastructure": infrastructure_requirements,
+        "deployment_checklist": deployment_checklist
+    })
+else:
+    print("✓ Project architect step already completed")
+    architecture_result = state.get_step_result("project-architect")
+```
+{% else %}
+**NOTE:** Project Architect agent is disabled. Enable with: `cwf agent enable project-architect`
+{% endif %}
+
+### Step 3: Security Specialist - Security Review
+
+{% if 'security-specialist' in agent_config.enabled_agents %}
+```python
+if not state.is_step_completed("security-specialist"):
+    state.start_step("security-specialist")
+    call_data = profiler.start_agent_call(
+        "security-specialist",
+        f"Review security implications for Sprint {sprint_number}",
+        "{{ agent_config.models.security|default('sonnet') }}"
+    )
+```
+
+1. **Read agent definition:** `{{ workflow_config.state_directory }}/../agents/security-specialist.md`
+2. **Task:** "Review security implications for planned features: {features from Step 1}
+
+   **Quality Standards:**
+   - Critical Vulnerabilities: {{ quality_standards.critical_vulnerabilities_max }} allowed
+   - High Vulnerabilities: {{ quality_standards.high_vulnerabilities_max }} allowed
+   - Medium Vulnerabilities: {{ quality_standards.medium_vulnerabilities_max }} allowed
+   "
+
+3. **Spawn agent** using Task tool with model="{{ agent_config.models.security|default('sonnet') }}"
+4. **Collect:** Security risks, compliance requirements, security testing needs
+
+```python
+    print("\n" + "=" * 80)
+    print("🔒 SECURITY SPECIALIST OUTPUT")
+    print("=" * 80)
+    print(agent_output)
+    print("=" * 80 + "\n")
+
+    profiler.complete_agent_call(call_data, success=True, output_length=len(agent_output))
+    state.complete_step("security-specialist", result={
+        "security_risks": security_risks,
+        "compliance": compliance_requirements,
+        "testing_needs": security_testing_needs
+    })
+else:
+    print("✓ Security specialist step already completed")
+    security_result = state.get_step_result("security-specialist")
+```
+{% else %}
+**NOTE:** Security Specialist agent is disabled.
+{% endif %}
+
+### Step 4: Senior Engineer - Estimation & Breakdown
+
+{% if 'senior-engineer' in agent_config.enabled_agents %}
+```python
+if not state.is_step_completed("senior-engineer"):
+    state.start_step("senior-engineer")
+    call_data = profiler.start_agent_call(
+        "senior-engineer",
+        f"Estimate and break down features for Sprint {sprint_number}",
+        "{{ agent_config.models.engineer|default('opus') }}"
+    )
+
+    task = f"""
+    Estimate and break down top features from backlog: {{feature_list}}
+
+    **Project Context:**
+    - Name: {{ project.name }}
+    - Type: {{ project.type }}
+    - Tech Stack: {{ tech_stack_context }}
+
+    **Work Item Types:**
+    - Epic: {{ work_tracking.work_item_types.epic }}
+    - Feature: {{ work_tracking.work_item_types.feature }}
+    - Task: {{ work_tracking.work_item_types.task }}
+
+    **CRITICAL: For EACH work item, you MUST provide:**
+    1. **title**: Clear, specific title (max 100 chars)
+    2. **type**: {{ work_tracking.work_item_types.feature }} or {{ work_tracking.work_item_types.task }}
+    3. **description**: COMPREHENSIVE description (MINIMUM 500 characters)
+    4. **acceptance_criteria**: Bullet list of specific, testable criteria
+    5. **story_points**: Estimate (1, 2, 3, 5, 8, 13, 21)
+    6. **priority**: 1 (Critical), 2 (High), 3 (Medium), 4 (Low)
+    7. **tags**: Relevant tags
+    8. **dependencies**: List of dependent work item titles (if any)
+
+    **Quality Standards:**
+    - Test Coverage: Minimum {{ quality_standards.test_coverage_min }}%
+    - Code Complexity: Maximum {{ quality_standards.code_complexity_max }}
+
+    Team capacity: {{team_capacity}} story points
+
+    FORMAT YOUR OUTPUT AS JSON.
+    """
+
+    # Execute agent
+    # ... agent execution ...
+
+    # Parse and validate output
+    senior_output = json.loads(agent_output)
+    work_items = senior_output["work_items"]
+
+    # Validate descriptions
+    for item in work_items:
+        if len(item.get("description", "")) < 500:
+            print(f"⚠️  Warning: {item['title']} has insufficient description")
+
+    profiler.complete_agent_call(call_data, success=True, output_length=len(agent_output))
+    state.complete_step("senior-engineer", result={
+        "work_items": work_items,
+        "total_points": sum(item["story_points"] for item in work_items)
+    })
+else:
+    print("✓ Senior engineer step already completed")
+    work_items = state.get_step_result("senior-engineer")["work_items"]
+```
+{% else %}
+**NOTE:** Senior Engineer agent is disabled. Enable with: `cwf agent enable senior-engineer`
+{% endif %}
+
+### Step 5: Scrum Master - Sprint Plan Creation
+
+{% if 'scrum-master' in agent_config.enabled_agents %}
+```python
+if not state.is_step_completed("scrum-master"):
+    state.start_step("scrum-master")
+    call_data = profiler.start_agent_call(
+        "scrum-master",
+        f"Create sprint plan for Sprint {sprint_number}",
+        "{{ agent_config.models.get('scrum-master', 'haiku')|default('haiku') }}"
+    )
+```
+
+1. **Read agent definition:** `{{ workflow_config.state_directory }}/../agents/scrum-master.md`
+2. **Task:** "Create sprint plan based on:
+   - Backlog: {from Step 1}
+   - Work Items: {from Step 4}
+   - Team capacity: {capacity}
+   - Architecture review: {from Step 2}
+   - Security review: {from Step 3}
+
+   **Sprint Configuration:**
+   - Sprint naming: {{ work_tracking.sprint_naming }}
+   - Iteration path: {{ work_tracking.iteration_format }}
+   "
+
+3. **Spawn agent** using Task tool
+4. **Collect:** Final sprint plan with assigned work items
+
+```python
+    print("\n" + "=" * 80)
+    print("📋 SCRUM MASTER OUTPUT - SPRINT PLAN")
+    print("=" * 80)
+    print(agent_output)
+    print("=" * 80 + "\n")
+
+    profiler.complete_agent_call(call_data, success=True, output_length=len(agent_output))
+    state.complete_step("scrum-master", result={
+        "sprint_plan": sprint_plan,
+        "selected_work_items": selected_items
+    })
+else:
+    print("✓ Scrum master step already completed")
+    sprint_plan = state.get_step_result("scrum-master")["sprint_plan"]
+```
+{% else %}
+**NOTE:** Scrum Master agent is disabled.
+{% endif %}
+
+### Step 6: Human Approval Gate
+
+Present the complete sprint plan to the user:
+
+```python
+print("\n" + "=" * 80)
+print("👤 HUMAN APPROVAL REQUIRED")
+print("=" * 80)
+print(f"Sprint: {sprint_name}")
+print(f"Team Capacity: {team_capacity} story points")
+print(f"Planned Work: {total_planned_points} story points")
+print("\nFeatures:")
+for item in selected_work_items:
+    print(f"  • {item['title']} ({item['story_points']} points)")
+
+print("\n⚠️  Architecture Decisions Requiring Approval:")
+# ... display architecture decisions ...
+
+print("\n🔒 Security Items Requiring Attention:")
+# ... display security items ...
+
+user_approval = input("\nApprove sprint plan? (yes/no): ")
+if user_approval.lower() != "yes":
+    print("❌ Sprint planning cancelled by user")
+    state.fail_workflow("User declined sprint plan")
+    exit()
+```
+
+**STOP and wait for user approval before proceeding.**
+
+### Step 7: Sprint Iteration Setup
+
+```python
+if not state.is_step_completed("iteration-setup"):
+    state.start_step("iteration-setup")
+
+    sprint_name = "{{ work_tracking.sprint_naming }}".format(number=sprint_number)
+    iteration_path = "{{ work_tracking.iteration_format }}".format(
+        project="{{ work_tracking.project }}",
+        sprint=sprint_name
+    )
+
+    # Create or verify sprint iteration exists
+    # ... iteration setup code ...
+
+    state.complete_step("iteration-setup", result={
+        "sprint_name": sprint_name,
+        "iteration_path": iteration_path
+    })
+```
+
+### Step 8: Work Item Creation
+
+```python
+if not state.is_step_completed("activation"):
+    state.start_step("activation")
+
+    created_work_items = []
+    failed_items = []
+
+    for item in work_items:
+        try:
+            # Create work item with verification
+            result = azure_cli.create_work_item(
+                work_item_type=item["type"],
+                title=item["title"],
+                description=item["description"],
+                iteration=iteration_path,
+                fields={
+                    "Microsoft.VSTS.Scheduling.StoryPoints": item["story_points"],
+                    "Microsoft.VSTS.Common.Priority": item["priority"],
+                    "System.Tags": "; ".join(item["tags"]),
+                },
+                verify=True
+            )
+
+            created_work_items.append(result["id"])
+            state.record_work_item_created(result["id"], item)
+
+            print(f"✓ Created WI-{result['id']}: {item['title']}")
+
+        except Exception as e:
+            print(f"✗ Failed to create: {item['title']}: {e}")
+            failed_items.append(item)
+            state.record_error(str(e), {"item": item})
+
+    state.complete_step("activation", result={
+        "created": created_work_items,
+        "failed": failed_items,
+        "total": len(work_items)
+    })
+```
+
+### Step 9: Workflow Completion
+
+```python
+# Complete workflow
+state.complete_workflow()
+
+# Save profiling report
+profiler.save_report()
+
+# Display summary
+print("\n" + "=" * 80)
+print("✅ SPRINT PLANNING COMPLETE")
+print("=" * 80)
+state.print_summary()
+profiler.print_summary()
+
+print(f"\nCreated {len(created_work_items)} work items for Sprint {sprint_number}")
+print(f"Total story points: {total_planned_points}")
+print(f"Team capacity: {team_capacity}")
+print(f"Capacity utilization: {(total_planned_points/team_capacity)*100:.1f}%")
+
+if failed_items:
+    print(f"\n⚠️  {len(failed_items)} items failed to create")
+```
+
+## Configuration
+
+This workflow uses the following configuration:
+
+- **Work Tracking**: {{ work_tracking.platform }}
+- **Organization**: {{ work_tracking.organization }}
+- **Project**: {{ work_tracking.project }}
+- **Enabled Agents**: {{ agent_config.enabled_agents|join(', ') }}
+- **State Directory**: {{ workflow_config.state_directory }}
+- **Profiling Directory**: {{ workflow_config.profiling_directory }}
+- **Verification**: {{ 'Enabled' if workflow_config.verification_enabled else 'Disabled' }}
+
+## Success Criteria
+
+- All enabled agents complete successfully
+- Work items created with comprehensive descriptions (500+ chars)
+- Human approval obtained
+- Sprint capacity not exceeded
+- All work items verified in {{ work_tracking.platform }}

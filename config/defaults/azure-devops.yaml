@@ -1,0 +1,103 @@
+# Default configuration for Azure DevOps projects
+# This serves as a template - copy and customize for your project
+
+project:
+  name: "your-project-name"
+  type: "web-application"  # web-application, api, mobile-app, infrastructure, library, cli-tool
+  tech_stack:
+    languages: ["Python"]
+    frameworks: ["FastAPI"]
+    platforms: ["Azure", "Docker"]
+    databases: ["PostgreSQL"]
+  source_directory: "src"
+  test_directory: "tests"
+
+work_tracking:
+  platform: "azure-devops"
+  organization: "https://dev.azure.com/your-org"
+  project: "Your Project"
+  credentials_source: "cli"  # cli, env:AZURE_DEVOPS_PAT, file:path/to/token
+
+  # Work item type mappings (Scrum process template)
+  work_item_types:
+    epic: "Epic"
+    feature: "Feature"
+    story: "User Story"
+    task: "Task"
+    bug: "Bug"
+    impediment: "Impediment"
+
+  # Custom field mappings
+  # Map generic names to your custom fields
+  custom_fields:
+    business_value: "Custom.BusinessValueScore"
+    technical_risk: "Custom.TechnicalRisk"
+    roi_projection: "Custom.ROI"
+    complexity_score: "Custom.ComplexityScore"
+
+  # Iteration/sprint configuration
+  iteration_format: "{project}\\\\{sprint}"
+  sprint_naming: "Sprint {number}"
+
+quality_standards:
+  # Test coverage
+  test_coverage_min: 80
+
+  # Vulnerability thresholds
+  critical_vulnerabilities_max: 0
+  high_vulnerabilities_max: 0
+  medium_vulnerabilities_max: 5
+
+  # Code quality
+  code_complexity_max: 10
+  duplicate_code_max: 3.0
+
+  # Performance
+  build_time_max_minutes: 10
+  test_time_max_minutes: 5
+
+agent_config:
+  # Model selection for different agent types
+  models:
+    architect: "claude-opus-4"
+    engineer: "claude-sonnet-4.5"
+    analyst: "claude-sonnet-4.5"
+    security: "claude-sonnet-4.5"
+    scrum-master: "claude-sonnet-4.5"
+
+  # Enabled agents
+  enabled_agents:
+    - business-analyst
+    - project-architect
+    - senior-engineer
+    - scrum-master
+    - security-specialist
+
+  # Agent-specific configurations
+  agent_specific: {}
+
+workflow_config:
+  state_directory: ".claude/workflow-state"
+  profiling_directory: ".claude/profiling"
+  checkpoint_enabled: true
+  verification_enabled: true
+  max_retries: 3
+  timeout_minutes: 30
+
+deployment_config:
+  environments:
+    - dev
+    - uat
+    - prod
+  default_environment: "dev"
+  deployment_tasks_enabled: true
+  deployment_task_types:
+    - local_docker
+    - dev_deployment
+    - uat_deployment
+    - terraform_infrastructure
+    - database_migration
+    - security_scan
+
+# Custom configuration (optional)
+custom: {}
