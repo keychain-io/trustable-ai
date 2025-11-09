@@ -112,6 +112,7 @@ class WorkflowRegistry:
                 "deployment_task_types": self.config.deployment_config.deployment_task_types,
             },
             "tech_stack_context": tech_stack_context,
+            "config": self.config,  # Provide full config object for complex template logic
         }
 
     def render_workflow(self, workflow_name: str, additional_context: Optional[Dict[str, Any]] = None) -> str:

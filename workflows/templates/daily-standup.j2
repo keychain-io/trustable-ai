@@ -1,0 +1,213 @@
+# Daily Standup Report Workflow
+
+**Project**: {{ project.name }}
+**Workflow**: Daily Standup Report
+**Purpose**: Generate automated daily standup reports for the active sprint
+
+## Overview
+
+This lightweight workflow generates daily standup reports showing what was completed yesterday, what's planned for today, and any blockers. Perfect for distributed teams or async standups.
+
+## Prerequisites
+
+- Active sprint in {{ work_tracking.platform }}
+- Work items with recent activity
+
+## Workflow Steps
+
+### Step 1: Gather Yesterday's Activity
+
+1. **Query completed work (last 24 hours):**
+   ```bash
+   # Get work items completed or updated yesterday
+   yesterday=$(date -d "yesterday" +%Y-%m-%d)
+   az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo] FROM WorkItems WHERE [System.TeamProject] = '{{ work_tracking.project }}' AND [System.IterationPath] UNDER '{{ work_tracking.iteration_format.format(project=work_tracking.project, sprint='CURRENT_SPRINT') }}' AND [System.ChangedDate] >= '$yesterday'" --output json
+   ```
+
+2. **Categorize changes:**
+   - ✅ Completed: Items moved to "Done"/"Closed"
+   - ⚙️ In Progress: Items actively worked on
+   - 🆕 Started: Items moved from "New" to "Active"
+   - 🚫 Blocked: Items marked as blocked
+   - 💬 Discussed: Items with new comments
+
+### Step 2: Identify Today's Focus
+
+1. **Query active work items:**
+   ```bash
+   # Get currently active work items
+   az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo], [{{ work_tracking.custom_fields.story_points or 'Microsoft.VSTS.Scheduling.StoryPoints' }}] FROM WorkItems WHERE [System.TeamProject] = '{{ work_tracking.project }}' AND [System.IterationPath] UNDER '{{ work_tracking.iteration_format.format(project=work_tracking.project, sprint='CURRENT_SPRINT') }}' AND [System.State] IN ('Active', 'In Progress', 'Doing')" --output json
+   ```
+
+2. **Group by team member:**
+   - List active items per person
+   - Identify items without updates
+   - Flag items at risk
+
+### Step 3: Detect Blockers
+
+1. **Find blocked items:**
+   - Items with "Blocked" state
+   - Items tagged with "blocker"
+   - Items with no updates in 3+ days
+   - Items mentioned in comments as blocked
+
+2. **Analyze blocker impact:**
+   - Number of people affected
+   - Story points at risk
+   - Sprint goal impact
+
+{% if config.is_agent_enabled('scrum-master') %}
+### Step 4: Generate Standup Report
+
+1. **Read agent definition:** `.claude/agents/scrum-master.md`
+2. **Task:** "Generate a concise daily standup report:
+   - Summarize yesterday's accomplishments
+   - List today's planned work by team member
+   - Highlight blockers requiring attention
+   - Note sprint progress toward goal
+   - Keep it brief and action-oriented"
+3. **Spawn agent** using Task tool with model `{{ config.get_agent_model('scrum-master') or 'haiku' }}`
+4. **Input:** Yesterday's activity, today's active items, blockers
+5. **Display output** to user
+
+{% endif %}
+### Step 5: Format and Distribute Report
+
+Generate report in markdown format (template shown below with placeholder data that would be filled at runtime).
+
+### Step 6: Distribute Report
+
+1. **Save to file:**
+   ```bash
+   # Save to reports directory
+   mkdir -p .claude/reports/daily
+   echo "$report" > .claude/reports/daily/$(date +%Y-%m-%d)-standup.md
+   ```
+
+2. **Post to team channels** (configure webhook URLs in environment)
+
+3. **Email to stakeholders** (optional)
+
+## Automation Setup
+
+### Run Automatically Every Morning
+
+**GitHub Actions** (`.github/workflows/daily-standup.yml`):
+{% raw %}
+```yaml
+name: Daily Standup Report
+
+on:
+  schedule:
+    - cron: '0 9 * * 1-5'  # Weekdays at 9 AM
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  standup-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install framework
+        run: pip install claude-workflow-framework
+
+      - name: Generate standup report
+        env:
+          AZURE_DEVOPS_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          cwf workflow run daily-standup
+
+      - name: Commit report
+        run: |
+          git config user.name "Daily Standup Bot"
+          git config user.email "bot@yourcompany.com"
+          git add .claude/reports/daily/
+          git commit -m "Daily standup report $(date +%Y-%m-%d)" || true
+          git push
+```
+{% endraw %}
+
+**Azure DevOps Pipeline** (`azure-daily-standup.yml`):
+{% raw %}
+```yaml
+schedules:
+  - cron: "0 9 * * 1-5"
+    displayName: Daily Standup Report
+    branches:
+      include:
+        - main
+    always: true
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.10'
+
+  - script: |
+      pip install claude-workflow-framework
+      cwf workflow run daily-standup
+    displayName: 'Generate Daily Standup'
+    env:
+      AZURE_DEVOPS_PAT: $(AZURE_DEVOPS_PAT)
+      TEAMS_WEBHOOK_URL: $(TEAMS_WEBHOOK_URL)
+```
+{% endraw %}
+
+### Manual Execution
+
+```bash
+# Generate today's standup report
+cwf workflow run daily-standup
+
+# Generate for specific date
+cwf workflow run daily-standup --date 2025-01-15
+
+# Dry run (preview without posting)
+cwf workflow run daily-standup --dry-run
+```
+
+## Integration with Team Tools
+
+### Slack Integration
+Set environment variable:
+```bash
+export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+```
+
+### Microsoft Teams Integration
+Set environment variable:
+```bash
+export TEAMS_WEBHOOK_URL="https://outlook.office.com/webhook/YOUR/WEBHOOK/URL"
+```
+
+## Success Criteria
+
+- ✅ Report generated every weekday morning
+- ✅ Delivered to team channels within 5 minutes
+- ✅ Blockers clearly highlighted
+- ✅ Team members know what others are working on
+- ✅ Sprint progress visible at a glance
+
+## Configuration
+
+**Agents Used:**
+{% if config.is_agent_enabled('scrum-master') %}- Scrum Master (report generation and formatting){% endif %}
+
+**Report Schedule:**
+- **Daily**: Weekdays at 9 AM
+- **Duration**: < 1 minute to generate
+- **Distribution**: Slack/Teams/Email
+
+**Work Item Types Tracked:**
+- {{ work_tracking.work_item_types.story or 'User Story' }}
+- {{ work_tracking.work_item_types.task or 'Task' }}
+- {{ work_tracking.work_item_types.bug or 'Bug' }}
+
+---
+
+*Generated by Claude Workflow Framework for {{ project.name }}*

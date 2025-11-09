@@ -1,19 +1,15 @@
 """
-Azure CLI Wrapper for Claude Code Agents
-Simplifies Azure DevOps operations with battle-tested patterns
+Azure DevOps adapters for Claude Workflow Framework.
+
+Provides type mapping, field mapping, and Azure CLI integration.
 """
 
-import sys
-from pathlib import Path
+__all__ = [
+    "WorkItemTypeMapper",
+    "FieldMapper",
+    "get_platform_type",
+    "map_fields",
+]
 
-# Add this directory to path to allow direct imports
-skill_dir = Path(__file__).parent
-if str(skill_dir) not in sys.path:
-    sys.path.insert(0, str(skill_dir))
-
-from azure_cli import AzureCLI
-
-# Singleton instance for convenience
-azure_cli = AzureCLI()
-
-__all__ = ['AzureCLI', 'azure_cli']
+# Avoid importing cli_wrapper by default (it requires azure CLI)
+# These will be imported on demand
