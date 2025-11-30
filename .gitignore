@@ -53,3 +53,22 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.log
+
+# Secrets and credentials (IMPORTANT: never commit these)
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.yaml
+secrets.yml
+**/secrets/
+.azure/
+
+# Local configuration overrides
+.claude/config.local.yaml
+.claude/work-items/
+.claude/learnings/
+.claude/tasks/
