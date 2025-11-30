@@ -707,10 +707,134 @@ def _is_significant_directory(dir_path: Path) -> bool:
     return code_files >= 2
 
 
+def _generate_front_matter(dir_info: dict, analysis: dict) -> str:
+    """Generate YAML front matter for directed context loading."""
+    relative_path = dir_info["relative_path"]
+    dir_type = dir_info["type"]
+
+    # Keywords based on directory type
+    type_keywords = {
+        "root": ["project", "overview", "framework"],
+        "source": ["source", "code", "implementation", "feature"],
+        "tests": ["test", "testing", "pytest", "coverage", "fixture"],
+        "api": ["api", "endpoint", "route", "handler", "rest"],
+        "documentation": ["docs", "documentation", "guide", "readme"],
+        "infrastructure": ["infrastructure", "terraform", "deploy", "devops"],
+        "configuration": ["config", "configuration", "settings", "yaml"],
+        "scripts": ["script", "automation", "build", "tool"],
+        "services": ["service", "business-logic", "domain"],
+        "components": ["component", "ui", "view", "widget"],
+        "utilities": ["util", "helper", "common", "shared"],
+        "models": ["model", "schema", "entity", "data"],
+        "core": ["core", "foundation", "base"],
+        "claude_config": ["claude", "runtime", "workflow", "agent"],
+        "module": ["module", "feature"],
+    }
+
+    # Task types based on directory type
+    type_task_types = {
+        "root": ["any"],
+        "source": ["implementation", "feature-development", "bug-fix"],
+        "tests": ["testing", "quality-assurance"],
+        "api": ["api-development", "endpoint-implementation"],
+        "documentation": ["documentation"],
+        "infrastructure": ["infrastructure", "deployment"],
+        "configuration": ["configuration", "setup"],
+        "scripts": ["scripting", "automation"],
+        "services": ["implementation", "business-logic"],
+        "core": ["implementation", "architecture"],
+        "claude_config": ["workflow", "agent-development"],
+    }
+
+    # Priority based on directory type
+    type_priority = {
+        "root": "high",
+        "source": "high",
+        "core": "high",
+        "tests": "medium",
+        "api": "high",
+        "infrastructure": "medium",
+        "documentation": "low",
+        "configuration": "medium",
+        "claude_config": "medium",
+    }
+
+    # Max tokens based on directory type
+    type_max_tokens = {
+        "root": 1500,
+        "source": 800,
+        "tests": 600,
+        "api": 800,
+        "infrastructure": 600,
+        "documentation": 400,
+        "core": 800,
+    }
+
+    keywords = type_keywords.get(dir_type, ["module", dir_type])
+    # Add directory name to keywords
+    dir_name = Path(relative_path).name if relative_path != "." else ""
+    if dir_name and dir_name not in keywords:
+        keywords.append(dir_name.lower().replace("_", "-").replace(".", "-"))
+
+    task_types = type_task_types.get(dir_type, ["implementation"])
+    priority = type_priority.get(dir_type, "medium")
+    max_tokens = type_max_tokens.get(dir_type, 600)
+
+    # Build children list based on subdirectories in analysis
+    children = []
+    for d in analysis.get("directories", []):
+        d_path = d["relative_path"]
+        if d_path == relative_path or d_path == ".":
+            continue
+        # Check if this is a direct child
+        if relative_path == ".":
+            # Root: check if d_path has no slashes (direct child)
+            if "/" not in d_path:
+                child_keywords = type_keywords.get(d["type"], [d["type"]])[:3]
+                children.append({
+                    "path": f"{d_path}/CLAUDE.md",
+                    "when": child_keywords
+                })
+        else:
+            # Check if d_path starts with relative_path/ and has one more level
+            prefix = relative_path + "/"
+            if d_path.startswith(prefix):
+                remainder = d_path[len(prefix):]
+                if "/" not in remainder:
+                    child_keywords = type_keywords.get(d["type"], [d["type"]])[:3]
+                    children.append({
+                        "path": f"{d_path}/CLAUDE.md",
+                        "when": child_keywords
+                    })
+
+    # Build front matter
+    lines = ["---", "context:"]
+    lines.append(f"  keywords: [{', '.join(keywords[:8])}]")
+    lines.append(f"  task_types: [{', '.join(task_types[:3])}]")
+    lines.append(f"  priority: {priority}")
+    lines.append(f"  max_tokens: {max_tokens}")
+
+    if children:
+        lines.append("  children:")
+        for child in children[:10]:  # Limit to 10 children
+            lines.append(f"    - path: {child['path']}")
+            lines.append(f"      when: [{', '.join(child['when'])}]")
+    else:
+        lines.append("  children: []")
+
+    lines.append("  dependencies: []")
+    lines.append("---")
+
+    return "\n".join(lines) + "\n"
+
+
 def _generate_claude_md_content(dir_info: dict, analysis: dict) -> str:
     """Generate CLAUDE.md content for a directory."""
     relative_path = dir_info["relative_path"]
     dir_type = dir_info["type"]
+
+    # Generate front matter for directed context loading
+    front_matter = _generate_front_matter(dir_info, analysis)
 
     # Templates for different directory types
     templates = {
@@ -900,4 +1024,5 @@ This directory contains infrastructure as code and deployment configurations.
         purpose=purpose,
     )
 
-    return content
+    # Prepend front matter for directed context loading
+    return front_matter + content
