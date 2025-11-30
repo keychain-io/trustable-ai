@@ -31,7 +31,7 @@ def validate_command(verbose: bool):
         click.echo("✗ Configuration file not found")
         errors.append("Configuration file not found. Run 'taid init' to initialize.")
         click.echo("\n❌ Validation failed. Run 'taid init' to initialize the framework.\n")
-        return
+        raise SystemExit(1)
 
     # Load configuration
     try:
@@ -40,7 +40,7 @@ def validate_command(verbose: bool):
         click.echo(f"✗ Failed to load configuration: {e}")
         errors.append(f"Configuration validation failed: {e}")
         click.echo("\n❌ Validation failed.\n")
-        return
+        raise SystemExit(1)
 
     # Check 2: Required directories exist
     total_checks += 1

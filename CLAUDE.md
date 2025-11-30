@@ -1,3 +1,29 @@
+---
+context:
+  keywords: [taid, framework, project, overview]
+  task_types: [any]
+  priority: high
+  max_tokens: 1500
+  children:
+    - path: agents/CLAUDE.md
+      when: [agent, analyst, architect, engineer, scrum, qa, devops, security]
+    - path: workflows/CLAUDE.md
+      when: [workflow, sprint, planning, execution, standup, retrospective, backlog]
+    - path: adapters/azure_devops/CLAUDE.md
+      when: [azure, devops, work-item, wiql, iteration, sprint]
+    - path: core/CLAUDE.md
+      when: [state, profiler, context, loader, checkpoint, resume]
+    - path: config/CLAUDE.md
+      when: [config, configuration, schema, yaml, settings]
+    - path: cli/CLAUDE.md
+      when: [cli, command, taid, init, validate, doctor]
+    - path: skills/CLAUDE.md
+      when: [skill, capability, plugin]
+    - path: tests/CLAUDE.md
+      when: [test, testing, pytest, coverage, fixture]
+    - path: .claude/CLAUDE.md
+      when: [claude, runtime, state, profiling, commands]
+---
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.

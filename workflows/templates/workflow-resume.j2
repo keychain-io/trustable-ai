@@ -324,7 +324,7 @@ To resume this workflow:
    # Check step completion before each step:
    if not state.is_step_completed("step-name"):
        # Execute step...
-       state.complete_step("step-name", result={{...}})
+       state.complete_step("step-name", result={...})
    ```
 
 State File: {{ workflow_config.state_directory }}/{wf['file']}

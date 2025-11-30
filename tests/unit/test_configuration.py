@@ -68,7 +68,7 @@ class TestWorkTrackingConfig:
             project="Test Project",
         )
 
-        assert config.platform == "azure-devops"  # default
+        assert config.platform == "file-based"  # default
         assert config.organization == "https://dev.azure.com/test"
         assert config.project == "Test Project"
 

@@ -97,6 +97,18 @@ class AgentRegistry:
                 "models": self.config.agent_config.models,
                 "enabled_agents": self.config.agent_config.enabled_agents,
             },
+            "deployment_config": {
+                "environments": self.config.deployment_config.environments,
+                "default_environment": self.config.deployment_config.default_environment,
+                "deployment_tasks_enabled": self.config.deployment_config.deployment_tasks_enabled,
+                "deployment_task_types": self.config.deployment_config.deployment_task_types,
+            },
+            "workflow_config": {
+                "state_directory": self.config.workflow_config.state_directory,
+                "profiling_directory": self.config.workflow_config.profiling_directory,
+                "checkpoint_enabled": self.config.workflow_config.checkpoint_enabled,
+                "verification_enabled": self.config.workflow_config.verification_enabled,
+            },
             "tech_stack_context": tech_stack_context,
         }
 
@@ -144,10 +156,14 @@ class AgentRegistry:
         if not self.templates_dir.exists():
             return []
 
+        # Templates to exclude (not actual agents)
+        excluded = {"slash-command"}
+
         agents = []
         for template_file in self.templates_dir.glob("*.j2"):
             agent_name = template_file.stem  # Remove .j2 extension
-            agents.append(agent_name)
+            if agent_name not in excluded:
+                agents.append(agent_name)
 
         return sorted(agents)
 
@@ -190,6 +206,104 @@ class AgentRegistry:
             Path to saved agent file
         """
         rendered = self.render_agent(agent_name)
+
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        output_file = output_dir / f"{agent_name}.md"
+        output_file.write_text(rendered)
+
+        return output_file
+
+    def _get_agent_model(self, agent_name: str) -> tuple[str, str]:
+        """
+        Get the model configuration for an agent.
+
+        Args:
+            agent_name: Agent name
+
+        Returns:
+            Tuple of (display_model, model_param) e.g. ("Sonnet 4.5", "sonnet")
+        """
+        # Map agent names to model categories
+        agent_model_map = {
+            "project-architect": "architect",
+            "security-specialist": "security",
+            "senior-engineer": "engineer",
+            "software-developer": "engineer",
+            "devops-engineer": "devops",
+            "qa-engineer": "qa",
+            "qa-tester": "qa",
+            "scrum-master": "scrum-master",
+            "business-analyst": "analyst",
+            "technical-writer": "writer",
+            "code-reviewer": "reviewer",
+            "release-manager": "release",
+            "performance-engineer": "performance",
+            "ux-designer": "ux",
+        }
+
+        # Get model category for this agent
+        category = agent_model_map.get(agent_name, "engineer")
+
+        # Get configured model for this category
+        model_config = self.config.agent_config.models.get(category, "claude-sonnet-4.5")
+
+        # Map to display name and param
+        model_display_map = {
+            "claude-opus-4": ("Opus 4", "opus"),
+            "claude-sonnet-4.5": ("Sonnet 4.5", "sonnet"),
+            "claude-sonnet-4": ("Sonnet 4", "sonnet"),
+            "claude-haiku-4": ("Haiku 4", "haiku"),
+        }
+
+        return model_display_map.get(model_config, ("Sonnet 4.5", "sonnet"))
+
+    def render_agent_slash_command(self, agent_name: str) -> str:
+        """
+        Render a slash command for invoking an agent with fresh context.
+
+        Args:
+            agent_name: Agent name
+
+        Returns:
+            Rendered slash command content
+        """
+        # Verify agent exists
+        if agent_name not in self.list_agents():
+            raise ValueError(
+                f"Agent '{agent_name}' not found. "
+                f"Available agents: {', '.join(self.list_agents())}"
+            )
+
+        # Load the slash command template
+        try:
+            template = self.env.get_template("slash-command.j2")
+        except TemplateNotFound:
+            raise ValueError("Slash command template not found")
+
+        # Get model for this agent
+        model_display, model_param = self._get_agent_model(agent_name)
+
+        # Render template
+        return template.render(
+            agent_name=agent_name,
+            model=model_display,
+            model_param=model_param,
+        )
+
+    def save_agent_slash_command(self, agent_name: str, output_dir: Path) -> Path:
+        """
+        Render and save an agent slash command to the commands directory.
+
+        Args:
+            agent_name: Agent name
+            output_dir: Directory to save slash command (typically .claude/commands)
+
+        Returns:
+            Path to saved slash command file
+        """
+        rendered = self.render_agent_slash_command(agent_name)
 
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)

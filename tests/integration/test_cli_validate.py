@@ -108,7 +108,7 @@ class TestValidateCommand:
             result = runner.invoke(cli, ['validate'])
 
             assert result.exit_code != 0
-            assert 'error' in result.output.lower() or 'invalid' in result.output.lower()
+            assert 'error' in result.output.lower() or 'failed' in result.output.lower()
 
 
 @pytest.mark.integration

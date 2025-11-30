@@ -48,16 +48,29 @@ def list_agents(enabled_only: bool):
 @agent_command.command(name="enable")
 @click.argument("agent_name")
 def enable_agent(agent_name: str):
-    """Enable an agent."""
+    """Enable an agent (use 'all' to enable all agents)."""
     try:
         config = load_config()
         registry = AgentRegistry(config)
+
+        # Handle "all" to enable all agents
+        if agent_name.lower() == "all":
+            all_agents = registry.list_agents()
+            enabled_count = 0
+            for agent in all_agents:
+                if agent not in config.agent_config.enabled_agents:
+                    config.agent_config.enabled_agents.append(agent)
+                    enabled_count += 1
+                    click.echo(f"  ✓ {agent}")
+            save_config(config)
+            click.echo(f"\n✅ Enabled {enabled_count} agents ({len(all_agents)} total).")
+            return
 
         # Check if agent exists
         if agent_name not in registry.list_agents():
             click.echo(f"❌ Agent '{agent_name}' not found.")
             click.echo(f"Available agents: {', '.join(registry.list_agents())}")
-            return
+            raise SystemExit(1)
 
         # Check if already enabled
         if agent_name in config.agent_config.enabled_agents:
@@ -98,13 +111,27 @@ def disable_agent(agent_name: str):
 
 @agent_command.command(name="render")
 @click.argument("agent_name")
-@click.option("--output", "-o", type=click.Path(), help="Output file path")
+@click.option("--output", "-o", type=click.Path(), help="Output file path (or directory if rendering all)")
 @click.option("--show", is_flag=True, help="Show rendered output")
 def render_agent(agent_name: str, output: Optional[str], show: bool):
-    """Render an agent template."""
+    """Render an agent template (use 'all' to render all enabled agents)."""
     try:
         config = load_config()
         registry = AgentRegistry(config)
+
+        # Handle "all" to render all enabled agents
+        if agent_name.lower() == "all":
+            output_path = Path(output) if output else Path(".claude/agents")
+            enabled_agents = registry.get_enabled_agents()
+
+            click.echo(f"\n📝 Rendering {len(enabled_agents)} agents to {output_path}\n")
+
+            for agent in enabled_agents:
+                output_file = registry.save_rendered_agent(agent, output_path)
+                click.echo(f"  ✓ {agent} → {output_file}")
+
+            click.echo(f"\n✅ All agents rendered successfully.\n")
+            return
 
         # Render agent
         rendered = registry.render_agent(agent_name)
@@ -126,13 +153,16 @@ def render_agent(agent_name: str, output: Optional[str], show: bool):
 
     except ValueError as e:
         click.echo(f"❌ Error: {e}")
+        raise SystemExit(1)
     except FileNotFoundError as e:
         click.echo(f"❌ Error: {e}")
+        raise SystemExit(1)
 
 
 @agent_command.command(name="render-all")
 @click.option("--output-dir", "-o", type=click.Path(), default=".claude/agents", help="Output directory")
-def render_all_agents(output_dir: str):
+@click.option("--with-commands", is_flag=True, help="Also render agent slash commands to .claude/commands")
+def render_all_agents(output_dir: str, with_commands: bool):
     """Render all enabled agents."""
     try:
         config = load_config()
@@ -148,6 +178,45 @@ def render_all_agents(output_dir: str):
             click.echo(f"  ✓ {agent_name} → {output_file}")
 
         click.echo(f"\n✅ All agents rendered successfully.\n")
+
+        # Also render slash commands if requested
+        if with_commands:
+            commands_dir = Path(".claude/commands")
+            click.echo(f"📝 Rendering agent slash commands to {commands_dir}\n")
+
+            for agent_name in enabled_agents:
+                output_file = registry.save_agent_slash_command(agent_name, commands_dir)
+                click.echo(f"  ✓ /{agent_name} → {output_file}")
+
+            click.echo(f"\n✅ Agent slash commands rendered successfully.\n")
+
+    except FileNotFoundError as e:
+        click.echo(f"❌ Error: {e}")
+
+
+@agent_command.command(name="render-commands")
+@click.option("--output-dir", "-o", type=click.Path(), default=".claude/commands", help="Output directory")
+def render_agent_commands(output_dir: str):
+    """Render slash commands for all enabled agents."""
+    try:
+        config = load_config()
+        registry = AgentRegistry(config)
+
+        output_path = Path(output_dir)
+        enabled_agents = registry.get_enabled_agents()
+
+        click.echo(f"\n📝 Rendering {len(enabled_agents)} agent slash commands to {output_path}\n")
+
+        for agent_name in enabled_agents:
+            output_file = registry.save_agent_slash_command(agent_name, output_path)
+            click.echo(f"  ✓ /{agent_name} → {output_file}")
+
+        click.echo(f"\n✅ Agent slash commands rendered successfully.\n")
+        click.echo("Use these slash commands in Claude Code to spawn agents with fresh context:")
+        for agent_name in enabled_agents[:5]:
+            click.echo(f"  /{agent_name}")
+        if len(enabled_agents) > 5:
+            click.echo(f"  ... and {len(enabled_agents) - 5} more")
 
     except FileNotFoundError as e:
         click.echo(f"❌ Error: {e}")

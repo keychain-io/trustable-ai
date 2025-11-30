@@ -367,3 +367,537 @@ def _generate_templates(context_files: list) -> list:
             })
 
     return templates
+
+
+@context.command("directed")
+@click.argument("task_type", required=False)
+@click.option("--keywords", "-k", multiple=True, help="Keywords to match (can specify multiple)")
+@click.option("--max-tokens", "-t", type=int, default=8000, help="Maximum tokens to load")
+@click.option("--tree", is_flag=True, help="Show the context tree structure")
+@click.option("--content", is_flag=True, help="Show the loaded content")
+def directed_load(task_type: str, keywords: tuple, max_tokens: int, tree: bool, content: bool):
+    """
+    Test directed context loading based on CLAUDE.md front matter.
+
+    Uses the DirectedContextLoader to load context files based on
+    keywords and task types specified in CLAUDE.md front matter.
+
+    Examples:
+        taid context directed sprint-planning
+        taid context directed --keywords azure --keywords work-item
+        taid context directed sprint-planning -k azure -k workflow --tree
+        taid context directed --tree
+    """
+    try:
+        from core.directed_loader import DirectedContextLoader
+    except ImportError:
+        click.echo("Error: core.directed_loader module not found")
+        click.echo("Make sure you're in the TAID project directory")
+        return
+
+    loader = DirectedContextLoader()
+
+    if tree:
+        click.echo("Context Tree Structure")
+        click.echo("=" * 50)
+        tree_data = loader.get_context_tree()
+        _print_tree(tree_data, indent=0)
+        return
+
+    # Load context
+    keywords_list = list(keywords) if keywords else []
+
+    click.echo(f"Loading context for:")
+    click.echo(f"  Task Type: {task_type or '(none)'}")
+    click.echo(f"  Keywords: {', '.join(keywords_list) if keywords_list else '(none)'}")
+    click.echo(f"  Max Tokens: {max_tokens}")
+    click.echo("")
+
+    result = loader.load_for_task(
+        task_type=task_type,
+        keywords=keywords_list,
+        max_tokens=max_tokens
+    )
+
+    click.echo("Results")
+    click.echo("=" * 50)
+    click.echo(f"Files Loaded: {len(result['files_loaded'])}")
+    click.echo(f"Tokens Used: ~{result['tokens_used']}")
+    click.echo("")
+
+    click.echo("Files:")
+    for ctx in result.get('contexts', []):
+        priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(ctx.priority, "⚪")
+        click.echo(f"  {priority_icon} {ctx.path} (~{ctx.tokens_estimated} tokens, {ctx.priority})")
+
+    if content:
+        click.echo("")
+        click.echo("Content")
+        click.echo("=" * 50)
+        # Truncate if very long
+        content_text = result['content']
+        if len(content_text) > 5000:
+            click.echo(content_text[:5000])
+            click.echo(f"\n... (truncated, {len(content_text)} total chars)")
+        else:
+            click.echo(content_text)
+
+
+def _print_tree(node: dict, indent: int = 0):
+    """Print context tree recursively."""
+    prefix = "  " * indent
+    path = node.get("path", "unknown")
+    tokens = node.get("tokens", 0)
+    priority = node.get("priority", "medium")
+    priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(priority, "⚪")
+
+    if node.get("status") == "skipped":
+        click.echo(f"{prefix}⏭ {path} (skipped)")
+        return
+    if node.get("status") == "failed":
+        click.echo(f"{prefix}❌ {path} (failed to load)")
+        return
+
+    keywords = node.get("keywords", [])[:5]
+    keywords_str = f" [{', '.join(keywords)}]" if keywords else ""
+
+    click.echo(f"{prefix}{priority_icon} {path} (~{tokens} tokens){keywords_str}")
+
+    for child in node.get("children", []):
+        when = child.get("when", [])
+        when_str = f" (when: {', '.join(when[:3])})" if when else ""
+        click.echo(f"{prefix}  └─{when_str}")
+        _print_tree(child, indent + 2)
+
+
+@context.command("generate")
+@click.option("--root", "-r", type=click.Path(exists=True), default=".", help="Root directory to analyze")
+@click.option("--dry-run", is_flag=True, help="Show plan without creating files")
+@click.option("--force", "-f", is_flag=True, help="Overwrite existing CLAUDE.md files")
+@click.option("--depth", "-d", type=int, default=3, help="Maximum directory depth to analyze")
+def generate_context(root: str, dry_run: bool, force: bool, depth: int):
+    """
+    Generate hierarchical CLAUDE.md structure for a repository.
+
+    Analyzes the repository structure and creates CLAUDE.md files at key
+    directories to provide context for Claude Code.
+
+    Examples:
+        taid context generate                    # Generate for current directory
+        taid context generate --dry-run          # Show plan without creating
+        taid context generate -d 2               # Only go 2 levels deep
+        taid context generate -f                 # Overwrite existing files
+    """
+    root_path = Path(root).resolve()
+
+    click.echo(f"\n🔍 Analyzing repository structure: {root_path}\n")
+
+    # Analyze repository
+    analysis = _analyze_repository(root_path, depth)
+
+    if not analysis["directories"]:
+        click.echo("❌ No significant directories found to document.")
+        return
+
+    # Show analysis results
+    click.echo(f"📁 Found {len(analysis['directories'])} directories to document:\n")
+
+    for dir_info in analysis["directories"]:
+        existing = "✓ exists" if dir_info["has_claude_md"] else "○ needs creation"
+        click.echo(f"  {dir_info['relative_path']}/")
+        click.echo(f"     {existing} | {dir_info['file_count']} files | Type: {dir_info['type']}")
+
+    if dry_run:
+        click.echo("\n📋 Dry run - no files created.")
+        click.echo("\nTo create files, run without --dry-run")
+        return
+
+    # Generate CLAUDE.md files
+    click.echo(f"\n📝 Generating CLAUDE.md files...\n")
+
+    created = 0
+    skipped = 0
+
+    for dir_info in analysis["directories"]:
+        dir_path = root_path / dir_info["relative_path"]
+        claude_path = dir_path / "CLAUDE.md"
+
+        if claude_path.exists() and not force:
+            click.echo(f"  ⏭ {dir_info['relative_path']}/CLAUDE.md (exists, use -f to overwrite)")
+            skipped += 1
+            continue
+
+        # Generate content
+        content = _generate_claude_md_content(dir_info, analysis)
+
+        # Write file
+        claude_path.write_text(content)
+        click.echo(f"  ✓ {dir_info['relative_path']}/CLAUDE.md")
+        created += 1
+
+    click.echo(f"\n✅ Generation complete!")
+    click.echo(f"   Created: {created} files")
+    click.echo(f"   Skipped: {skipped} files (already exist)")
+
+    click.echo("\n📌 Next steps:")
+    click.echo("   1. Review generated CLAUDE.md files")
+    click.echo("   2. Add project-specific details and guidelines")
+    click.echo("   3. Run 'taid context index' to build the context index")
+
+
+def _analyze_repository(root: Path, max_depth: int) -> dict:
+    """Analyze repository structure to identify key directories."""
+    analysis = {
+        "root": str(root),
+        "directories": [],
+        "project_type": None,
+        "languages": [],
+        "frameworks": []
+    }
+
+    # Detect project type from files
+    if (root / "package.json").exists():
+        analysis["languages"].append("JavaScript/TypeScript")
+        analysis["project_type"] = "node"
+    if (root / "pyproject.toml").exists() or (root / "setup.py").exists():
+        analysis["languages"].append("Python")
+        analysis["project_type"] = "python"
+    if (root / "go.mod").exists():
+        analysis["languages"].append("Go")
+        analysis["project_type"] = "go"
+    if (root / "Cargo.toml").exists():
+        analysis["languages"].append("Rust")
+        analysis["project_type"] = "rust"
+    if (root / "pom.xml").exists() or (root / "build.gradle").exists():
+        analysis["languages"].append("Java")
+        analysis["project_type"] = "java"
+
+    # Directory patterns to look for
+    important_patterns = {
+        "src": "source",
+        "lib": "source",
+        "app": "source",
+        "pkg": "source",
+        "packages": "monorepo",
+        "tests": "tests",
+        "test": "tests",
+        "spec": "tests",
+        "__tests__": "tests",
+        "docs": "documentation",
+        "documentation": "documentation",
+        "api": "api",
+        "apis": "api",
+        "services": "services",
+        "components": "components",
+        "modules": "modules",
+        "core": "core",
+        "utils": "utilities",
+        "helpers": "utilities",
+        "common": "shared",
+        "shared": "shared",
+        "config": "configuration",
+        "configs": "configuration",
+        "scripts": "scripts",
+        "bin": "scripts",
+        "terraform": "infrastructure",
+        "infra": "infrastructure",
+        "infrastructure": "infrastructure",
+        "deploy": "deployment",
+        "deployment": "deployment",
+        ".claude": "claude_config",
+        "models": "models",
+        "schemas": "schemas",
+        "types": "types",
+        "interfaces": "interfaces",
+        "routes": "routes",
+        "controllers": "controllers",
+        "handlers": "handlers",
+        "middleware": "middleware",
+        "plugins": "plugins",
+        "extensions": "extensions",
+    }
+
+    # Directories to skip
+    skip_patterns = {
+        "node_modules", "venv", ".venv", "env", ".env",
+        "__pycache__", ".git", ".svn", ".hg",
+        "dist", "build", "out", "target", "bin", "obj",
+        ".idea", ".vscode", ".vs",
+        "coverage", ".coverage", "htmlcov",
+        ".pytest_cache", ".mypy_cache", ".ruff_cache",
+        "eggs", "*.egg-info", ".eggs",
+    }
+
+    # Always include root
+    root_info = _analyze_directory(root, root, "root")
+    analysis["directories"].append(root_info)
+
+    # Walk directory tree
+    for item in root.rglob("*"):
+        if not item.is_dir():
+            continue
+
+        # Check depth
+        relative = item.relative_to(root)
+        if len(relative.parts) > max_depth:
+            continue
+
+        # Skip ignored directories
+        if any(skip in relative.parts for skip in skip_patterns):
+            continue
+
+        # Check if it's an important directory
+        dir_name = item.name.lower()
+        dir_type = important_patterns.get(dir_name)
+
+        if dir_type or _is_significant_directory(item):
+            dir_info = _analyze_directory(item, root, dir_type or "module")
+            analysis["directories"].append(dir_info)
+
+    return analysis
+
+
+def _analyze_directory(dir_path: Path, root: Path, dir_type: str) -> dict:
+    """Analyze a single directory."""
+    relative_path = dir_path.relative_to(root) if dir_path != root else Path(".")
+
+    # Count files by type
+    files = list(dir_path.glob("*"))
+    file_count = len([f for f in files if f.is_file()])
+
+    # Check for existing CLAUDE.md
+    has_claude_md = (dir_path / "CLAUDE.md").exists()
+
+    # Detect primary language/purpose
+    py_files = len(list(dir_path.glob("*.py")))
+    js_files = len(list(dir_path.glob("*.js"))) + len(list(dir_path.glob("*.ts")))
+    go_files = len(list(dir_path.glob("*.go")))
+
+    primary_lang = "mixed"
+    if py_files > js_files and py_files > go_files:
+        primary_lang = "python"
+    elif js_files > py_files and js_files > go_files:
+        primary_lang = "javascript"
+    elif go_files > py_files and go_files > js_files:
+        primary_lang = "go"
+
+    # Get subdirectories
+    subdirs = [d.name for d in dir_path.iterdir() if d.is_dir() and not d.name.startswith(".")]
+
+    return {
+        "path": str(dir_path),
+        "relative_path": str(relative_path),
+        "type": dir_type,
+        "file_count": file_count,
+        "has_claude_md": has_claude_md,
+        "primary_language": primary_lang,
+        "subdirectories": subdirs[:10],  # Limit to first 10
+    }
+
+
+def _is_significant_directory(dir_path: Path) -> bool:
+    """Check if a directory is significant enough to document."""
+    # Must have at least some code files
+    code_extensions = {".py", ".js", ".ts", ".go", ".rs", ".java", ".cpp", ".c", ".rb"}
+
+    code_files = 0
+    for ext in code_extensions:
+        code_files += len(list(dir_path.glob(f"*{ext}")))
+
+    return code_files >= 2
+
+
+def _generate_claude_md_content(dir_info: dict, analysis: dict) -> str:
+    """Generate CLAUDE.md content for a directory."""
+    relative_path = dir_info["relative_path"]
+    dir_type = dir_info["type"]
+
+    # Templates for different directory types
+    templates = {
+        "root": '''# {project_name}
+
+## Overview
+
+This is the root CLAUDE.md file providing project-wide context for Claude Code.
+
+## Project Structure
+
+{structure}
+
+## Key Directories
+
+{key_dirs}
+
+## Development Guidelines
+
+- Follow existing code patterns and conventions
+- Write tests for new functionality
+- Update documentation when making changes
+
+## Getting Started
+
+```bash
+# TODO: Add setup instructions
+```
+
+## Important Notes
+
+- TODO: Add project-specific notes and guidelines
+''',
+
+        "source": '''# {dir_name} - Source Code
+
+## Purpose
+
+This directory contains the main source code for the project.
+
+## Structure
+
+{structure}
+
+## Key Components
+
+- TODO: Document key modules and their responsibilities
+
+## Conventions
+
+- Follow the existing code style
+- Add docstrings/comments for complex logic
+- Keep modules focused and single-purpose
+''',
+
+        "tests": '''# {dir_name} - Tests
+
+## Purpose
+
+This directory contains tests for the project.
+
+## Test Structure
+
+{structure}
+
+## Running Tests
+
+```bash
+# TODO: Add test commands
+pytest  # For Python
+npm test  # For Node.js
+```
+
+## Writing Tests
+
+- Follow existing test patterns
+- Name test files with `test_` prefix (Python) or `.test.` suffix (JS)
+- Use fixtures for common setup
+- Aim for meaningful test coverage
+''',
+
+        "api": '''# {dir_name} - API
+
+## Purpose
+
+This directory contains API definitions and endpoints.
+
+## Structure
+
+{structure}
+
+## API Guidelines
+
+- Follow RESTful conventions
+- Document all endpoints
+- Include request/response examples
+- Handle errors consistently
+''',
+
+        "infrastructure": '''# {dir_name} - Infrastructure
+
+## Purpose
+
+This directory contains infrastructure as code and deployment configurations.
+
+## Structure
+
+{structure}
+
+## Guidelines
+
+- Document all resources
+- Use variables for environment-specific values
+- Follow security best practices
+- Test changes in non-production first
+''',
+
+        "default": '''# {dir_name}
+
+## Purpose
+
+{purpose}
+
+## Structure
+
+{structure}
+
+## Guidelines
+
+- TODO: Add specific guidelines for this directory
+'''
+    }
+
+    # Select template
+    template = templates.get(dir_type, templates["default"])
+
+    # Generate structure listing
+    dir_path = Path(dir_info["path"])
+    structure_lines = []
+    for item in sorted(dir_path.iterdir()):
+        if item.name.startswith(".") and item.name != ".claude":
+            continue
+        if item.name in {"node_modules", "venv", "__pycache__", "dist", "build"}:
+            continue
+        prefix = "📁" if item.is_dir() else "📄"
+        structure_lines.append(f"- {prefix} {item.name}")
+
+    structure = "\n".join(structure_lines[:15]) if structure_lines else "- (empty)"
+    if len(structure_lines) > 15:
+        structure += f"\n- ... and {len(structure_lines) - 15} more items"
+
+    # Generate key directories list
+    key_dirs = ""
+    if dir_type == "root":
+        key_dir_lines = []
+        for d in analysis["directories"][1:6]:  # Skip root, show next 5
+            key_dir_lines.append(f"- **{d['relative_path']}/** - {d['type']}")
+        key_dirs = "\n".join(key_dir_lines) if key_dir_lines else "- (none identified)"
+
+    # Get directory name
+    dir_name = Path(relative_path).name if relative_path != "." else "Project Root"
+
+    # Purpose based on type
+    purposes = {
+        "source": "Main source code",
+        "tests": "Test suite",
+        "api": "API definitions",
+        "documentation": "Project documentation",
+        "infrastructure": "Infrastructure as code",
+        "configuration": "Configuration files",
+        "scripts": "Utility scripts",
+        "services": "Service implementations",
+        "components": "UI/functional components",
+        "utilities": "Utility functions and helpers",
+        "models": "Data models",
+        "schemas": "Data schemas",
+        "module": "Application module",
+    }
+    purpose = purposes.get(dir_type, f"Contains {dir_type} code")
+
+    # Format template
+    content = template.format(
+        project_name=Path(analysis["root"]).name,
+        dir_name=dir_name,
+        structure=structure,
+        key_dirs=key_dirs,
+        purpose=purpose,
+    )
+
+    return content

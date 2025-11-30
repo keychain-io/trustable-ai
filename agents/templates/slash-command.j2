@@ -1,0 +1,18 @@
+# {{ agent_name|replace('-', ' ')|title }} Agent Invocation
+
+Read the agent definition from `.claude/agents/{{ agent_name }}.md` and invoke it as a separate agent using the Task tool.
+
+**Important:** This agent should be spawned with:
+- Model: {{ model }}
+- Fresh context window
+- Extended thinking enabled (the agent definition includes this guidance)
+
+## Instructions
+
+1. Read the full agent definition from `.claude/agents/{{ agent_name }}.md`
+2. Combine it with the user's specific request
+3. Invoke using the Task tool with `model="{{ model_param }}"` and `subagent_type="general-purpose"`
+4. The agent will execute in a fresh context window with its own token budget
+5. Return the agent's analysis to the user
+
+Pass the user's request to the {{ agent_name|replace('-', ' ')|title }} agent now.

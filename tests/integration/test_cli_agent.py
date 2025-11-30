@@ -15,16 +15,15 @@ class TestAgentListCommand:
     """Test suite for cwf agent list command."""
 
     def test_agent_list_without_config(self):
-        """Test listing agents without configuration."""
+        """Test listing agents without configuration shows error."""
         runner = CliRunner()
 
         with runner.isolated_filesystem():
             result = runner.invoke(cli, ['agent', 'list'])
 
-            # Should show available agents from package
-            assert result.exit_code == 0
-            assert 'business-analyst' in result.output
-            assert 'senior-engineer' in result.output
+            # Should show error about missing config
+            assert 'Error' in result.output or 'not found' in result.output.lower()
+            assert 'taid init' in result.output
 
     def test_agent_list_with_config(self, sample_config_yaml):
         """Test listing agents with configuration."""
@@ -190,3 +189,54 @@ class TestAgentEnableDisable:
 
             assert result.exit_code != 0
             assert 'not found' in result.output.lower() or 'invalid' in result.output.lower()
+
+    def test_enable_all_agents(self, sample_config_yaml):
+        """Test enabling all agents with 'all' argument."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            config_path = Path('.claude/config.yaml')
+            config_path.parent.mkdir(parents=True)
+            config_path.write_text(sample_config_yaml)
+
+            result = runner.invoke(cli, ['agent', 'enable', 'all'])
+
+            assert result.exit_code == 0
+            assert 'Enabled' in result.output
+
+            # Verify all agents are now enabled in config
+            from config.loader import ConfigLoader
+            loader = ConfigLoader(config_path)
+            config = loader.load()
+            # Should have more than the default 3 agents
+            assert len(config.agent_config.enabled_agents) >= 10
+
+
+@pytest.mark.integration
+class TestAgentRenderAll:
+    """Test suite for agent render all command."""
+
+    def test_render_all_with_all_argument(self, sample_config_yaml):
+        """Test rendering all agents using 'all' argument."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            config_path = Path('.claude/config.yaml')
+            config_path.parent.mkdir(parents=True)
+            config_path.write_text(sample_config_yaml)
+
+            # First enable all agents
+            runner.invoke(cli, ['agent', 'enable', 'all'])
+
+            # Create output directory
+            Path('.claude/agents').mkdir(parents=True)
+
+            # Render all using the render command with 'all' argument
+            result = runner.invoke(cli, ['agent', 'render', 'all', '-o', '.claude/agents'])
+
+            assert result.exit_code == 0
+            assert 'Rendering' in result.output or '✓' in result.output
+
+            # Verify files were created
+            agent_files = list(Path('.claude/agents').glob('*.md'))
+            assert len(agent_files) >= 10

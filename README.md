@@ -7,9 +7,10 @@ An AI-assisted software lifecycle framework featuring multi-agent orchestration,
 Trusted AI Development (TAID) provides a sophisticated system for managing AI-assisted software development workflows. It coordinates specialized AI agents to handle complex development tasks while maintaining context, state, and integration with your work tracking platform.
 
 **Key Capabilities:**
-- Multi-agent orchestration with 12 specialized agents
+- Multi-agent orchestration with 13 specialized agents
 - Re-entrant workflows with state persistence
-- Hierarchical context management for minimal token usage
+- Re-entrant initialization (update settings without re-entering everything)
+- Hierarchical context management with auto-generated CLAUDE.md files
 - Integration with Azure DevOps, file-based tracking (Jira/GitHub planned)
 - Skills system for reusable capabilities
 - Learnings capture for institutional knowledge
@@ -25,6 +26,11 @@ With Azure DevOps support:
 pip install trusted-ai-dev[azure]
 ```
 
+For development:
+```bash
+pip install -e ".[dev]"
+```
+
 ## Quick Start
 
 ### Initialize in Your Project
@@ -34,24 +40,41 @@ cd your-project/
 taid init
 ```
 
-This will:
-1. Prompt for project information (name, tech stack)
+The interactive init wizard will:
+1. Prompt for project information (name, type, tech stack)
 2. Configure your work tracking platform
 3. Create `.claude/` directory structure
-4. Set up default agents and workflows
+4. Let you select which agents to enable (by number, 'all', or keep defaults)
+5. Optionally render agents and workflows to `.claude/`
+6. Optionally generate hierarchical CLAUDE.md context files
 
-### Render Agents and Workflows
+**Re-entrant:** Running `taid init` again loads existing values as defaults, so you can update individual settings without re-entering everything.
+
+### Non-Interactive Mode
+
+```bash
+# Initialize with all defaults
+taid init --no-interactive
+```
+
+### Agent and Workflow Management
 
 ```bash
 # List available agents
 taid agent list
 
-# Enable agents you need
+# Enable agents (individually or all at once)
 taid agent enable senior-engineer
-taid agent enable project-architect
+taid agent enable all
 
 # Render all enabled agents to .claude/agents/
 taid agent render-all
+
+# Also render agent slash commands to .claude/commands/
+taid agent render-all --with-commands
+
+# Or render commands separately
+taid agent render-commands
 
 # Render workflows to .claude/commands/
 taid workflow render-all
@@ -66,10 +89,12 @@ After rendering, use the slash commands in Claude Code:
 - `/sprint-planning` - Plan your sprint with multi-agent orchestration
 - `/daily-standup` - Generate daily standup reports
 - `/backlog-grooming` - Review and prioritize backlog items
+- `/senior-engineer` - Invoke the senior engineer agent with fresh context
+- `/software-developer` - Invoke the developer agent with fresh context
 
 ## Features
 
-### Multi-Agent System (12 Agents)
+### Multi-Agent System (13 Agents)
 
 | Agent | Description | Model |
 |-------|-------------|-------|
@@ -85,6 +110,7 @@ After rendering, use the slash commands in Claude Code:
 | **general-engineer** | Cross-functional development tasks | sonnet |
 | **qa-tester** | Test execution, defect tracking | haiku |
 | **prototype-engineer** | Rapid prototyping, exploration | sonnet |
+| **documentation-specialist** | CLAUDE.md generation, code documentation | sonnet |
 
 ### Workflow Templates
 
@@ -96,6 +122,37 @@ After rendering, use the slash commands in Claude Code:
 - **daily-standup** - Daily standup reports
 - **dependency-management** - Dependency analysis and tracking
 - **workflow-resume** - Resume incomplete workflows from within Claude Code
+- **context-generation** - Guided CLAUDE.md hierarchy creation
+
+### Hierarchical Context Generation
+
+TAID can automatically generate hierarchical CLAUDE.md files for your codebase:
+
+```bash
+# Preview what would be generated
+taid context generate --dry-run
+
+# Generate CLAUDE.md files (skips existing)
+taid context generate
+
+# Force overwrite existing files
+taid context generate --force
+
+# Limit depth of directory traversal
+taid context generate --depth 2
+
+# Build searchable context index
+taid context index
+
+# Look up relevant context for a task
+taid context lookup "implement user authentication"
+```
+
+Context generation creates:
+- Root `CLAUDE.md` with project overview and structure
+- Directory-level `CLAUDE.md` for `src/`, `tests/`, `docs/`, etc.
+- Module-level `CLAUDE.md` for significant subdirectories
+- `.claude/context-index.yaml` for fast keyword-based lookups
 
 ### State Management
 
@@ -144,7 +201,7 @@ taid learnings archive
 
 ## Configuration
 
-Create `.claude/config.yaml` in your project:
+The `taid init` command creates `.claude/config.yaml` in your project. You can also create it manually:
 
 ```yaml
 project:
@@ -196,22 +253,28 @@ implementation_tier: "tier-0"
 ## CLI Reference
 
 ```bash
-taid init              # Initialize TAID in your project
+# Initialization (re-entrant)
+taid init              # Initialize or update TAID configuration
+taid init --no-interactive  # Use defaults without prompts
 taid validate          # Validate configuration
 taid doctor            # Health check and diagnostics
 taid status            # Overall status
 
 # Agent Management
-taid agent list        # List available agents
+taid agent list            # List available agents
 taid agent enable <name>   # Enable an agent
+taid agent enable all      # Enable all agents
 taid agent disable <name>  # Disable an agent
 taid agent render <name>   # Render specific agent
-taid agent render-all      # Render all enabled agents
+taid agent render all      # Render all enabled agents
+taid agent render-all      # Render all enabled agents to .claude/agents/
+taid agent render-all --with-commands  # Also render agent slash commands
+taid agent render-commands # Render agent slash commands to .claude/commands/
 
 # Workflow Management
-taid workflow list         # List available workflows
+taid workflow list             # List available workflows
 taid workflow render <name>    # Render specific workflow
-taid workflow render-all       # Render all workflows
+taid workflow render-all       # Render all workflows to .claude/commands/
 
 # State Management
 taid state list            # List workflow states
@@ -220,8 +283,13 @@ taid state resume <id>     # Resume interrupted workflow
 taid state cleanup         # Clean up old state files
 
 # Context Management
+taid context generate      # Generate hierarchical CLAUDE.md files
+taid context generate --dry-run  # Preview without creating files
+taid context generate --force    # Overwrite existing files
+taid context generate -d 2       # Limit depth
 taid context index         # Build context index
 taid context show          # Show loaded contexts
+taid context lookup <task> # Find relevant context for a task
 
 # Configuration
 taid configure azure-devops    # Configure Azure DevOps
@@ -255,13 +323,20 @@ Tasks are stored in `.claude/tasks/` as YAML files.
 ```
 .claude/
   config.yaml           # Main configuration
-  agents/               # Rendered agent definitions
-  commands/             # Workflow slash commands
+  agents/               # Rendered agent definitions (.md files)
+  commands/             # Workflow and agent slash commands
   workflow-state/       # Execution state (re-entrancy)
   profiling/            # Performance profiles
   learnings/            # Session learnings
-  context/              # Context index
+  context-index.yaml    # Searchable context index
   tasks/                # File-based task tracking
+
+project-root/
+  CLAUDE.md             # Root context file
+  src/
+    CLAUDE.md           # Source code context
+  tests/
+    CLAUDE.md           # Test suite context
 ```
 
 ### Hierarchical Context
@@ -270,6 +345,7 @@ TAID uses hierarchical CLAUDE.md files to provide maximal context with minimal t
 - Root CLAUDE.md for project overview
 - Module-level CLAUDE.md for specific areas
 - Auto-generated context index for smart loading
+- Use `taid context generate` to create the hierarchy automatically
 
 ## Development
 
@@ -283,6 +359,10 @@ pip install -e ".[dev]"
 
 # Run tests
 pytest
+
+# Run specific test categories
+pytest -m unit          # Unit tests only
+pytest -m integration   # Integration tests
 
 # Code quality
 black . && ruff . && mypy .

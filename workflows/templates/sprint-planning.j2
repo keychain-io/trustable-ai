@@ -3,6 +3,7 @@
 Coordinate a complete sprint planning session across multiple specialized agents for {{ project.name }}.
 
 **This workflow uses:**
+- ✅ Directed context loading (loads only relevant CLAUDE.md files)
 - ✅ Workflow state management (re-entrant, idempotent)
 - ✅ Workflow profiling (timing, tokens, costs)
 - ✅ Comprehensive descriptions for ALL work items
@@ -25,6 +26,41 @@ import subprocess
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, List, Any
+
+# Import directed context loader
+from core.directed_loader import DirectedContextLoader
+```
+
+## Context Loading
+
+Before executing workflow steps, load the relevant context for sprint planning:
+
+```python
+# Initialize directed context loader
+loader = DirectedContextLoader()
+
+# Load context relevant to sprint planning with Azure DevOps
+context_result = loader.load_for_task(
+    task_type="sprint-planning",
+    keywords=["sprint", "planning", "azure", "work-item", "agent", "workflow"],
+    max_tokens=8000
+)
+
+print(f"📚 Context Loaded:")
+print(f"   Files: {len(context_result['files_loaded'])}")
+print(f"   Tokens: ~{context_result['tokens_used']}")
+for f in context_result['files_loaded']:
+    print(f"   - {f}")
+
+# The loaded context includes:
+# - Root CLAUDE.md (project overview)
+# - agents/CLAUDE.md (agent system documentation)
+# - workflows/CLAUDE.md (workflow patterns)
+# - adapters/azure_devops/CLAUDE.md (Azure DevOps integration patterns)
+# - core/CLAUDE.md (state management, profiling)
+
+# Store context for agent prompts
+workflow_context = context_result['content']
 ```
 
 ## Workflow Initialization
