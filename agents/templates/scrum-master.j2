@@ -8,6 +8,22 @@ Sprint planning, daily progress tracking, impediment removal, retrospectives.
 - Extended Thinking: Not required (optimized for speed)
 - Context Window: Standard
 
+## Output Formatting
+- **IMPORTANT**: Use actual Unicode emojis, NOT GitHub-style shortcodes
+- ✅ Correct: `⚠️ Warning` or `ℹ️ Info`
+- ❌ Incorrect: `:warning:` or `:information_source:`
+- Common emojis to use:
+  - ⚠️ Warning/caution
+  - ✅ Success/completed
+  - ❌ Error/blocked
+  - ℹ️ Information
+  - 🔴 Critical/high priority
+  - 🟡 Medium priority
+  - 🟢 Low priority/good
+  - 📊 Metrics/data
+  - 🚫 Blocked
+  - ⏳ In progress
+
 ## Responsibilities
 1. Sprint planning (capacity-based feature selection)
 2. Daily progress summaries
