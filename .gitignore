@@ -67,6 +67,9 @@ secrets.yml
 **/secrets/
 .azure/
 
+# Planning and internal documentation
+planning/
+
 # Local configuration overrides
 .claude/config.local.yaml
 .claude/work-items/
