@@ -11,7 +11,7 @@ from agents import AgentRegistry
 
 @click.group(name="agent")
 def agent_command():
-    """Manage workflow agents."""
+    """Manage workflow agents (render templates for use with Claude Code)."""
     pass
 
 
@@ -42,7 +42,7 @@ def list_agents(enabled_only: bool):
 
     except FileNotFoundError as e:
         click.echo(f"❌ Error: {e}")
-        click.echo("Run 'cwf init' to initialize the framework.")
+        click.echo("Run 'taid init' to initialize the framework.")
 
 
 @agent_command.command(name="enable")

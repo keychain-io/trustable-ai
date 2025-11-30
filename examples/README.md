@@ -1,6 +1,6 @@
-# Claude Workflow Framework - Examples
+# Trusted AI Development (TAID) - Examples
 
-This directory contains complete example projects demonstrating how to use the Claude Workflow Framework with different tech stacks and work tracking platforms.
+This directory contains complete example projects demonstrating how to use TAID with different tech stacks and work tracking platforms.
 
 ## Available Examples
 
@@ -59,12 +59,12 @@ Each example includes:
 Copy the patterns to your own project:
 
 ```bash
-# Install framework
-pip install claude-workflow-framework
+# Install TAID
+pip install trusted-ai-dev
 
 # Initialize in your project
 cd your-project
-cwf init
+taid init
 
 # Copy example config as starting point
 cp examples/python-fastapi/.claude/config.yaml .claude/config.yaml
@@ -189,8 +189,7 @@ Community contributions welcome for:
 ## Support
 
 - Framework Documentation: [Main README](../README.md)
-- Issues: https://github.com/keychain/claude-workflow-framework/issues
-- Discussions: https://github.com/keychain/claude-workflow-framework/discussions
+- Issues: https://github.com/trusted-ai-dev/trusted-ai-dev/issues
 
 ## Contributing
 
@@ -198,4 +197,4 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines on contributing example
 
 ---
 
-*Examples for Claude Workflow Framework*
+*Examples for Trusted AI Development (TAID)*

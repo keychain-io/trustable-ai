@@ -1,5 +1,5 @@
 """
-Setup configuration for Claude Workflow Framework.
+Setup configuration for Trusted AI Development (TAID).
 """
 from setuptools import setup, find_packages
 from pathlib import Path
@@ -9,13 +9,13 @@ readme_path = Path(__file__).parent / "README.md"
 long_description = readme_path.read_text() if readme_path.exists() else ""
 
 setup(
-    name="claude-workflow-framework",
-    version="0.1.0",
-    author="Keychain Team",
-    description="A reusable workflow automation framework for Claude Code with multi-agent orchestration",
+    name="trusted-ai-dev",
+    version="1.0.0",
+    author="Trusted AI Development Contributors",
+    description="AI-assisted software lifecycle tools with multi-agent orchestration, state management, and work tracking integration",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/keychain/claude-workflow-framework",
+    url="https://github.com/trusted-ai-dev/trusted-ai-dev",
     packages=find_packages(),
     package_data={
         "": ["*.j2", "*.yaml", "*.yml", "*.md"],
@@ -42,12 +42,12 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "cwf=cli.main:cli",
+            "taid=cli.main:cli",
         ],
     },
     python_requires=">=3.9",
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Topic :: Software Development :: Libraries :: Application Frameworks",
         "Programming Language :: Python :: 3",

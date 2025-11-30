@@ -13,7 +13,7 @@ from agents import AgentRegistry
 def validate_command(verbose: bool):
     """Validate framework configuration and setup."""
 
-    click.echo("\n🔍 Validating Claude Workflow Framework setup\n")
+    click.echo("\n🔍 Validating Trusted AI Development (TAID) setup\n")
 
     errors = []
     warnings = []
@@ -29,8 +29,8 @@ def validate_command(verbose: bool):
         checks_passed += 1
     else:
         click.echo("✗ Configuration file not found")
-        errors.append("Configuration file not found. Run 'cwf init' to initialize.")
-        click.echo("\n❌ Validation failed. Run 'cwf init' to initialize the framework.\n")
+        errors.append("Configuration file not found. Run 'taid init' to initialize.")
+        click.echo("\n❌ Validation failed. Run 'taid init' to initialize the framework.\n")
         return
 
     # Load configuration
@@ -122,7 +122,7 @@ def validate_command(verbose: bool):
                 click.echo(f"    • {agent}")
     else:
         click.echo("⚠ No agents enabled")
-        warnings.append("No agents enabled. Run 'cwf agent enable <name>' to enable agents.")
+        warnings.append("No agents enabled. Run 'taid agent enable <name>' to enable agents.")
 
     # Summary
     click.echo(f"\n{'='*80}")
@@ -142,7 +142,7 @@ def validate_command(verbose: bool):
     if not errors:
         click.echo("\n✅ Validation successful!\n")
         click.echo("You can now:")
-        click.echo("  • Render agents: cwf agent render-all")
-        click.echo("  • Run workflows: cwf workflow run sprint-planning\n")
+        click.echo("  • Render agents: taid agent render-all")
+        click.echo("  • Render workflows: taid workflow render-all\n")
     else:
         click.echo("\n❌ Validation failed. Please fix the errors above.\n")

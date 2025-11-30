@@ -1,6 +1,6 @@
-# Claude Workflow Framework - Quick Start Guide
+# Trusted AI Development (TAID) - Quick Start Guide
 
-Get up and running with Claude Workflow Framework in 15 minutes.
+Get up and running with TAID in 15 minutes.
 
 ## Prerequisites
 
@@ -11,14 +11,17 @@ Get up and running with Claude Workflow Framework in 15 minutes.
 
 ## Installation
 
-### Step 1: Install the Framework
+### Step 1: Install the Package
 
 ```bash
-# Install from source (during development)
-cd /path/to/claude-workflow-framework
-pip install -e .
+# Install from PyPI
+pip install trusted-ai-dev
 
-# Or install with all optional dependencies
+# Or install with Azure DevOps support
+pip install trusted-ai-dev[azure]
+
+# Or install from source (during development)
+cd /path/to/trusted-ai-dev
 pip install -e ".[dev,azure]"
 ```
 
@@ -26,9 +29,9 @@ pip install -e ".[dev,azure]"
 
 ```bash
 # Check CLI is available
-cwf --version
+taid --version
 
-# Should output: Claude Workflow Framework 0.1.0
+# Should output: taid, version 1.0.0
 ```
 
 ## Initial Setup
@@ -42,7 +45,7 @@ cd /path/to/your/project
 ### Step 4: Initialize Framework
 
 ```bash
-cwf init
+taid init
 ```
 
 You'll be prompted for:
@@ -52,7 +55,7 @@ You'll be prompted for:
 - **Frameworks**: e.g., "FastAPI, React"
 - **Platforms**: e.g., "Azure, Docker"
 - **Databases**: e.g., "PostgreSQL"
-- **Work tracking platform**: azure-devops, jira, or github-projects
+- **Work tracking platform**: azure-devops, or file-based
 - **Organization URL**: e.g., "https://dev.azure.com/your-org"
 - **Project name**: Your project name in the work tracking system
 
@@ -60,7 +63,7 @@ This creates:
 - `.claude/` directory
 - `.claude/config.yaml` - Your configuration file
 - `.claude/agents/` - Agent definitions directory
-- `.claude/commands/` - Workflow scripts directory
+- `.claude/commands/` - Workflow slash commands directory
 - `.claude/workflow-state/` - Workflow state files
 - `.claude/profiling/` - Performance profiles
 
@@ -70,35 +73,41 @@ If using Azure DevOps:
 
 ```bash
 # Configure connection
-cwf configure azure-devops
+taid configure azure-devops
 
 # Test connection (requires Azure CLI)
 az login
 az devops configure --defaults organization=https://dev.azure.com/your-org project="Your Project"
 ```
 
+Or use file-based tracking (no external dependencies):
+
+```bash
+taid configure file-based
+```
+
 ### Step 6: Enable Agents
 
 ```bash
 # List available agents
-cwf agent list
+taid agent list
 
 # Enable the agents you want
-cwf agent enable business-analyst
-cwf agent enable senior-engineer
-cwf agent enable scrum-master
-cwf agent enable project-architect
-cwf agent enable security-specialist
+taid agent enable business-analyst
+taid agent enable senior-engineer
+taid agent enable scrum-master
+taid agent enable project-architect
+taid agent enable security-specialist
 
 # See which agents are enabled
-cwf agent list --enabled-only
+taid agent list --enabled-only
 ```
 
 ### Step 7: Render Agents
 
 ```bash
 # Render all enabled agents
-cwf agent render-all
+taid agent render-all
 
 # This creates:
 # .claude/agents/business-analyst.md
@@ -114,19 +123,19 @@ cwf agent render-all
 vi .claude/config.yaml
 
 # Configure quality standards
-cwf configure quality-standards
+taid configure quality-standards
 ```
 
 ### Step 9: Validate Setup
 
 ```bash
 # Run validation
-cwf validate
+taid validate
 
 # Should show:
 # ✓ Configuration file exists
 # ✓ Required directories exist
-# ✓ Agent templates available (5 agents)
+# ✓ Agent templates available (12 agents)
 # ✓ Work tracking configured
 # ✓ Quality standards configured
 # ✓ Agents enabled (5)
@@ -138,13 +147,13 @@ cwf validate
 
 ```bash
 # List available workflows
-cwf workflow list
+taid workflow list
 
 # Render a specific workflow
-cwf workflow render sprint-planning -o .claude/commands/sprint-planning.md
+taid workflow render sprint-planning -o .claude/commands/sprint-planning.md
 
 # Or render all workflows
-cwf workflow render-all
+taid workflow render-all
 ```
 
 ### Customize for Your Project
@@ -212,7 +221,7 @@ workflow_config:
 ### 1. Render Sprint Planning Workflow
 
 ```bash
-cwf workflow render sprint-planning -o .claude/commands/sprint-planning.md
+taid workflow render sprint-planning -o .claude/commands/sprint-planning.md
 ```
 
 ### 2. Review the Workflow
@@ -253,32 +262,32 @@ The workflow will:
 
 ```bash
 # When you update configuration
-cwf agent render-all
+taid agent render-all
 
 # When you enable a new agent
-cwf agent enable qa-engineer
-cwf agent render qa-engineer -o .claude/agents/qa-engineer.md
+taid agent enable qa-engineer
+taid agent render qa-engineer -o .claude/agents/qa-engineer.md
 ```
 
 ### Rendering Workflows
 
 ```bash
 # When you update configuration
-cwf workflow render-all
+taid workflow render-all
 
 # When you add custom fields or change work item types
-cwf workflow render sprint-planning -o .claude/commands/sprint-planning.md
+taid workflow render sprint-planning -o .claude/commands/sprint-planning.md
 ```
 
 ### Validation
 
 ```bash
 # Before running workflows
-cwf validate
+taid validate
 
 # Check specific items
-cwf agent list --enabled-only
-cwf workflow list
+taid agent list --enabled-only
+taid workflow list
 ```
 
 ## Troubleshooting
@@ -289,7 +298,7 @@ cwf workflow list
 ❌ Error: Configuration file not found
 ```
 
-**Solution**: Run `cwf init` to initialize the framework.
+**Solution**: Run `taid init` to initialize the framework.
 
 ### Agent Not Found
 
@@ -297,7 +306,7 @@ cwf workflow list
 ❌ Agent 'unknown-agent' not found
 ```
 
-**Solution**: Run `cwf agent list` to see available agents.
+**Solution**: Run `taid agent list` to see available agents.
 
 ### Azure DevOps Connection Failed
 
@@ -308,7 +317,7 @@ cwf workflow list
 **Solution**:
 1. Run `az login` to authenticate
 2. Run `az devops configure` to set defaults
-3. Test with `cwf configure azure-devops`
+3. Test with `taid configure azure-devops`
 
 ### Work Item Type Mismatch
 
@@ -344,12 +353,13 @@ work_item_types:
 - **Documentation**: See `docs/` directory
 - **Configuration**: See `.claude/config.yaml`
 - **Examples**: See `examples/` directory
-- **Validation**: Run `cwf validate`
+- **Validation**: Run `taid validate`
+- **Health Check**: Run `taid doctor`
 
 ## Summary
 
 You've successfully:
-- ✅ Installed Claude Workflow Framework
+- ✅ Installed Trusted AI Development (TAID)
 - ✅ Initialized framework in your project
 - ✅ Configured work tracking platform
 - ✅ Enabled and rendered agents
@@ -358,4 +368,4 @@ You've successfully:
 
 Time to completion: ~15 minutes
 
-Ready to automate your workflows! 🚀
+Ready to automate your workflows!

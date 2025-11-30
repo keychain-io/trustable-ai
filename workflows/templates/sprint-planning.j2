@@ -225,8 +225,32 @@ if not state.is_step_completed("senior-engineer"):
         "{{ agent_config.models.engineer|default('opus') }}"
     )
 
+    # Check if Features already have child tasks from previous planning
+    bulk_ops = AzureBulkOps()
+    features_with_children = {}
+
+    for feature in feature_list:
+        if feature.get('work_item_id'):
+            wi = azure_cli.get_work_item(feature['work_item_id'])
+            relations = wi.get('relations', [])
+            children = [r for r in relations if r.get('rel') == 'System.LinkTypes.Hierarchy-Forward']
+            if children:
+                features_with_children[feature['work_item_id']] = children
+                print(f"ℹ️  Feature WI-{feature['work_item_id']} already has {len(children)} child tasks")
+
     task = f"""
     Estimate and break down top features from backlog: {{feature_list}}
+
+    **IMPORTANT - Existing Child Tasks:**
+    Features with existing child tasks: {features_with_children}
+
+    **If a Feature already has child tasks:**
+    - Review existing child tasks to see if they cover requirements
+    - Only create NEW tasks to fill gaps
+    - DO NOT duplicate existing tasks
+
+    **If a Feature has NO child tasks:**
+    - Create comprehensive breakdown as normal
 
     **Project Context:**
     - Name: {{ project.name }}
@@ -382,7 +406,7 @@ if not state.is_step_completed("iteration-setup"):
     })
 ```
 
-### Step 8: Work Item Creation
+### Step 8: Work Item Creation with Spec File Attachments
 
 ```python
 if not state.is_step_completed("activation"):
@@ -390,6 +414,7 @@ if not state.is_step_completed("activation"):
 
     created_work_items = []
     failed_items = []
+    items_missing_attachments = []
 
     for item in work_items:
         try:
@@ -407,19 +432,74 @@ if not state.is_step_completed("activation"):
                 verify=True
             )
 
-            created_work_items.append(result["id"])
-            state.record_work_item_created(result["id"], item)
+            work_item_id = result["id"]
+            created_work_items.append(work_item_id)
+            state.record_work_item_created(work_item_id, item)
 
-            print(f"✓ Created WI-{result['id']}: {item['title']}")
+            print(f"✓ Created WI-{work_item_id}: {item['title']}")
+
+            # For Features/Epics with long descriptions, create and attach spec file
+            if item["type"] in ["{{ work_tracking.work_item_types.feature }}",
+                                "{{ work_tracking.work_item_types.epic }}"]:
+                if len(item["description"]) > 300:
+                    spec_dir = Path(f"docs/specifications/sprint-{sprint_number}")
+                    spec_dir.mkdir(parents=True, exist_ok=True)
+
+                    spec_file = spec_dir / f"WI-{work_item_id}-spec.md"
+                    spec_content = f"""# {item['title']}
+
+**Work Item:** WI-{work_item_id}
+**Type:** {item['type']}
+**Sprint:** Sprint {sprint_number}
+
+## Description
+{item['description']}
+
+## Acceptance Criteria
+{chr(10).join(f"- {c}" for c in item.get('acceptance_criteria', []))}
+
+## Technical Notes
+{item.get('technical_notes', 'See work item for details.')}
+
+## Dependencies
+{chr(10).join(f"- {d}" for d in item.get('dependencies', [])) if item.get('dependencies') else 'None'}
+"""
+                    spec_file.write_text(spec_content)
+                    print(f"  📄 Created spec file: {spec_file}")
+
+                    # Attach spec file using REST API
+                    try:
+                        attach_result = azure_cli.attach_file_to_work_item(
+                            work_item_id=work_item_id,
+                            file_path=spec_file,
+                            comment=f"Technical specification for WI-{work_item_id}"
+                        )
+
+                        if attach_result and attach_result.get("success"):
+                            print(f"  ✓ Attached spec file to WI-{work_item_id}")
+                        else:
+                            print(f"  ⚠️  Failed to attach spec file to WI-{work_item_id}")
+                            items_missing_attachments.append(work_item_id)
+                    except Exception as e:
+                        print(f"  ⚠️  Attachment failed for WI-{work_item_id}: {e}")
+                        items_missing_attachments.append(work_item_id)
 
         except Exception as e:
             print(f"✗ Failed to create: {item['title']}: {e}")
             failed_items.append(item)
             state.record_error(str(e), {"item": item})
 
+    print(f"\n📊 Work Item Creation Summary:")
+    print(f"  ✓ Created: {len(created_work_items)}")
+    print(f"  ❌ Failed: {len(failed_items)}")
+    if items_missing_attachments:
+        print(f"  ⚠️  Missing attachments: {len(items_missing_attachments)}")
+        print(f"     Work items: {', '.join(f'WI-{id}' for id in items_missing_attachments)}")
+
     state.complete_step("activation", result={
         "created": created_work_items,
         "failed": failed_items,
+        "missing_attachments": items_missing_attachments,
         "total": len(work_items)
     })
 ```

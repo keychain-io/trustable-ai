@@ -1,102 +1,146 @@
-# Claude Workflow Framework
+# Trusted AI Development (TAID)
 
-A reusable workflow automation framework for Claude Code featuring multi-agent orchestration, state management, and work tracking platform integration.
+An AI-assisted software lifecycle framework featuring multi-agent orchestration, state management, and work tracking integration. Build real software projects reliably with Claude Code.
 
 ## Overview
 
-The Claude Workflow Framework provides a sophisticated system for automating software development workflows using AI agents. Originally developed for the Keychain Gateway project, this framework has been extracted and generalized to work with any project, tech stack, and work tracking platform.
+Trusted AI Development (TAID) provides a sophisticated system for managing AI-assisted software development workflows. It coordinates specialized AI agents to handle complex development tasks while maintaining context, state, and integration with your work tracking platform.
 
-## Key Features
+**Key Capabilities:**
+- Multi-agent orchestration with 12 specialized agents
+- Re-entrant workflows with state persistence
+- Hierarchical context management for minimal token usage
+- Integration with Azure DevOps, file-based tracking (Jira/GitHub planned)
+- Skills system for reusable capabilities
+- Learnings capture for institutional knowledge
 
-- **Multi-Agent Orchestration**: Coordinate specialized AI agents (Business Analyst, Project Architect, Security Specialist, Senior Engineer, Scrum Master)
-- **State Management**: Robust workflow state tracking with checkpoint and resume capabilities
-- **Performance Profiling**: Track workflow execution time, agent calls, and performance metrics
-- **Work Tracking Integration**: Adapters for Azure DevOps (extensible to Jira, GitHub Projects, etc.)
-- **Hierarchical Context Loading**: Intelligent context management to minimize token usage
-- **Template System**: Customizable Jinja2 templates for agents, workflows, and tasks
-- **CLI Tool**: Command-line interface for setup, configuration, and workflow execution
-
-## Quick Start
-
-### Installation
+## Installation
 
 ```bash
-pip install claude-workflow-framework
+pip install trusted-ai-dev
 ```
+
+With Azure DevOps support:
+```bash
+pip install trusted-ai-dev[azure]
+```
+
+## Quick Start
 
 ### Initialize in Your Project
 
 ```bash
 cd your-project/
-cwf init
+taid init
 ```
 
 This will:
-1. Prompt you for project information (name, tech stack, etc.)
-2. Configure your work tracking platform (Azure DevOps, Jira, etc.)
+1. Prompt for project information (name, tech stack)
+2. Configure your work tracking platform
 3. Create `.claude/` directory structure
-4. Generate configuration files
-5. Set up agents and workflows
+4. Set up default agents and workflows
 
-### Configure Azure DevOps
-
-```bash
-cwf configure azure-devops
-```
-
-Provide your organization, project, and credentials when prompted.
-
-### Enable Agents and Workflows
+### Render Agents and Workflows
 
 ```bash
-# Enable specific agents
-cwf agent enable business-analyst
-cwf agent enable senior-engineer
-cwf agent enable scrum-master
+# List available agents
+taid agent list
 
-# Enable workflows
-cwf workflow enable sprint-planning
-cwf workflow enable backlog-grooming
+# Enable agents you need
+taid agent enable senior-engineer
+taid agent enable project-architect
+
+# Render all enabled agents to .claude/agents/
+taid agent render-all
+
+# Render workflows to .claude/commands/
+taid workflow render-all
+
+# Validate your setup
+taid validate
 ```
 
-### Run Your First Workflow
+### Use with Claude Code
 
+After rendering, use the slash commands in Claude Code:
+- `/sprint-planning` - Plan your sprint with multi-agent orchestration
+- `/daily-standup` - Generate daily standup reports
+- `/backlog-grooming` - Review and prioritize backlog items
+
+## Features
+
+### Multi-Agent System (12 Agents)
+
+| Agent | Description | Model |
+|-------|-------------|-------|
+| **business-analyst** | Requirements analysis, business value scoring | sonnet |
+| **project-architect** | Technical architecture, risk assessment | opus |
+| **security-specialist** | Security review, vulnerability analysis | sonnet |
+| **senior-engineer** | Task breakdown, estimation, code review | sonnet |
+| **software-developer** | Feature implementation, bug fixes | sonnet |
+| **qa-engineer** | Test planning, quality validation | sonnet |
+| **devops-developer** | CI/CD, infrastructure automation | sonnet |
+| **scrum-master** | Sprint coordination, workflow management | sonnet |
+| **project-manager** | Project planning, stakeholder communication | sonnet |
+| **general-engineer** | Cross-functional development tasks | sonnet |
+| **qa-tester** | Test execution, defect tracking | haiku |
+| **prototype-engineer** | Rapid prototyping, exploration | sonnet |
+
+### Workflow Templates
+
+- **sprint-planning** - Complete sprint planning automation
+- **sprint-execution** - Sprint progress monitoring
+- **sprint-completion** - Sprint closure and retrospectives
+- **sprint-retrospective** - Retrospective analysis
+- **backlog-grooming** - Backlog refinement
+- **daily-standup** - Daily standup reports
+- **dependency-management** - Dependency analysis and tracking
+- **workflow-resume** - Resume incomplete workflows from within Claude Code
+
+### State Management
+
+Workflows maintain state for re-entrancy:
+- Resume from last checkpoint on failure
+- Prevent duplicate work on retry
+- Track created work items
+- Persist errors with context
+
+**Resume from within Claude Code:**
+```
+/workflow-resume
+```
+
+This will:
+1. Scan for incomplete workflows
+2. Show status, progress, and age of each
+3. Let you select which to resume
+4. Automatically continue from the last checkpoint
+
+**Or use the CLI:**
 ```bash
-cwf run sprint-planning --sprint "Sprint 1" --capacity 40
+# View workflow states
+taid state list
+
+# Resume interrupted workflow (outputs instructions)
+taid state resume sprint-planning-sprint-10
 ```
 
-## Architecture
+### Skills System
 
-### Core Components
+Reusable capabilities for common tasks:
+- Azure DevOps operations (enhanced CLI, bulk operations)
+- Context loading and optimization
+- Learnings capture
+- Cross-repo coordination
 
-- **State Manager**: Tracks workflow execution state, enables checkpointing and resume
-- **Profiler**: Measures workflow performance and agent execution times
-- **Context Loader**: Intelligently loads relevant context to minimize token usage
-- **Orchestrator**: Coordinates agent execution and workflow steps
+### Learnings Capture
 
-### Adapters
-
-Platform-specific integrations:
-- **Azure DevOps**: Complete integration with work items, sprints, queries
-- **Jira** (planned): Issue tracking and sprint management
-- **GitHub Projects** (planned): Project boards and issues
-
-### Agent System
-
-Specialized AI agents with customizable prompts:
-- **Business Analyst**: Requirements analysis, prioritization, business value scoring
-- **Project Architect**: Technical architecture, risk assessment, technology decisions
-- **Security Specialist**: Security review, vulnerability analysis, threat modeling
-- **Senior Engineer**: Task breakdown, story point estimation, implementation planning
-- **Scrum Master**: Workflow coordination, sprint management, team facilitation
-
-### Template System
-
-All agents, workflows, and tasks use Jinja2 templates that can be customized for your:
-- Tech stack (Python, C#, Java, TypeScript, etc.)
-- Frameworks (FastAPI, .NET, Spring Boot, React, etc.)
-- Quality standards (test coverage, vulnerability thresholds, etc.)
-- Work item types and custom fields
+Capture institutional knowledge from development sessions:
+```bash
+taid learnings capture
+taid learnings list
+taid learnings archive
+```
 
 ## Configuration
 
@@ -110,29 +154,26 @@ project:
     languages: ["Python", "TypeScript"]
     frameworks: ["FastAPI", "React"]
     platforms: ["Azure", "Docker"]
+    databases: ["PostgreSQL"]
 
 work_tracking:
-  platform: "azure-devops"
+  platform: "azure-devops"  # or "file-based"
   organization: "https://dev.azure.com/yourorg"
   project: "Your Project"
-  credentials_source: "env:AZURE_DEVOPS_PAT"
+  credentials_source: "cli"  # uses 'az login'
 
   work_item_types:
     epic: "Epic"
     feature: "Feature"
+    story: "User Story"
     task: "Task"
     bug: "Bug"
-
-  custom_fields:
-    business_value: "Custom.BusinessValueScore"
-    technical_risk: "Custom.TechnicalRisk"
-
-  sprint_naming: "Sprint {number}"
 
 quality_standards:
   test_coverage_min: 80
   critical_vulnerabilities_max: 0
   high_vulnerabilities_max: 0
+  code_complexity_max: 10
 
 agent_config:
   models:
@@ -141,112 +182,101 @@ agent_config:
     analyst: "claude-sonnet-4.5"
 
   enabled_agents:
-    - business-analyst
-    - project-architect
     - senior-engineer
-    - scrum-master
+    - project-architect
+    - software-developer
+
+# Implementation tier affects quality expectations
+# tier-0: Exploration/prototype
+# tier-1: Intentful development (CI, tests)
+# tier-2: Production ready
+implementation_tier: "tier-0"
 ```
 
-## Available Workflows
-
-### Sprint Planning
-
-Automates the entire sprint planning process:
-1. Backlog analysis and prioritization
-2. Architecture review
-3. Security assessment
-4. Task breakdown and estimation
-5. Work item creation in Azure DevOps
-6. Sprint commitment and capacity planning
+## CLI Reference
 
 ```bash
-cwf run sprint-planning --sprint "Sprint 10" --capacity 40
+taid init              # Initialize TAID in your project
+taid validate          # Validate configuration
+taid doctor            # Health check and diagnostics
+taid status            # Overall status
+
+# Agent Management
+taid agent list        # List available agents
+taid agent enable <name>   # Enable an agent
+taid agent disable <name>  # Disable an agent
+taid agent render <name>   # Render specific agent
+taid agent render-all      # Render all enabled agents
+
+# Workflow Management
+taid workflow list         # List available workflows
+taid workflow render <name>    # Render specific workflow
+taid workflow render-all       # Render all workflows
+
+# State Management
+taid state list            # List workflow states
+taid state show <id>       # Show specific state
+taid state resume <id>     # Resume interrupted workflow
+taid state cleanup         # Clean up old state files
+
+# Context Management
+taid context index         # Build context index
+taid context show          # Show loaded contexts
+
+# Configuration
+taid configure azure-devops    # Configure Azure DevOps
+taid configure file-based      # Configure file-based tracking
+taid configure quality         # Configure quality standards
 ```
 
-### Backlog Grooming
+## Work Tracking Platforms
 
-Reviews and refines backlog items:
-1. Analyzes unrefined backlog items
-2. Assigns business value scores
-3. Identifies missing requirements
-4. Updates work items with findings
+### Azure DevOps
 
 ```bash
-cwf run backlog-grooming --limit 10
+# Configure Azure DevOps
+taid configure azure-devops
+
+# Ensure you've logged in
+az login
 ```
 
-### Sprint Execution
+### File-Based (Zero Dependency)
 
-Monitors sprint progress and creates daily reports:
-1. Checks work item status
-2. Identifies blockers
-3. Tracks velocity
-4. Generates burndown data
-
+For projects without external work tracking:
 ```bash
-cwf run sprint-execution --sprint "Sprint 10"
+taid configure file-based
 ```
 
-## Customization
+Tasks are stored in `.claude/tasks/` as YAML files.
 
-### Custom Agents
+## Architecture
 
-Create your own agent by adding a Jinja2 template:
-
-```bash
-cwf agent create my-custom-agent
+```
+.claude/
+  config.yaml           # Main configuration
+  agents/               # Rendered agent definitions
+  commands/             # Workflow slash commands
+  workflow-state/       # Execution state (re-entrancy)
+  profiling/            # Performance profiles
+  learnings/            # Session learnings
+  context/              # Context index
+  tasks/                # File-based task tracking
 ```
 
-Edit `.claude/agents/templates/my-custom-agent.j2`:
+### Hierarchical Context
 
-```jinja2
-# My Custom Agent
-
-## Role
-{{ role_description }}
-
-## Tech Stack Context
-{{ tech_stack_context }}
-
-## Responsibilities
-- {{ responsibility_1 }}
-- {{ responsibility_2 }}
-
-## Output Format
-{{ output_format }}
-```
-
-### Custom Workflows
-
-Create custom workflow templates:
-
-```bash
-cwf workflow create my-workflow
-```
-
-Edit `.claude/workflows/templates/my-workflow.j2` following the workflow DSL.
-
-## Examples
-
-See `examples/` directory for complete projects:
-- **python-fastapi**: FastAPI web application with Azure DevOps
-- **dotnet-webapi**: .NET Web API with Azure DevOps
-- **java-spring**: Spring Boot application with Jira
-
-## Documentation
-
-- [Getting Started](docs/getting-started.md)
-- [Configuration Reference](docs/configuration.md)
-- [Agent Customization](docs/agent-customization.md)
-- [Workflow Creation](docs/workflow-creation.md)
-- [Best Practices](docs/best-practices.md)
+TAID uses hierarchical CLAUDE.md files to provide maximal context with minimal tokens:
+- Root CLAUDE.md for project overview
+- Module-level CLAUDE.md for specific areas
+- Auto-generated context index for smart loading
 
 ## Development
 
 ```bash
 # Clone repository
-git clone https://github.com/keychain/claude-workflow-framework
-cd claude-workflow-framework
+git clone https://github.com/trusted-ai-dev/trusted-ai-dev
+cd trusted-ai-dev
 
 # Install for development
 pip install -e ".[dev]"
@@ -255,20 +285,21 @@ pip install -e ".[dev]"
 pytest
 
 # Code quality
-black .
-ruff .
-mypy .
+black . && ruff . && mypy .
 ```
+
+## Requirements
+
+- Python 3.9+
+- Claude Code account
+- Azure CLI (for Azure DevOps integration)
 
 ## License
 
 MIT License - see LICENSE file for details.
 
-## Contributing
+## Links
 
-Contributions welcome! Please see CONTRIBUTING.md for guidelines.
-
-## Support
-
-- Issues: https://github.com/keychain/claude-workflow-framework/issues
-- Discussions: https://github.com/keychain/claude-workflow-framework/discussions
+- Documentation: https://trusted-ai-dev.github.io
+- Issues: https://github.com/trusted-ai-dev/trusted-ai-dev/issues
+- PyPI: https://pypi.org/project/trusted-ai-dev/

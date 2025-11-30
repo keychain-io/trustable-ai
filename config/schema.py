@@ -1,5 +1,5 @@
 """
-Configuration schema for Claude Workflow Framework.
+Configuration schema for Trusted AI Development (TAID).
 
 Defines Pydantic models for type-safe configuration validation.
 """
@@ -47,14 +47,26 @@ class WorkTrackingConfig(BaseModel):
     """Work tracking platform configuration."""
 
     platform: str = Field(
-        default="azure-devops",
-        description="Work tracking platform (azure-devops, jira, github-projects)"
+        default="file-based",
+        description="Work tracking platform (azure-devops, jira, github-projects, file-based)"
     )
-    organization: str = Field(..., description="Organization URL or name")
-    project: str = Field(..., description="Project name")
+    organization: Optional[str] = Field(
+        default=None,
+        description="Organization URL or name (required for cloud platforms)"
+    )
+    project: Optional[str] = Field(
+        default=None,
+        description="Project name"
+    )
     credentials_source: str = Field(
         default="cli",
         description="Credentials source (cli, env:VAR_NAME, file:path)"
+    )
+
+    # File-based storage configuration
+    work_items_directory: str = Field(
+        default=".claude/work-items",
+        description="Directory for file-based work items (file-based platform only)"
     )
 
     # Work item type mappings
@@ -89,7 +101,7 @@ class WorkTrackingConfig(BaseModel):
     @classmethod
     def validate_platform(cls, v: str) -> str:
         """Validate work tracking platform."""
-        valid_platforms = {"azure-devops", "jira", "github-projects"}
+        valid_platforms = {"azure-devops", "jira", "github-projects", "file-based"}
         if v not in valid_platforms:
             raise ValueError(f"Platform must be one of: {', '.join(valid_platforms)}")
         return v
@@ -160,19 +172,46 @@ class AgentConfig(BaseModel):
             "analyst": "claude-sonnet-4.5",
             "security": "claude-sonnet-4.5",
             "scrum-master": "claude-sonnet-4.5",
+            "qa": "claude-sonnet-4.5",
+            "devops": "claude-sonnet-4.5",
+            "ux": "claude-sonnet-4.5",
+            "writer": "claude-sonnet-4.5",
+            "reviewer": "claude-sonnet-4.5",
+            "release": "claude-sonnet-4.5",
+            "performance": "claude-sonnet-4.5",
         },
         description="Claude model selection for each agent type"
     )
 
-    # Enabled agents
+    # Enabled agents (default core team)
     enabled_agents: List[str] = Field(
         default_factory=lambda: [
             "business-analyst",
             "project-architect",
             "senior-engineer",
             "scrum-master",
+            "security-specialist",
         ],
         description="List of enabled agents"
+    )
+
+    # All available agents for reference
+    available_agents: List[str] = Field(
+        default_factory=lambda: [
+            "business-analyst",
+            "project-architect",
+            "senior-engineer",
+            "scrum-master",
+            "security-specialist",
+            "qa-engineer",
+            "devops-engineer",
+            "ux-designer",
+            "technical-writer",
+            "code-reviewer",
+            "release-manager",
+            "performance-engineer",
+        ],
+        description="All available agent templates"
     )
 
     # Agent-specific configurations

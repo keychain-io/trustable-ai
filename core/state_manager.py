@@ -295,6 +295,68 @@ def load_workflow_state(workflow_name: str, workflow_id: str) -> Optional[Workfl
     return None
 
 
+def list_incomplete_workflows() -> List[Dict[str, Any]]:
+    """
+    List all incomplete (in_progress or failed) workflow states with metadata.
+
+    Returns:
+        List of workflow info dictionaries, sorted by most recently updated
+    """
+    state_dir = Path(".claude/workflow-state")
+    if not state_dir.exists():
+        return []
+
+    incomplete = []
+
+    for state_file in state_dir.glob("*.json"):
+        try:
+            state = json.loads(state_file.read_text())
+
+            # Only include incomplete workflows
+            if state.get("status") in ["in_progress", "failed"]:
+                started_at = datetime.fromisoformat(state["started_at"])
+                updated_at = datetime.fromisoformat(state.get("updated_at", state["started_at"]))
+
+                # Calculate age
+                age = datetime.now() - updated_at
+                if age.days > 0:
+                    age_str = f"{age.days} day(s) ago"
+                elif age.seconds > 3600:
+                    age_str = f"{age.seconds // 3600} hour(s) ago"
+                else:
+                    age_str = f"{age.seconds // 60} minute(s) ago"
+
+                # Get current/last step
+                current_step = state.get("current_step", {}).get("name") if state.get("current_step") else None
+                completed_steps = [s["name"] for s in state.get("completed_steps", [])]
+
+                incomplete.append({
+                    "file": state_file.name,
+                    "file_path": str(state_file),
+                    "workflow_name": state.get("workflow_name"),
+                    "workflow_id": state.get("workflow_id"),
+                    "status": state.get("status"),
+                    "current_step": current_step,
+                    "completed_steps": completed_steps,
+                    "completed_step_count": len(completed_steps),
+                    "age": age_str,
+                    "started_at": started_at.strftime("%Y-%m-%d %H:%M"),
+                    "updated_at": updated_at.strftime("%Y-%m-%d %H:%M"),
+                    "work_items_created": len(state.get("created_work_items", [])),
+                    "error_count": len(state.get("errors", [])),
+                    "metadata": state.get("metadata", {}),
+                    "failure_reason": state.get("failure_reason"),
+                })
+        except Exception as e:
+            # Skip files that can't be parsed
+            continue
+
+    # Sort by most recently updated
+    incomplete.sort(key=lambda x: x["updated_at"], reverse=True)
+
+    return incomplete
+
+
 def cleanup_old_states(days: int = 30) -> int:
     """
     Clean up workflow state files older than specified days.

@@ -11,7 +11,7 @@ from workflows import WorkflowRegistry
 
 @click.group(name="workflow")
 def workflow_command():
-    """Manage workflows."""
+    """Manage workflows (render templates for use with Claude Code)."""
     pass
 
 
@@ -32,7 +32,7 @@ def list_workflows():
 
     except FileNotFoundError as e:
         click.echo(f"❌ Error: {e}")
-        click.echo("Run 'cwf init' to initialize the framework.")
+        click.echo("Run 'taid init' to initialize the framework.")
 
 
 @workflow_command.command(name="render")
@@ -96,7 +96,13 @@ def render_all_workflows(output_dir: str):
 @click.argument("workflow_name")
 @click.option("--dry-run", is_flag=True, help="Show workflow without executing")
 def run_workflow(workflow_name: str, dry_run: bool):
-    """Run a workflow (placeholder)."""
+    """
+    Run a workflow (NOT YET IMPLEMENTED - use 'render' instead).
+
+    Automatic workflow execution is planned for a future release.
+    Currently, use 'taid workflow render' to generate workflow instructions
+    that you can provide to Claude Code manually.
+    """
     click.echo(f"\n🚀 Running workflow: {workflow_name}")
 
     if dry_run:
@@ -113,5 +119,9 @@ def run_workflow(workflow_name: str, dry_run: bool):
         except Exception as e:
             click.echo(f"❌ Error: {e}")
     else:
-        click.echo("\nWorkflow execution engine will be available in next version.")
-        click.echo("For now, use 'cwf workflow render' to generate workflow scripts.\n")
+        click.echo("\n⚠️  Workflow execution engine is not yet implemented.")
+        click.echo("\n📝 To use this workflow:")
+        click.echo(f"   1. Render it: taid workflow render {workflow_name} --show")
+        click.echo("   2. Copy the instructions")
+        click.echo("   3. Provide them to Claude Code\n")
+        click.echo("Automatic execution will be available in a future release.\n")

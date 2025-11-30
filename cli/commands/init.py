@@ -1,5 +1,5 @@
 """
-Initialize command - sets up Claude Workflow Framework in a project.
+Initialize command - sets up Trusted AI Development (TAID) in a project.
 """
 import click
 from pathlib import Path
@@ -29,9 +29,9 @@ def init_command(
     interactive: bool,
     config_path: Optional[str],
 ):
-    """Initialize Claude Workflow Framework in your project."""
+    """Initialize Trusted AI Development in your project."""
 
-    click.echo("\n🚀 Initializing Claude Workflow Framework\n")
+    click.echo("\n🚀 Initializing Trusted AI Development (TAID)\n")
 
     # Determine config path
     if config_path:
@@ -136,10 +136,10 @@ def init_command(
     click.echo("\n✅ Initialization complete!\n")
     click.echo("Next steps:")
     click.echo(f"  1. Review configuration: {config_file}")
-    click.echo(f"  2. Configure work tracking: cwf configure {platform}")
-    click.echo("  3. Enable agents: cwf agent enable business-analyst")
-    click.echo("  4. Enable workflows: cwf workflow enable sprint-planning")
-    click.echo("  5. Validate setup: cwf validate\n")
+    click.echo(f"  2. Configure work tracking: taid configure {platform}")
+    click.echo("  3. Enable agents: taid agent enable business-analyst")
+    click.echo("  4. Render agents: taid agent render-all")
+    click.echo("  5. Validate setup: taid validate\n")
 
 
 def _create_gitignore(claude_dir: Path) -> None:
@@ -164,22 +164,28 @@ def _create_readme(claude_dir: Path, project_name: str) -> None:
     readme_file = claude_dir / "README.md"
 
     if not readme_file.exists():
-        content = f"""# Claude Workflow Automation
+        content = f"""# Trusted AI Development (TAID)
 
-This directory contains workflow automation configuration for **{project_name}**.
+This directory contains AI-assisted workflow automation configuration for **{project_name}**.
 
 ## Directory Structure
 
 - `config.yaml` - Main configuration file
 - `agents/` - Rendered agent definitions
-- `commands/` - Workflow command scripts
+- `commands/` - Workflow slash commands
 - `workflow-state/` - Workflow execution state
 - `profiling/` - Workflow performance profiles
 - `learnings/` - Session learnings and patterns
 
-## Usage
+## Quick Commands
 
-See the main project README for usage instructions.
+```bash
+taid agent list         # List available agents
+taid agent render-all   # Render agents to .claude/agents/
+taid workflow list      # List available workflows
+taid workflow render-all # Render workflows to .claude/commands/
+taid validate           # Validate configuration
+```
 
 ## Configuration
 
