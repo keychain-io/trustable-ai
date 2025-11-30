@@ -1,0 +1,18 @@
+# Qa Engineer Agent Invocation
+
+Read the agent definition from `.claude/agents/qa-engineer.md` and invoke it as a separate agent using the Task tool.
+
+**Important:** This agent should be spawned with:
+- Model: Sonnet 4.5
+- Fresh context window
+- Extended thinking enabled (the agent definition includes this guidance)
+
+## Instructions
+
+1. Read the full agent definition from `.claude/agents/qa-engineer.md`
+2. Combine it with the user's specific request
+3. Invoke using the Task tool with `model="sonnet"` and `subagent_type="general-purpose"`
+4. The agent will execute in a fresh context window with its own token budget
+5. Return the agent's analysis to the user
+
+Pass the user's request to the Qa Engineer agent now.

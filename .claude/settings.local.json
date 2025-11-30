@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip:*)",
+      "Bash(echo:*)",
+      "Bash(python3:*)",
+      "Bash(source venv/bin/activate)",
+      "Bash(source:*)",
+      "Bash(cwf workflow --help:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(cat:*)",
+      "Bash(python:*)",
+      "Bash(xargs:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git rm:*)",
+      "Bash(rm:*)",
+      "Bash(taid --help:*)",
+      "Bash(taid agent render:*)",
+      "Bash(taid agent render-commands)",
+      "Bash(taid context generate:*)",
+      "Bash(find:*)",
+      "Bash(taid init --help:*)",
+      "Bash(taid context --help:*)",
+      "Bash(taid context directed:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

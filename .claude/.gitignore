@@ -1,0 +1,8 @@
+# Workflow state files
+workflow-state/*.json
+
+# Profiling reports
+profiling/*.json
+
+# Session logs
+*.log

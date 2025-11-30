@@ -1,0 +1,1490 @@
+context_files:
+- keywords:
+  - taid
+  - workflow
+  - claude
+  - agent
+  - state
+  - azure
+  - tests
+  - workflows
+  - context
+  - configuration
+  - project
+  - agents
+  - pytest
+  - management
+  - test
+  - templates
+  - work
+  - devops
+  - cli
+  - render
+  path: CLAUDE.md
+  size: 12520
+  type: claude_md
+- keywords:
+  - guidelines
+  - claude
+  - purpose
+  - contains
+  - claude_config
+  - code
+  - structure
+  - readme
+  - agents
+  - commands
+  - config
+  - yaml
+  - learnings
+  - profiling
+  - settings
+  - local
+  - json
+  - workflow-state
+  - todo
+  - add
+  path: .claude/CLAUDE.md
+  size: 258
+  type: claude_md
+- keywords:
+  - guidelines
+  - azure_devops
+  - purpose
+  - application
+  - module
+  - structure
+  - bulk_operations
+  - cli_wrapper
+  - field_mapper
+  - type_mapper
+  - todo
+  - add
+  - specific
+  - directory
+  path: adapters/azure_devops/CLAUDE.md
+  size: 226
+  type: claude_md
+- keywords:
+  - guidelines
+  - agents
+  - purpose
+  - application
+  - module
+  - structure
+  - registry
+  - templates
+  - todo
+  - add
+  - specific
+  - directory
+  path: agents/CLAUDE.md
+  size: 169
+  type: claude_md
+- keywords:
+  - guidelines
+  - cli
+  - purpose
+  - application
+  - module
+  - structure
+  - commands
+  - main
+  - todo
+  - add
+  - specific
+  - directory
+  path: cli/CLAUDE.md
+  size: 161
+  type: claude_md
+- keywords:
+  - guidelines
+  - commands
+  - purpose
+  - application
+  - module
+  - structure
+  - agent
+  - configure
+  - context
+  - doctor
+  - init
+  - learnings
+  - skill
+  - status
+  - validate
+  - workflow
+  - todo
+  - add
+  - specific
+  - directory
+  path: cli/commands/CLAUDE.md
+  size: 288
+  type: claude_md
+- keywords:
+  - guidelines
+  - config
+  - purpose
+  - configuration
+  - files
+  - structure
+  - defaults
+  - loader
+  - schema
+  - todo
+  - add
+  - specific
+  - directory
+  path: config/CLAUDE.md
+  size: 181
+  type: claude_md
+- keywords:
+  - core
+  - guidelines
+  - purpose
+  - contains
+  - code
+  - structure
+  - context_loader
+  - optimized_loader
+  - profiler
+  - state_manager
+  - todo
+  - add
+  - specific
+  - directory
+  path: core/CLAUDE.md
+  size: 220
+  type: claude_md
+- keywords:
+  - guidelines
+  - docs
+  - purpose
+  - project
+  - documentation
+  - structure
+  - quickstart
+  - todo
+  - add
+  - specific
+  - directory
+  path: docs/CLAUDE.md
+  size: 142
+  type: claude_md
+- keywords:
+  - guidelines
+  - skills
+  - purpose
+  - application
+  - module
+  - structure
+  - azure_devops
+  - base
+  - context
+  - coordination
+  - learnings
+  - registry
+  - workflow
+  - todo
+  - add
+  - specific
+  - directory
+  path: skills/CLAUDE.md
+  size: 240
+  type: claude_md
+- keywords:
+  - guidelines
+  - azure_devops
+  - purpose
+  - application
+  - module
+  - structure
+  - cli_wrapper
+  - todo
+  - add
+  - specific
+  - directory
+  path: skills/azure_devops/CLAUDE.md
+  size: 164
+  type: claude_md
+- keywords:
+  - deployment
+  - guidelines
+  - purpose
+  - contains
+  - code
+  - structure
+  - empty
+  - todo
+  - add
+  - specific
+  - directory
+  path: templates/deployment/CLAUDE.md
+  size: 143
+  type: claude_md
+- keywords:
+  - test
+  - tests
+  - fixtures
+  - python
+  - purpose
+  - directory
+  - contains
+  - project
+  - structure
+  - conftest
+  - integration
+  - unit
+  - running
+  - bash
+  - todo
+  - add
+  - commands
+  - pytest
+  - npm
+  - node
+  path: tests/CLAUDE.md
+  size: 457
+  type: claude_md
+- keywords:
+  - guidelines
+  - integration
+  - purpose
+  - application
+  - module
+  - structure
+  - test_cli_agent
+  - test_cli_init
+  - test_cli_validate
+  - test_cli_workflow
+  - test_context_generation
+  - todo
+  - add
+  - specific
+  - directory
+  path: tests/integration/CLAUDE.md
+  size: 268
+  type: claude_md
+- keywords:
+  - guidelines
+  - unit
+  - purpose
+  - application
+  - module
+  - structure
+  - test_agent_registry
+  - test_configuration
+  - test_mappers
+  - test_workflow_registry
+  - todo
+  - add
+  - specific
+  - directory
+  path: tests/unit/CLAUDE.md
+  size: 240
+  type: claude_md
+- keywords:
+  - guidelines
+  - workflows
+  - purpose
+  - application
+  - module
+  - structure
+  - registry
+  - templates
+  - todo
+  - add
+  - specific
+  - directory
+  path: workflows/CLAUDE.md
+  size: 172
+  type: claude_md
+generated_at: '2025-11-30T20:02:55.376099'
+keywords:
+  abstraction:
+  - CLAUDE.md
+  across:
+  - CLAUDE.md
+  adapt:
+  - CLAUDE.md
+  adapter:
+  - CLAUDE.md
+  adapters:
+  - CLAUDE.md
+  add:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  - adapters/azure_devops/CLAUDE.md
+  - agents/CLAUDE.md
+  - cli/CLAUDE.md
+  - cli/commands/CLAUDE.md
+  - config/CLAUDE.md
+  - core/CLAUDE.md
+  - docs/CLAUDE.md
+  - skills/CLAUDE.md
+  - skills/azure_devops/CLAUDE.md
+  - templates/deployment/CLAUDE.md
+  - tests/CLAUDE.md
+  - tests/integration/CLAUDE.md
+  - tests/unit/CLAUDE.md
+  - workflows/CLAUDE.md
+  adding:
+  - CLAUDE.md
+  adjust:
+  - CLAUDE.md
+  against:
+  - CLAUDE.md
+  agent:
+  - CLAUDE.md
+  - cli/commands/CLAUDE.md
+  agent-name:
+  - CLAUDE.md
+  agent_config:
+  - CLAUDE.md
+  agentconfig:
+  - CLAUDE.md
+  agents:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  - agents/CLAUDE.md
+  ai-assisted:
+  - CLAUDE.md
+  aim:
+  - tests/CLAUDE.md
+  allows:
+  - CLAUDE.md
+  analysis:
+  - CLAUDE.md
+  analyst:
+  - CLAUDE.md
+  analytics:
+  - CLAUDE.md
+  any:
+  - CLAUDE.md
+  api:
+  - CLAUDE.md
+  application:
+  - adapters/azure_devops/CLAUDE.md
+  - agents/CLAUDE.md
+  - cli/CLAUDE.md
+  - cli/commands/CLAUDE.md
+  - skills/CLAUDE.md
+  - skills/azure_devops/CLAUDE.md
+  - tests/integration/CLAUDE.md
+  - tests/unit/CLAUDE.md
+  - workflows/CLAUDE.md
+  architect:
+  - CLAUDE.md
+  architecture:
+  - CLAUDE.md
+  assessment:
+  - CLAUDE.md
+  automation:
+  - CLAUDE.md
+  available:
+  - CLAUDE.md
+  azure:
+  - CLAUDE.md
+  azure-devops:
+  - CLAUDE.md
+  azure_devops:
+  - CLAUDE.md
+  - adapters/azure_devops/CLAUDE.md
+  - skills/CLAUDE.md
+  - skills/azure_devops/CLAUDE.md
+  backlog:
+  - CLAUDE.md
+  backlog-grooming:
+  - CLAUDE.md
+  base:
+  - skills/CLAUDE.md
+  based:
+  - CLAUDE.md
+  bash:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  black:
+  - CLAUDE.md
+  breakdown:
+  - CLAUDE.md
+  budget:
+  - CLAUDE.md
+  budgets:
+  - CLAUDE.md
+  bug:
+  - CLAUDE.md
+  build:
+  - CLAUDE.md
+  bulk:
+  - CLAUDE.md
+  bulk_operations:
+  - CLAUDE.md
+  - adapters/azure_devops/CLAUDE.md
+  business-analyst:
+  - CLAUDE.md
+  business_value:
+  - CLAUDE.md
+  businessvaluescore:
+  - CLAUDE.md
+  caching:
+  - CLAUDE.md
+  calls:
+  - CLAUDE.md
+  capabilities:
+  - CLAUDE.md
+  capture:
+  - CLAUDE.md
+  categories:
+  - CLAUDE.md
+  changing:
+  - CLAUDE.md
+  check:
+  - CLAUDE.md
+  checking:
+  - CLAUDE.md
+  checkpoint:
+  - CLAUDE.md
+  checkpointing:
+  - CLAUDE.md
+  checkpoints:
+  - CLAUDE.md
+  checks:
+  - CLAUDE.md
+  claude:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  claude-opus-4:
+  - CLAUDE.md
+  claude-sonnet-4:
+  - CLAUDE.md
+  claude_config:
+  - .claude/CLAUDE.md
+  clean:
+  - CLAUDE.md
+  cleanup:
+  - CLAUDE.md
+  cli:
+  - CLAUDE.md
+  - cli/CLAUDE.md
+  cli-tool:
+  - CLAUDE.md
+  cli_wrapper:
+  - CLAUDE.md
+  - adapters/azure_devops/CLAUDE.md
+  - skills/azure_devops/CLAUDE.md
+  click:
+  - CLAUDE.md
+  closure:
+  - CLAUDE.md
+  code:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  - core/CLAUDE.md
+  - templates/deployment/CLAUDE.md
+  code_complexity_max:
+  - CLAUDE.md
+  collecting:
+  - CLAUDE.md
+  com:
+  - CLAUDE.md
+  command:
+  - CLAUDE.md
+  commands:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  - cli/CLAUDE.md
+  - cli/commands/CLAUDE.md
+  - tests/CLAUDE.md
+  common:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  complete:
+  - CLAUDE.md
+  completed:
+  - CLAUDE.md
+  complexity:
+  - CLAUDE.md
+  components:
+  - CLAUDE.md
+  config:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  - config/CLAUDE.md
+  configuration:
+  - CLAUDE.md
+  - config/CLAUDE.md
+  configure:
+  - CLAUDE.md
+  - cli/commands/CLAUDE.md
+  configured:
+  - CLAUDE.md
+  conftest:
+  - tests/CLAUDE.md
+  contains:
+  - .claude/CLAUDE.md
+  - core/CLAUDE.md
+  - templates/deployment/CLAUDE.md
+  - tests/CLAUDE.md
+  context:
+  - CLAUDE.md
+  - cli/commands/CLAUDE.md
+  - skills/CLAUDE.md
+  context-index:
+  - CLAUDE.md
+  context_loader:
+  - CLAUDE.md
+  - core/CLAUDE.md
+  coordination:
+  - CLAUDE.md
+  - skills/CLAUDE.md
+  copied:
+  - CLAUDE.md
+  core:
+  - CLAUDE.md
+  - core/CLAUDE.md
+  cov-report:
+  - CLAUDE.md
+  coverage:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  create:
+  - CLAUDE.md
+  credentials:
+  - CLAUDE.md
+  credentials_source:
+  - CLAUDE.md
+  critical:
+  - CLAUDE.md
+  critical_vulnerabilities_max:
+  - CLAUDE.md
+  cross-functional:
+  - CLAUDE.md
+  crud:
+  - CLAUDE.md
+  current:
+  - CLAUDE.md
+  custom:
+  - CLAUDE.md
+  custom_fields:
+  - CLAUDE.md
+  customization:
+  - CLAUDE.md
+  customize:
+  - CLAUDE.md
+  daily:
+  - CLAUDE.md
+  daily-standup:
+  - CLAUDE.md
+  data:
+  - CLAUDE.md
+  databases:
+  - CLAUDE.md
+  debug:
+  - CLAUDE.md
+  debugging:
+  - CLAUDE.md
+  default:
+  - CLAUDE.md
+  defaults:
+  - config/CLAUDE.md
+  define:
+  - CLAUDE.md
+  dependencies:
+  - CLAUDE.md
+  dependency:
+  - CLAUDE.md
+  dependency-management:
+  - CLAUDE.md
+  deployment:
+  - CLAUDE.md
+  - templates/deployment/CLAUDE.md
+  deploymentconfig:
+  - CLAUDE.md
+  design:
+  - CLAUDE.md
+  details:
+  - CLAUDE.md
+  dev:
+  - CLAUDE.md
+  development:
+  - CLAUDE.md
+  devops:
+  - CLAUDE.md
+  devops-developer:
+  - CLAUDE.md
+  different:
+  - CLAUDE.md
+  directories:
+  - CLAUDE.md
+  directory:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  - adapters/azure_devops/CLAUDE.md
+  - agents/CLAUDE.md
+  - cli/CLAUDE.md
+  - cli/commands/CLAUDE.md
+  - config/CLAUDE.md
+  - core/CLAUDE.md
+  - docs/CLAUDE.md
+  - skills/CLAUDE.md
+  - skills/azure_devops/CLAUDE.md
+  - templates/deployment/CLAUDE.md
+  - tests/CLAUDE.md
+  - tests/integration/CLAUDE.md
+  - tests/unit/CLAUDE.md
+  - workflows/CLAUDE.md
+  disable:
+  - CLAUDE.md
+  disk:
+  - CLAUDE.md
+  docker:
+  - CLAUDE.md
+  docs:
+  - docs/CLAUDE.md
+  doctor:
+  - CLAUDE.md
+  - cli/commands/CLAUDE.md
+  documentation:
+  - docs/CLAUDE.md
+  easy:
+  - CLAUDE.md
+  editing:
+  - CLAUDE.md
+  efficiency:
+  - CLAUDE.md
+  efficient:
+  - CLAUDE.md
+  empty:
+  - templates/deployment/CLAUDE.md
+  enable:
+  - CLAUDE.md
+  enabled:
+  - CLAUDE.md
+  enabled_agents:
+  - CLAUDE.md
+  enables:
+  - CLAUDE.md
+  enforced:
+  - CLAUDE.md
+  engineer:
+  - CLAUDE.md
+  engineering:
+  - CLAUDE.md
+  ensure:
+  - CLAUDE.md
+  env:
+  - CLAUDE.md
+  environment:
+  - CLAUDE.md
+  epic:
+  - CLAUDE.md
+  estimation:
+  - CLAUDE.md
+  etc:
+  - CLAUDE.md
+  execution:
+  - CLAUDE.md
+  exist:
+  - CLAUDE.md
+  existing:
+  - tests/CLAUDE.md
+  expects:
+  - CLAUDE.md
+  extensibility:
+  - CLAUDE.md
+  external:
+  - CLAUDE.md
+  failure:
+  - CLAUDE.md
+  failures:
+  - CLAUDE.md
+  fast:
+  - CLAUDE.md
+  fastapi:
+  - CLAUDE.md
+  feature:
+  - CLAUDE.md
+  featuring:
+  - CLAUDE.md
+  field:
+  - CLAUDE.md
+  field_mapper:
+  - CLAUDE.md
+  - adapters/azure_devops/CLAUDE.md
+  fields:
+  - CLAUDE.md
+  file:
+  - CLAUDE.md
+  file-based:
+  - CLAUDE.md
+  files:
+  - CLAUDE.md
+  - config/CLAUDE.md
+  - tests/CLAUDE.md
+  find:
+  - CLAUDE.md
+  fixes:
+  - CLAUDE.md
+  fixtures:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  flow:
+  - CLAUDE.md
+  follow:
+  - tests/CLAUDE.md
+  follows:
+  - CLAUDE.md
+  format:
+  - CLAUDE.md
+  framework:
+  - CLAUDE.md
+  frameworks:
+  - CLAUDE.md
+  full:
+  - CLAUDE.md
+  functions:
+  - CLAUDE.md
+  general-engineer:
+  - CLAUDE.md
+  generates:
+  - CLAUDE.md
+  generic:
+  - CLAUDE.md
+  github:
+  - CLAUDE.md
+  guidance:
+  - CLAUDE.md
+  guidelines:
+  - .claude/CLAUDE.md
+  - adapters/azure_devops/CLAUDE.md
+  - agents/CLAUDE.md
+  - cli/CLAUDE.md
+  - cli/commands/CLAUDE.md
+  - config/CLAUDE.md
+  - core/CLAUDE.md
+  - docs/CLAUDE.md
+  - skills/CLAUDE.md
+  - skills/azure_devops/CLAUDE.md
+  - templates/deployment/CLAUDE.md
+  - tests/integration/CLAUDE.md
+  - tests/unit/CLAUDE.md
+  - workflows/CLAUDE.md
+  handle:
+  - CLAUDE.md
+  health:
+  - CLAUDE.md
+  hierarchical:
+  - CLAUDE.md
+  high_vulnerabilities_max:
+  - CLAUDE.md
+  htmlcov:
+  - CLAUDE.md
+  https:
+  - CLAUDE.md
+  implement:
+  - CLAUDE.md
+  implementation:
+  - CLAUDE.md
+  implementing:
+  - CLAUDE.md
+  implements:
+  - CLAUDE.md
+  important:
+  - CLAUDE.md
+  include:
+  - CLAUDE.md
+  incomplete:
+  - CLAUDE.md
+  individual:
+  - CLAUDE.md
+  infrastructure:
+  - CLAUDE.md
+  init:
+  - CLAUDE.md
+  - cli/commands/CLAUDE.md
+  initialization:
+  - CLAUDE.md
+  initialize:
+  - CLAUDE.md
+  injected:
+  - CLAUDE.md
+  injection:
+  - CLAUDE.md
+  injects:
+  - CLAUDE.md
+  install:
+  - CLAUDE.md
+  installation:
+  - CLAUDE.md
+  instructions:
+  - CLAUDE.md
+  integrates:
+  - CLAUDE.md
+  integration:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  - tests/integration/CLAUDE.md
+  intelligent:
+  - CLAUDE.md
+  interface:
+  - CLAUDE.md
+  interrupted:
+  - CLAUDE.md
+  issues:
+  - CLAUDE.md
+  item:
+  - CLAUDE.md
+  items:
+  - CLAUDE.md
+  iteration_format:
+  - CLAUDE.md
+  jinja2:
+  - CLAUDE.md
+  jira:
+  - CLAUDE.md
+  json:
+  - .claude/CLAUDE.md
+  key:
+  - CLAUDE.md
+  keyword-based:
+  - CLAUDE.md
+  languages:
+  - CLAUDE.md
+  last:
+  - CLAUDE.md
+  learnings:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  - cli/commands/CLAUDE.md
+  - skills/CLAUDE.md
+  levels:
+  - CLAUDE.md
+  library:
+  - CLAUDE.md
+  lifecycle:
+  - CLAUDE.md
+  limits:
+  - CLAUDE.md
+  lines:
+  - CLAUDE.md
+  lint:
+  - CLAUDE.md
+  list:
+  - CLAUDE.md
+  load:
+  - CLAUDE.md
+  loader:
+  - CLAUDE.md
+  - config/CLAUDE.md
+  loaders:
+  - CLAUDE.md
+  loading:
+  - CLAUDE.md
+  loads:
+  - CLAUDE.md
+  local:
+  - .claude/CLAUDE.md
+  logging:
+  - CLAUDE.md
+  logic:
+  - CLAUDE.md
+  login:
+  - CLAUDE.md
+  long-running:
+  - CLAUDE.md
+  lookups:
+  - CLAUDE.md
+  main:
+  - cli/CLAUDE.md
+  manage:
+  - CLAUDE.md
+  management:
+  - CLAUDE.md
+  manager:
+  - CLAUDE.md
+  manages:
+  - CLAUDE.md
+  map:
+  - CLAUDE.md
+  mapping:
+  - CLAUDE.md
+  mappings:
+  - CLAUDE.md
+  maps:
+  - CLAUDE.md
+  mark:
+  - CLAUDE.md
+  markers:
+  - CLAUDE.md
+  matches:
+  - CLAUDE.md
+  max_tokens:
+  - CLAUDE.md
+  meaningful:
+  - tests/CLAUDE.md
+  measures:
+  - CLAUDE.md
+  minimum:
+  - CLAUDE.md
+  mock:
+  - CLAUDE.md
+  models:
+  - CLAUDE.md
+  module:
+  - adapters/azure_devops/CLAUDE.md
+  - agents/CLAUDE.md
+  - cli/CLAUDE.md
+  - cli/commands/CLAUDE.md
+  - skills/CLAUDE.md
+  - skills/azure_devops/CLAUDE.md
+  - tests/integration/CLAUDE.md
+  - tests/unit/CLAUDE.md
+  - workflows/CLAUDE.md
+  monitoring:
+  - CLAUDE.md
+  multi-agent:
+  - CLAUDE.md
+  multiple:
+  - CLAUDE.md
+  mypy:
+  - CLAUDE.md
+  name:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  names:
+  - CLAUDE.md
+  needs:
+  - CLAUDE.md
+  new:
+  - CLAUDE.md
+  no-cov:
+  - CLAUDE.md
+  node:
+  - tests/CLAUDE.md
+  notes:
+  - CLAUDE.md
+  npm:
+  - tests/CLAUDE.md
+  number:
+  - CLAUDE.md
+  old:
+  - CLAUDE.md
+  operations:
+  - CLAUDE.md
+  optimization:
+  - CLAUDE.md
+  optimized_loader:
+  - CLAUDE.md
+  - core/CLAUDE.md
+  optimizing:
+  - CLAUDE.md
+  optional:
+  - CLAUDE.md
+  opus:
+  - CLAUDE.md
+  orchestration:
+  - CLAUDE.md
+  organization:
+  - CLAUDE.md
+  overview:
+  - CLAUDE.md
+  parameter:
+  - CLAUDE.md
+  patterns:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  performance:
+  - CLAUDE.md
+  periodically:
+  - CLAUDE.md
+  persist:
+  - CLAUDE.md
+  persisted:
+  - CLAUDE.md
+  persistence:
+  - CLAUDE.md
+  persists:
+  - CLAUDE.md
+  pip:
+  - CLAUDE.md
+  place:
+  - CLAUDE.md
+  planning:
+  - CLAUDE.md
+  platform:
+  - CLAUDE.md
+  platform-specific:
+  - CLAUDE.md
+  platforms:
+  - CLAUDE.md
+  point:
+  - CLAUDE.md
+  postgresql:
+  - CLAUDE.md
+  pre-defined:
+  - CLAUDE.md
+  prefix:
+  - tests/CLAUDE.md
+  prioritization:
+  - CLAUDE.md
+  production:
+  - CLAUDE.md
+  profiler:
+  - CLAUDE.md
+  - core/CLAUDE.md
+  profiling:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  progress:
+  - CLAUDE.md
+  project:
+  - CLAUDE.md
+  - docs/CLAUDE.md
+  - tests/CLAUDE.md
+  project-architect:
+  - CLAUDE.md
+  project-manager:
+  - CLAUDE.md
+  project-specific:
+  - CLAUDE.md
+  projectconfig:
+  - CLAUDE.md
+  projects:
+  - CLAUDE.md
+  prompts:
+  - CLAUDE.md
+  prototype-engineer:
+  - CLAUDE.md
+  prototyping:
+  - CLAUDE.md
+  provides:
+  - CLAUDE.md
+  pruner:
+  - CLAUDE.md
+  purpose:
+  - .claude/CLAUDE.md
+  - adapters/azure_devops/CLAUDE.md
+  - agents/CLAUDE.md
+  - cli/CLAUDE.md
+  - cli/commands/CLAUDE.md
+  - config/CLAUDE.md
+  - core/CLAUDE.md
+  - docs/CLAUDE.md
+  - skills/CLAUDE.md
+  - skills/azure_devops/CLAUDE.md
+  - templates/deployment/CLAUDE.md
+  - tests/CLAUDE.md
+  - tests/integration/CLAUDE.md
+  - tests/unit/CLAUDE.md
+  - workflows/CLAUDE.md
+  pydantic:
+  - CLAUDE.md
+  pytest:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  python:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  pyyaml:
+  - CLAUDE.md
+  qa-engineer:
+  - CLAUDE.md
+  qa-tester:
+  - CLAUDE.md
+  quality:
+  - CLAUDE.md
+  quality_standards:
+  - CLAUDE.md
+  qualitystandards:
+  - CLAUDE.md
+  query:
+  - CLAUDE.md
+  quickstart:
+  - docs/CLAUDE.md
+  rapid:
+  - CLAUDE.md
+  re-entrancy:
+  - CLAUDE.md
+  re-entrant:
+  - CLAUDE.md
+  react:
+  - CLAUDE.md
+  read:
+  - CLAUDE.md
+  readme:
+  - .claude/CLAUDE.md
+  recovery:
+  - CLAUDE.md
+  reduces:
+  - CLAUDE.md
+  refinement:
+  - CLAUDE.md
+  registry:
+  - CLAUDE.md
+  - agents/CLAUDE.md
+  - skills/CLAUDE.md
+  - workflows/CLAUDE.md
+  relevant:
+  - CLAUDE.md
+  reliability:
+  - CLAUDE.md
+  reliable:
+  - CLAUDE.md
+  render:
+  - CLAUDE.md
+  render-all:
+  - CLAUDE.md
+  rendered:
+  - CLAUDE.md
+  rendering:
+  - CLAUDE.md
+  reporting:
+  - CLAUDE.md
+  reports:
+  - CLAUDE.md
+  repository:
+  - CLAUDE.md
+  requirements:
+  - CLAUDE.md
+  requires:
+  - CLAUDE.md
+  requiring:
+  - CLAUDE.md
+  respect:
+  - CLAUDE.md
+  resume:
+  - CLAUDE.md
+  retrospective:
+  - CLAUDE.md
+  reusable:
+  - CLAUDE.md
+  review:
+  - CLAUDE.md
+  risk:
+  - CLAUDE.md
+  ruff:
+  - CLAUDE.md
+  run:
+  - CLAUDE.md
+  running:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  save:
+  - CLAUDE.md
+  schema:
+  - CLAUDE.md
+  - config/CLAUDE.md
+  scrum-master:
+  - CLAUDE.md
+  security:
+  - CLAUDE.md
+  security-specialist:
+  - CLAUDE.md
+  see:
+  - CLAUDE.md
+  selection:
+  - CLAUDE.md
+  senior-engineer:
+  - CLAUDE.md
+  services:
+  - CLAUDE.md
+  settings:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  setup:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  shared:
+  - CLAUDE.md
+  show:
+  - CLAUDE.md
+  single:
+  - CLAUDE.md
+  skill:
+  - cli/commands/CLAUDE.md
+  skills:
+  - CLAUDE.md
+  - skills/CLAUDE.md
+  slash:
+  - CLAUDE.md
+  slow:
+  - CLAUDE.md
+  software:
+  - CLAUDE.md
+  software-developer:
+  - CLAUDE.md
+  sonnet:
+  - CLAUDE.md
+  specialized:
+  - CLAUDE.md
+  specific:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  - adapters/azure_devops/CLAUDE.md
+  - agents/CLAUDE.md
+  - cli/CLAUDE.md
+  - cli/commands/CLAUDE.md
+  - config/CLAUDE.md
+  - core/CLAUDE.md
+  - docs/CLAUDE.md
+  - skills/CLAUDE.md
+  - skills/azure_devops/CLAUDE.md
+  - templates/deployment/CLAUDE.md
+  - tests/integration/CLAUDE.md
+  - tests/unit/CLAUDE.md
+  - workflows/CLAUDE.md
+  sprint:
+  - CLAUDE.md
+  sprint-completion:
+  - CLAUDE.md
+  sprint-execution:
+  - CLAUDE.md
+  sprint-planning:
+  - CLAUDE.md
+  sprint-retrospective:
+  - CLAUDE.md
+  sprint_naming:
+  - CLAUDE.md
+  stack:
+  - CLAUDE.md
+  standards:
+  - CLAUDE.md
+  standup:
+  - CLAUDE.md
+  state:
+  - CLAUDE.md
+  state_manager:
+  - CLAUDE.md
+  - core/CLAUDE.md
+  states:
+  - CLAUDE.md
+  status:
+  - cli/commands/CLAUDE.md
+  step:
+  - CLAUDE.md
+  steps:
+  - CLAUDE.md
+  stored:
+  - CLAUDE.md
+  story:
+  - CLAUDE.md
+  strategy:
+  - CLAUDE.md
+  structure:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  - adapters/azure_devops/CLAUDE.md
+  - agents/CLAUDE.md
+  - cli/CLAUDE.md
+  - cli/commands/CLAUDE.md
+  - config/CLAUDE.md
+  - core/CLAUDE.md
+  - docs/CLAUDE.md
+  - skills/CLAUDE.md
+  - skills/azure_devops/CLAUDE.md
+  - templates/deployment/CLAUDE.md
+  - tests/CLAUDE.md
+  - tests/integration/CLAUDE.md
+  - tests/unit/CLAUDE.md
+  - workflows/CLAUDE.md
+  suffix:
+  - tests/CLAUDE.md
+  support:
+  - CLAUDE.md
+  supports:
+  - CLAUDE.md
+  system:
+  - CLAUDE.md
+  taid:
+  - CLAUDE.md
+  target:
+  - CLAUDE.md
+  task:
+  - CLAUDE.md
+  tasks:
+  - CLAUDE.md
+  tech:
+  - CLAUDE.md
+  tech_stack:
+  - CLAUDE.md
+  technical:
+  - CLAUDE.md
+  technical_risk:
+  - CLAUDE.md
+  technicalrisk:
+  - CLAUDE.md
+  technology:
+  - CLAUDE.md
+  template:
+  - CLAUDE.md
+  template-based:
+  - CLAUDE.md
+  templates:
+  - CLAUDE.md
+  - agents/CLAUDE.md
+  - workflows/CLAUDE.md
+  term-missing:
+  - CLAUDE.md
+  test:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  test_:
+  - tests/CLAUDE.md
+  test_agent_registry:
+  - tests/unit/CLAUDE.md
+  test_cli_agent:
+  - tests/integration/CLAUDE.md
+  test_cli_init:
+  - tests/integration/CLAUDE.md
+  test_cli_validate:
+  - tests/integration/CLAUDE.md
+  test_cli_workflow:
+  - tests/integration/CLAUDE.md
+  test_config:
+  - CLAUDE.md
+  test_configuration:
+  - tests/unit/CLAUDE.md
+  test_context_generation:
+  - tests/integration/CLAUDE.md
+  test_coverage_min:
+  - CLAUDE.md
+  test_load_config:
+  - CLAUDE.md
+  test_mappers:
+  - tests/unit/CLAUDE.md
+  test_workflow_registry:
+  - tests/unit/CLAUDE.md
+  testing:
+  - CLAUDE.md
+  tests:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  thresholds:
+  - CLAUDE.md
+  times:
+  - CLAUDE.md
+  todo:
+  - .claude/CLAUDE.md
+  - adapters/azure_devops/CLAUDE.md
+  - agents/CLAUDE.md
+  - cli/CLAUDE.md
+  - cli/commands/CLAUDE.md
+  - config/CLAUDE.md
+  - core/CLAUDE.md
+  - docs/CLAUDE.md
+  - skills/CLAUDE.md
+  - skills/azure_devops/CLAUDE.md
+  - templates/deployment/CLAUDE.md
+  - tests/CLAUDE.md
+  - tests/integration/CLAUDE.md
+  - tests/unit/CLAUDE.md
+  - workflows/CLAUDE.md
+  token:
+  - CLAUDE.md
+  total:
+  - CLAUDE.md
+  tracking:
+  - CLAUDE.md
+  tracks:
+  - CLAUDE.md
+  tree:
+  - CLAUDE.md
+  trusted:
+  - CLAUDE.md
+  type:
+  - CLAUDE.md
+  type-safe:
+  - CLAUDE.md
+  type_mapper:
+  - CLAUDE.md
+  - adapters/azure_devops/CLAUDE.md
+  types:
+  - CLAUDE.md
+  typescript:
+  - CLAUDE.md
+  uncovered:
+  - CLAUDE.md
+  unit:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  - tests/unit/CLAUDE.md
+  update:
+  - CLAUDE.md
+  url:
+  - CLAUDE.md
+  usage:
+  - CLAUDE.md
+  use:
+  - CLAUDE.md
+  - tests/CLAUDE.md
+  uses:
+  - CLAUDE.md
+  using:
+  - CLAUDE.md
+  validate:
+  - CLAUDE.md
+  - cli/commands/CLAUDE.md
+  validates:
+  - CLAUDE.md
+  validation:
+  - CLAUDE.md
+  values:
+  - CLAUDE.md
+  var_name:
+  - CLAUDE.md
+  variables:
+  - CLAUDE.md
+  via:
+  - CLAUDE.md
+  vulnerability:
+  - CLAUDE.md
+  walks:
+  - CLAUDE.md
+  web-application:
+  - CLAUDE.md
+  within:
+  - CLAUDE.md
+  without:
+  - CLAUDE.md
+  work:
+  - CLAUDE.md
+  work_item_types:
+  - CLAUDE.md
+  work_tracking:
+  - CLAUDE.md
+  workflow:
+  - CLAUDE.md
+  - cli/commands/CLAUDE.md
+  - skills/CLAUDE.md
+  workflow-name:
+  - CLAUDE.md
+  workflow-resume:
+  - CLAUDE.md
+  workflow-state:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  workflowconfig:
+  - CLAUDE.md
+  workflows:
+  - CLAUDE.md
+  - workflows/CLAUDE.md
+  working:
+  - CLAUDE.md
+  worktrackingconfig:
+  - CLAUDE.md
+  wraps:
+  - CLAUDE.md
+  writing:
+  - tests/CLAUDE.md
+  xml:
+  - CLAUDE.md
+  yaml:
+  - CLAUDE.md
+  - .claude/CLAUDE.md
+  your-project:
+  - CLAUDE.md
+  yourorg:
+  - CLAUDE.md
+  zero-dependency:
+  - CLAUDE.md
+root: /mnt/c/Users/sundance/workspace/keychain/products/trusted-ai-development-workbench

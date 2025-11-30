@@ -1,0 +1,392 @@
+# Workflow Resume
+
+Resume an incomplete workflow from its last checkpoint.
+
+## Scan for Incomplete Workflows
+
+```python
+import json
+from pathlib import Path
+from datetime import datetime
+
+def scan_incomplete_workflows():
+    """Scan for incomplete workflow states."""
+    state_dir = Path(".claude/workflow-state")
+
+    if not state_dir.exists():
+        print("No workflow state directory found.")
+        print("Run a workflow first to create state files.")
+        return []
+
+    incomplete = []
+
+    for state_file in state_dir.glob("*.json"):
+        try:
+            state = json.loads(state_file.read_text())
+
+            # Only include incomplete workflows
+            if state.get("status") in ["in_progress", "failed"]:
+                # Parse timestamps
+                started_at = datetime.fromisoformat(state["started_at"])
+                updated_at = datetime.fromisoformat(state.get("updated_at", state["started_at"]))
+
+                # Calculate age
+                age = datetime.now() - updated_at
+                if age.days > 0:
+                    age_str = f"{age.days} day(s) ago"
+                elif age.seconds > 3600:
+                    age_str = f"{age.seconds // 3600} hour(s) ago"
+                else:
+                    age_str = f"{age.seconds // 60} minute(s) ago"
+
+                # Get current/last step
+                current_step = state.get("current_step", {}).get("name", "unknown")
+                completed_steps = len(state.get("completed_steps", []))
+
+                incomplete.append({
+                    "file": state_file.name,
+                    "workflow_name": state.get("workflow_name"),
+                    "workflow_id": state.get("workflow_id"),
+                    "status": state.get("status"),
+                    "current_step": current_step,
+                    "completed_steps": completed_steps,
+                    "age": age_str,
+                    "started_at": started_at.strftime("%Y-%m-%d %H:%M"),
+                    "work_items_created": len(state.get("created_work_items", [])),
+                    "errors": len(state.get("errors", [])),
+                    "metadata": state.get("metadata", {}),
+                    "state": state  # Keep full state for later use
+                })
+        except Exception as e:
+            print(f"Warning: Could not parse {state_file.name}: {e}")
+
+    # Sort by most recently updated
+    incomplete.sort(key=lambda x: x["state"].get("updated_at", ""), reverse=True)
+
+    return incomplete
+
+# Scan for incomplete workflows
+incomplete_workflows = scan_incomplete_workflows()
+```
+
+## Display Incomplete Workflows
+
+```python
+if not incomplete_workflows:
+    print("=" * 70)
+    print("No incomplete workflows found.")
+    print("=" * 70)
+    print("\nAll workflows have completed successfully, or none have been started.")
+    print("\nAvailable workflows to start:")
+    print("  /sprint-planning     - Plan a new sprint")
+    print("  /backlog-grooming    - Refine and prioritize backlog")
+    print("  /daily-standup       - Generate standup report")
+    print("  /sprint-execution    - Monitor sprint progress")
+    print("  /sprint-completion   - Close out a sprint")
+    print("  /sprint-retrospective - Run retrospective analysis")
+else:
+    print("=" * 70)
+    print(f"Found {len(incomplete_workflows)} incomplete workflow(s)")
+    print("=" * 70)
+
+    for i, wf in enumerate(incomplete_workflows, 1):
+        status_icon = "⏸️" if wf["status"] == "in_progress" else "❌"
+
+        print(f"\n[{i}] {status_icon} {wf['workflow_name']} ({wf['workflow_id']})")
+        print(f"    Status: {wf['status']}")
+        print(f"    Last activity: {wf['age']}")
+        print(f"    Started: {wf['started_at']}")
+        print(f"    Progress: {wf['completed_steps']} step(s) completed")
+
+        if wf["current_step"] != "unknown":
+            print(f"    Paused at: {wf['current_step']}")
+
+        if wf["work_items_created"] > 0:
+            print(f"    Work items created: {wf['work_items_created']}")
+
+        if wf["errors"] > 0:
+            print(f"    Errors recorded: {wf['errors']}")
+
+        # Show relevant metadata
+        metadata = wf["metadata"]
+        if metadata:
+            if "sprint_number" in metadata:
+                print(f"    Sprint: {metadata['sprint_number']}")
+            if "team_capacity" in metadata:
+                print(f"    Team capacity: {metadata['team_capacity']} points")
+
+    print("\n" + "=" * 70)
+```
+
+## Select Workflow to Resume
+
+```python
+if incomplete_workflows:
+    print("\nOptions:")
+    print("  Enter a number (1-{}) to resume that workflow".format(len(incomplete_workflows)))
+    print("  Enter 'details <number>' to see full state details")
+    print("  Enter 'discard <number>' to discard a workflow state")
+    print("  Enter 'q' to quit without resuming")
+
+    user_input = input("\nYour choice: ").strip().lower()
+
+    if user_input == 'q':
+        print("Exiting without resuming any workflow.")
+        selected_workflow = None
+    elif user_input.startswith('details '):
+        try:
+            idx = int(user_input.split()[1]) - 1
+            wf = incomplete_workflows[idx]
+
+            print("\n" + "=" * 70)
+            print(f"DETAILED STATE: {wf['workflow_name']} ({wf['workflow_id']})")
+            print("=" * 70)
+
+            state = wf["state"]
+
+            print(f"\nStatus: {state['status']}")
+            print(f"Started: {state['started_at']}")
+            if "updated_at" in state:
+                print(f"Last Updated: {state['updated_at']}")
+
+            print("\nCompleted Steps:")
+            for step in state.get("completed_steps", []):
+                print(f"  ✓ {step['name']} ({step['completed_at']})")
+
+            if state.get("current_step"):
+                print(f"\nCurrent Step (paused):")
+                print(f"  ⏸️ {state['current_step']['name']}")
+                print(f"     Started: {state['current_step']['started_at']}")
+
+            if state.get("created_work_items"):
+                print(f"\nWork Items Created ({len(state['created_work_items'])}):")
+                for wi in state["created_work_items"][:10]:  # Show first 10
+                    title = wi.get("data", {}).get("title", "Unknown")
+                    print(f"  • WI-{wi['id']}: {title}")
+                if len(state["created_work_items"]) > 10:
+                    print(f"  ... and {len(state['created_work_items']) - 10} more")
+
+            if state.get("errors"):
+                print(f"\nErrors ({len(state['errors'])}):")
+                for err in state["errors"][-5:]:  # Show last 5
+                    print(f"  ✗ {err['error']}")
+
+            print("\n" + "=" * 70)
+
+            # Ask again after showing details
+            resume_choice = input(f"\nResume this workflow? (yes/no): ").strip().lower()
+            if resume_choice == "yes":
+                selected_workflow = wf
+            else:
+                selected_workflow = None
+
+        except (ValueError, IndexError):
+            print("Invalid selection.")
+            selected_workflow = None
+
+    elif user_input.startswith('discard '):
+        try:
+            idx = int(user_input.split()[1]) - 1
+            wf = incomplete_workflows[idx]
+
+            confirm = input(f"Are you sure you want to discard '{wf['workflow_name']} ({wf['workflow_id']})'? (yes/no): ")
+            if confirm.lower() == "yes":
+                state_file = Path(".claude/workflow-state") / wf["file"]
+                state_file.unlink()
+                print(f"✓ Discarded workflow state: {wf['file']}")
+            else:
+                print("Discard cancelled.")
+            selected_workflow = None
+
+        except (ValueError, IndexError):
+            print("Invalid selection.")
+            selected_workflow = None
+    else:
+        try:
+            idx = int(user_input) - 1
+            if 0 <= idx < len(incomplete_workflows):
+                selected_workflow = incomplete_workflows[idx]
+            else:
+                print("Invalid selection.")
+                selected_workflow = None
+        except ValueError:
+            print("Invalid input. Please enter a number or command.")
+            selected_workflow = None
+```
+
+## Resume Selected Workflow
+
+```python
+if selected_workflow:
+    wf = selected_workflow
+    workflow_name = wf["workflow_name"]
+    workflow_id = wf["workflow_id"]
+    state = wf["state"]
+
+    print("\n" + "=" * 70)
+    print(f"RESUMING: {workflow_name} ({workflow_id})")
+    print("=" * 70)
+
+    # Show what was completed
+    completed_steps = [s["name"] for s in state.get("completed_steps", [])]
+    print("\n✅ Already completed:")
+    for step in completed_steps:
+        print(f"   • {step}")
+
+    # Show what's next
+    current = state.get("current_step", {}).get("name")
+    if current:
+        print(f"\n⏳ Resume from: {current}")
+    else:
+        print(f"\n⏳ Continue to next step")
+
+    # Provide resume instructions based on workflow type
+    print("\n" + "-" * 70)
+    print("RESUME INSTRUCTIONS")
+    print("-" * 70)
+
+    if workflow_name == "sprint-planning":
+        sprint_num = state.get("metadata", {}).get("sprint_number", "unknown")
+        capacity = state.get("metadata", {}).get("team_capacity", "unknown")
+
+        print(f"""
+To resume Sprint Planning for Sprint {sprint_num}:
+
+1. The workflow state has been loaded from:
+   .claude/workflow-state/{wf['file']}
+
+2. Run the /sprint-planning command. It will automatically:
+   - Detect the existing state
+   - Skip completed steps: {', '.join(completed_steps)}
+   - Resume from: {current or 'next pending step'}
+
+3. Alternatively, you can manually continue by:
+
+   ```python
+   from core.state_manager import WorkflowState
+
+   # Load existing state
+   state = WorkflowState("{workflow_name}", "{workflow_id}")
+   state.print_summary()
+
+   # The state object is now ready - continue from where you left off
+   # Check: state.is_step_completed("step-name") before each step
+   ```
+
+Sprint Details:
+- Sprint Number: {sprint_num}
+- Team Capacity: {capacity} points
+- Work Items Created: {len(state.get('created_work_items', []))}
+""")
+
+    elif workflow_name == "backlog-grooming":
+        print(f"""
+To resume Backlog Grooming:
+
+1. Run /backlog-grooming - it will detect and resume from existing state
+
+2. Completed steps will be skipped automatically
+
+3. Progress so far:
+   - Steps completed: {len(completed_steps)}
+   - Currently at: {current or 'next step'}
+""")
+
+    elif workflow_name == "sprint-execution":
+        print(f"""
+To resume Sprint Execution monitoring:
+
+1. Run /sprint-execution - it will detect and resume from existing state
+
+2. The workflow will continue tracking from where it left off
+""")
+
+    else:
+        # Generic resume instructions
+        print(f"""
+To resume this workflow:
+
+1. Run the corresponding slash command: /{workflow_name}
+
+   The workflow will automatically:
+   - Detect the existing state file
+   - Skip completed steps
+   - Resume from the last checkpoint
+
+2. Or manually load the state:
+
+   ```python
+   from core.state_manager import WorkflowState
+
+   state = WorkflowState("{workflow_name}", "{workflow_id}")
+   state.print_summary()
+
+   # Check step completion before each step:
+   if not state.is_step_completed("step-name"):
+       # Execute step...
+       state.complete_step("step-name", result={...})
+   ```
+
+State File: .claude/workflow-state/{wf['file']}
+""")
+
+    print("-" * 70)
+
+    # Offer to run the workflow now
+    run_now = input(f"\nRun /{workflow_name} now to resume? (yes/no): ").strip().lower()
+
+    if run_now == "yes":
+        print(f"\n🚀 Starting /{workflow_name}...")
+        print(f"   The workflow will automatically resume from the last checkpoint.\n")
+        # Note: In Claude Code, this would trigger the slash command
+        # For now, we instruct the user
+        print(f"Please run: /{workflow_name}")
+```
+
+## Quick Commands
+
+For convenience, you can also resume a specific workflow directly:
+
+```bash
+# List all incomplete workflows
+/workflow-resume
+
+# The workflow-specific commands will auto-detect state:
+/sprint-planning      # Auto-resumes if state exists
+/backlog-grooming     # Auto-resumes if state exists
+/sprint-execution     # Auto-resumes if state exists
+```
+
+## State File Location
+
+Workflow states are stored in: `.claude/workflow-state/`
+
+Each state file contains:
+- Workflow name and ID
+- Status (in_progress, completed, failed)
+- Completed steps with results
+- Current step (if paused mid-step)
+- Created work items (for rollback tracking)
+- Errors encountered
+- Custom metadata
+
+## Troubleshooting
+
+### State file is corrupted
+```python
+# Delete the corrupted state file and start fresh
+from pathlib import Path
+state_file = Path(".claude/workflow-state/workflow-name-id.json")
+state_file.unlink()
+```
+
+### Want to restart from scratch
+```python
+# Discard existing state
+# Use 'discard <number>' option in the menu above
+# Or manually delete: rm .claude/workflow-state/workflow-name-id.json
+```
+
+### Work items were partially created
+The state file tracks all created work items in `created_work_items`.
+Review these before discarding state to avoid orphaned work items in azure-devops.
