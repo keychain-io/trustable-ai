@@ -21,6 +21,21 @@ This workflow analyzes project dependencies, identifies outdated packages, check
 - Access to package registries (PyPI, npm, NuGet, etc.)
 - Security scanning tools configured
 
+## Initialize Work Tracking
+
+```python
+# Initialize work tracking adapter (auto-selects Azure DevOps or file-based)
+import sys
+sys.path.insert(0, ".claude/skills")
+from work_tracking import get_adapter
+
+adapter = get_adapter()
+print(f"📋 Work Tracking: {adapter.platform}")
+
+# Set current sprint for urgent updates
+current_sprint = "Sprint 1"  # Replace with actual sprint
+```
+
 ## Workflow Steps
 
 ### Step 1: Scan Current Dependencies
@@ -139,11 +154,9 @@ Create structured update plan with:
 
 1. **For critical security updates (immediate):**
    ```python
-   from azure_cli_wrapper import azure_cli
-
    for dep in critical_security_updates:
-       result = azure_cli.create_work_item_idempotent(
-           title=f"🚨 CRITICAL: Update {dep['name']} (CVE-{dep['cve_id']})",
+       result = adapter.create_work_item_idempotent(
+           title=f"CRITICAL: Update {dep['name']} (CVE-{dep['cve_id']})",
            work_item_type="{{ work_tracking.work_item_types.bug }}",
            description=f"""
 ## Security Vulnerability
@@ -172,10 +185,15 @@ Create structured update plan with:
            fields={
                'System.Tags': 'security; critical; dependency-update',
                'Microsoft.VSTS.Common.Priority': 1,
-               'Microsoft.VSTS.Scheduling.StoryPoints': dep['effort_sp'],
+               'Microsoft.VSTS.Scheduling.StoryPoints': dep.get('effort_sp', 3),
            },
            sprint_name=current_sprint
        )
+
+       if result.get('created'):
+           print(f"  🚨 Created WI-{result['id']}: {dep['name']} (CVE-{dep['cve_id']})")
+       else:
+           print(f"  ℹ️ Already exists WI-{result['id']}: {dep['name']}")
    ```
 
 2. **For high priority updates:**

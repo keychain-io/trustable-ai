@@ -22,15 +22,52 @@ This workflow handles the formal completion of a sprint, including archiving inc
 - Sprint review completed
 - Sprint retrospective completed
 
+## Initialize Work Tracking
+
+```python
+# Initialize work tracking adapter (auto-selects Azure DevOps or file-based)
+import sys
+sys.path.insert(0, ".claude/skills")
+from work_tracking import get_adapter
+
+adapter = get_adapter()
+print(f"📋 Work Tracking: {adapter.platform}")
+
+# Set sprint names
+current_sprint_name = "Sprint X"  # Replace with actual sprint
+next_sprint_name = "Sprint Y"     # Replace with next sprint
+```
+
 ## Workflow Steps
 
 ### Step 1: Collect Final Sprint Metrics
 
+{% if work_tracking.platform == 'azure-devops' %}
 1. **Query all sprint work items:**
    ```bash
    # Get all work items from the sprint
    az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo], [{{ work_tracking.custom_fields.story_points or 'Microsoft.VSTS.Scheduling.StoryPoints' }}], [System.ChangedDate] FROM WorkItems WHERE [System.TeamProject] = '{{ work_tracking.project }}' AND [System.IterationPath] = '{{ work_tracking.iteration_format.format(project=work_tracking.project, sprint='SPRINT_NAME') }}'" --output json
    ```
+{% else %}
+1. **Query all sprint work items:**
+   ```python
+   # Get all work items from the sprint
+   sprint_items = adapter.query_sprint_work_items(current_sprint_name)
+
+   print(f"📋 Sprint Work Items ({len(sprint_items)}):")
+   for item in sprint_items:
+       points = item.get('story_points', '-')
+       print(f"  WI-{item['id']}: {item['title']} [{item['state']}] ({points} pts)")
+
+   # Get sprint summary
+   summary = adapter.get_sprint_summary(current_sprint_name)
+   print(f"\n📊 Sprint Summary:")
+   print(f"  Total items: {summary['total_items']}")
+   print(f"  Total points: {summary['total_points']}")
+   print(f"  Completed points: {summary['completed_points']}")
+   print(f"  By state: {summary['by_state']}")
+   ```
+{% endif %}
 
 2. **Calculate final metrics:**
    - **Total Story Points**: Planned vs. Completed
@@ -56,9 +93,13 @@ This workflow handles the formal completion of a sprint, including archiving inc
 
 1. **Identify incomplete items:**
    ```python
-   from azure_cli_wrapper import azure_cli
+   # Filter for incomplete items
+   completed_states = ['Done', 'Closed', 'Resolved', 'Completed']
+   incomplete_items = [item for item in sprint_items if item.get('state') not in completed_states]
 
-   incomplete_items = [item for item in sprint_items if item['state'] not in ['Done', 'Closed', 'Resolved']]
+   print(f"⏳ Incomplete Items ({len(incomplete_items)}):")
+   for item in incomplete_items:
+       print(f"  WI-{item['id']}: {item['title']} [{item['state']}]")
    ```
 
 2. **Categorize incomplete items:**
@@ -85,39 +126,44 @@ This workflow handles the formal completion of a sprint, including archiving inc
 {% endif %}
 4. **Process incomplete items:**
    ```python
+   # Define next sprint iteration path
+   next_sprint_path = f"{{ work_tracking.project }}\\{next_sprint_name}"
+   backlog_path = "{{ work_tracking.project }}\\Backlog"
+
    for item in carry_over_items:
        # Move to next sprint
-       result = azure_cli.update_work_item(
+       result = adapter.update_work_item(
            work_item_id=item['id'],
            fields={
                'System.IterationPath': next_sprint_path,
-               'System.Tags': f"{item['tags']}; carried-over",
            },
            verify=True
        )
 
        # Add comment explaining carry over
-       azure_cli.add_work_item_comment(
+       adapter.add_comment(
            work_item_id=item['id'],
-           comment=f"Carried over from {current_sprint_name}. Reason: {item['carry_over_reason']}"
+           comment=f"Carried over from {current_sprint_name}. Reason: {item.get('carry_over_reason', 'Not completed in sprint')}"
        )
+       print(f"  ⏭️ WI-{item['id']}: Carried over to {next_sprint_name}")
 
    for item in return_to_backlog_items:
        # Remove from sprint
-       result = azure_cli.update_work_item(
+       result = adapter.update_work_item(
            work_item_id=item['id'],
+           state='New',
            fields={
                'System.IterationPath': backlog_path,
-               'System.State': 'New',
            },
            verify=True
        )
 
        # Add comment
-       azure_cli.add_work_item_comment(
+       adapter.add_comment(
            work_item_id=item['id'],
-           comment=f"Returned to backlog from {current_sprint_name}. Reason: {item['return_reason']}"
+           comment=f"Returned to backlog from {current_sprint_name}. Reason: {item.get('return_reason', 'Not started')}"
        )
+       print(f"  ↩️ WI-{item['id']}: Returned to backlog")
    ```
 
 ### Step 3: Calculate Sprint Performance Metrics

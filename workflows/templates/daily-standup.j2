@@ -28,16 +28,51 @@ This lightweight workflow generates daily standup reports showing what was compl
 - Active sprint in {{ work_tracking.platform }}
 - Work items with recent activity
 
+## Initialize Work Tracking
+
+```python
+# Initialize work tracking adapter (auto-selects Azure DevOps or file-based)
+import sys
+sys.path.insert(0, ".claude/skills")
+from work_tracking import get_adapter
+from datetime import datetime, timedelta
+
+adapter = get_adapter()
+print(f"📋 Work Tracking: {adapter.platform}")
+
+# Get current sprint name (replace CURRENT_SPRINT with actual sprint)
+current_sprint = "Sprint 1"  # Update this
+```
+
 ## Workflow Steps
 
 ### Step 1: Gather Yesterday's Activity
 
+{% if work_tracking.platform == 'azure-devops' %}
 1. **Query completed work (last 24 hours):**
    ```bash
    # Get work items completed or updated yesterday
    yesterday=$(date -d "yesterday" +%Y-%m-%d)
    az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo] FROM WorkItems WHERE [System.TeamProject] = '{{ work_tracking.project }}' AND [System.IterationPath] UNDER '{{ work_tracking.iteration_format.format(project=work_tracking.project, sprint='CURRENT_SPRINT') }}' AND [System.ChangedDate] >= '$yesterday'" --output json
    ```
+{% else %}
+1. **Query completed work (last 24 hours):**
+   ```python
+   # Get work items from the current sprint
+   sprint_items = adapter.query_sprint_work_items(current_sprint)
+
+   # Filter for items updated in last 24 hours
+   yesterday = datetime.now() - timedelta(days=1)
+   recent_items = [
+       item for item in sprint_items
+       if datetime.fromisoformat(item.get('updated_at', '2000-01-01')) >= yesterday
+   ]
+
+   print(f"Found {len(recent_items)} items updated since yesterday")
+   for item in recent_items:
+       print(f"  WI-{item['id']}: {item['title']} [{item['state']}]")
+   ```
+{% endif %}
 
 2. **Categorize changes:**
    - ✅ Completed: Items moved to "Done"/"Closed"
@@ -48,11 +83,30 @@ This lightweight workflow generates daily standup reports showing what was compl
 
 ### Step 2: Identify Today's Focus
 
+{% if work_tracking.platform == 'azure-devops' %}
 1. **Query active work items:**
    ```bash
    # Get currently active work items
    az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo], [{{ work_tracking.custom_fields.story_points or 'Microsoft.VSTS.Scheduling.StoryPoints' }}] FROM WorkItems WHERE [System.TeamProject] = '{{ work_tracking.project }}' AND [System.IterationPath] UNDER '{{ work_tracking.iteration_format.format(project=work_tracking.project, sprint='CURRENT_SPRINT') }}' AND [System.State] IN ('Active', 'In Progress', 'Doing')" --output json
    ```
+{% else %}
+1. **Query active work items:**
+   ```python
+   # Get active work items for current sprint
+   active_states = ['Active', 'In Progress', 'Doing']
+   active_items = [
+       item for item in adapter.query_sprint_work_items(current_sprint)
+       if item.get('state') in active_states
+   ]
+
+   print(f"\n📋 Active Work Items ({len(active_items)}):")
+   for item in active_items:
+       points = item.get('story_points', item.get('fields', {}).get('Microsoft.VSTS.Scheduling.StoryPoints', '-'))
+       assignee = item.get('assigned_to', 'Unassigned')
+       print(f"  WI-{item['id']}: {item['title']}")
+       print(f"    State: {item['state']} | Points: {points} | Assigned: {assignee}")
+   ```
+{% endif %}
 
 2. **Group by team member:**
    - List active items per person

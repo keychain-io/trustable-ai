@@ -1,0 +1,5 @@
+recursive-include agents/templates *.j2
+recursive-include workflows/templates *.j2
+recursive-include skills/templates *.j2
+include *.md
+include *.yaml

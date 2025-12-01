@@ -79,13 +79,15 @@ def doctor(fix: bool):
     click.echo("\n[4/7] Checking agent templates...")
     try:
         from agents.registry import AgentRegistry
-        registry = AgentRegistry()
-        templates = registry.list_templates()
-        click.echo(f"  ✓ {len(templates)} agent templates available")
-        for template in templates[:5]:
-            click.echo(f"    - {template}")
-        if len(templates) > 5:
-            click.echo(f"    ... and {len(templates) - 5} more")
+        from config.loader import load_config
+        config = load_config()
+        registry = AgentRegistry(config)
+        agents = registry.list_agents()
+        click.echo(f"  ✓ {len(agents)} agent templates available")
+        for agent in agents[:5]:
+            click.echo(f"    - {agent}")
+        if len(agents) > 5:
+            click.echo(f"    ... and {len(agents) - 5} more")
     except Exception as e:
         warnings.append(f"Agent registry error: {e}")
         click.echo(f"  ! Agent registry: {e}")
@@ -141,14 +143,20 @@ def doctor(fix: bool):
 
     # Check 7: Dependencies
     click.echo("\n[7/7] Checking dependencies...")
-    required_packages = ["click", "jinja2", "pydantic", "pyyaml"]
-    for package in required_packages:
+    # Map package names to their import names
+    required_packages = {
+        "click": "click",
+        "jinja2": "jinja2",
+        "pydantic": "pydantic",
+        "pyyaml": "yaml",  # pyyaml is imported as 'yaml'
+    }
+    for package_name, import_name in required_packages.items():
         try:
-            __import__(package)
-            click.echo(f"  ✓ {package}")
+            __import__(import_name)
+            click.echo(f"  ✓ {package_name}")
         except ImportError:
-            issues.append(f"Missing package: {package}")
-            click.echo(f"  ✗ {package} (missing)")
+            issues.append(f"Missing package: {package_name}")
+            click.echo(f"  ✗ {package_name} (missing)")
 
     # Summary
     click.echo("\n" + "=" * 50)

@@ -108,6 +108,62 @@ def configure_azure_devops():
         click.echo("Run 'taid init' to initialize the framework.")
 
 
+@configure_command.command(name="file-based")
+def configure_file_based():
+    """Configure file-based work item tracking."""
+    try:
+        config = load_config()
+
+        click.echo("\n📁 File-Based Work Tracking Configuration\n")
+
+        # Set platform to file-based
+        config.work_tracking.platform = "file-based"
+
+        # Work items directory
+        config.work_tracking.work_items_directory = click.prompt(
+            "Work items directory",
+            default=config.work_tracking.work_items_directory or ".claude/work-items"
+        )
+
+        # Work item types
+        if click.confirm("\nConfigure work item type names?", default=False):
+            click.echo("\nWork item type names (leave blank to keep current):")
+
+            for generic_type in ["epic", "feature", "story", "task", "bug"]:
+                current = config.work_tracking.work_item_types.get(generic_type, generic_type.title())
+                new_value = click.prompt(
+                    f"  {generic_type}",
+                    default=current,
+                    show_default=True
+                )
+                if new_value:
+                    config.work_tracking.work_item_types[generic_type] = new_value
+
+        # Sprint configuration
+        if click.confirm("\nConfigure sprint settings?", default=False):
+            config.work_tracking.sprint_naming = click.prompt(
+                "Sprint naming pattern (use {number} for sprint number)",
+                default=config.work_tracking.sprint_naming or "Sprint {number}"
+            )
+
+        # Create work items directory
+        work_items_path = Path(config.work_tracking.work_items_directory)
+        if not work_items_path.exists():
+            if click.confirm(f"\nCreate directory '{work_items_path}'?", default=True):
+                work_items_path.mkdir(parents=True, exist_ok=True)
+                click.echo(f"  ✓ Created {work_items_path}")
+
+        # Save configuration
+        save_config(config)
+
+        click.echo("\n✅ File-based work tracking configured.\n")
+        click.echo("Work items will be stored in: " + str(work_items_path))
+
+    except FileNotFoundError as e:
+        click.echo(f"❌ Error: {e}")
+        click.echo("Run 'taid init' to initialize the framework.")
+
+
 @configure_command.command(name="quality-standards")
 def configure_quality_standards():
     """Configure quality and security standards."""

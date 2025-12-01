@@ -17,9 +17,22 @@ This workflow analyzes unrefined backlog items, assigns business value scores, i
 
 ## Prerequisites
 
-- Access to {{ work_tracking.platform }} ({{ work_tracking.organization }})
+- Access to {{ work_tracking.platform }}{% if work_tracking.platform == 'azure-devops' %} ({{ work_tracking.organization }}){% endif %}
+
 - Backlog items in "New" or "Proposed" state
 - Understanding of project priorities and business goals
+
+## Initialize Work Tracking
+
+```python
+# Initialize work tracking adapter (auto-selects Azure DevOps or file-based)
+import sys
+sys.path.insert(0, ".claude/skills")
+from work_tracking import get_adapter
+
+adapter = get_adapter()
+print(f"📋 Work Tracking: {adapter.platform}")
+```
 
 ## Workflow Steps
 
@@ -35,10 +48,26 @@ This workflow analyzes unrefined backlog items, assigns business value scores, i
    - Recommend prioritization"
 3. **Spawn agent** using Task tool with model `{{ config.get_agent_model('analyst') }}`
 4. **Query backlog items:**
+{% if work_tracking.platform == 'azure-devops' %}
    ```bash
    # Get backlog items in New/Proposed state
    az boards query --wiql "SELECT [System.Id], [System.Title], [System.State] FROM WorkItems WHERE [System.TeamProject] = '{{ work_tracking.project }}' AND [System.State] IN ('New', 'Proposed') AND [System.WorkItemType] = '{{ work_tracking.work_item_types.story }}' ORDER BY [System.ChangedDate] DESC" --output json
    ```
+{% else %}
+   ```python
+   # Get backlog items in New/Proposed state
+   all_items = adapter.query_work_items()
+   backlog_items = [
+       item for item in all_items
+       if item.get('state') in ['New', 'Proposed']
+       and item.get('type') in ['User Story', 'Feature', '{{ work_tracking.work_item_types.story }}']
+   ]
+
+   print(f"📋 Backlog Items for Grooming ({len(backlog_items)}):")
+   for item in backlog_items:
+       print(f"  WI-{item['id']}: {item['title']} [{item['state']}]")
+   ```
+{% endif %}
 5. **Display output** to user:
    - Read task result
    - Format business value assessments
@@ -87,21 +116,28 @@ This workflow analyzes unrefined backlog items, assigns business value scores, i
    - Add refinement notes to description
    - Update state to "Ready" if complete
 
-2. **Create work items using Azure CLI:**
+2. **Update work items with refinement data:**
    ```python
-   from azure_cli_wrapper import azure_cli
-
-   # Update each item
+   # Update each refined item
    for item in refined_items:
-       azure_cli.update_work_item(
+       result = adapter.update_work_item(
            work_item_id=item['id'],
+           state='Ready' if item.get('is_complete') else 'Proposed',
            fields={
-               '{{ work_tracking.custom_fields.business_value or "Custom.BusinessValue" }}': item['business_value'],
-               '{{ work_tracking.custom_fields.technical_risk or "Custom.TechnicalRisk" }}': item['technical_risk'],
-               'System.State': 'Ready' if item['is_complete'] else 'Proposed',
+               '{{ work_tracking.custom_fields.business_value or "Custom.BusinessValue" }}': item.get('business_value'),
+               '{{ work_tracking.custom_fields.technical_risk or "Custom.TechnicalRisk" }}': item.get('technical_risk'),
            },
            verify=True
        )
+
+       # Add grooming notes as comment
+       if item.get('notes'):
+           adapter.add_comment(
+               work_item_id=item['id'],
+               comment=f"Grooming notes: {item['notes']}"
+           )
+
+       print(f"  ✓ Updated WI-{item['id']}: {item.get('title', 'Unknown')}")
    ```
 
 3. **Track progress:**

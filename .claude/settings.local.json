@@ -22,7 +22,13 @@
       "Bash(find:*)",
       "Bash(taid init --help:*)",
       "Bash(taid context --help:*)",
-      "Bash(taid context directed:*)"
+      "Bash(taid context directed:*)",
+      "Bash(taid init:*)",
+      "Bash(taid configure --help:*)",
+      "Bash(taid agent:*)",
+      "Bash(taid workflow:*)",
+      "Bash(taid doctor:*)",
+      "Bash(taid configure:*)"
     ],
     "deny": [],
     "ask": []

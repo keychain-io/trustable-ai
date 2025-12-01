@@ -9,7 +9,7 @@ project:
   source_directory: src
   test_directory: tests
 work_tracking:
-  platform: azure-devops
+  platform: file-based
   organization: https://dev.azure.com/keychainio/
   project: Trusted AI Development Workbench
   credentials_source: cli

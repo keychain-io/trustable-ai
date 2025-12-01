@@ -21,15 +21,53 @@ This workflow monitors active sprint execution, tracks progress against sprint g
 - Work items assigned to current sprint
 - Sprint goals defined
 
+## Initialize Work Tracking
+
+```python
+# Initialize work tracking adapter (auto-selects Azure DevOps or file-based)
+import sys
+sys.path.insert(0, ".claude/skills")
+from work_tracking import get_adapter
+
+adapter = get_adapter()
+print(f"📋 Work Tracking: {adapter.platform}")
+
+# Set current sprint name
+current_sprint = "Sprint 1"  # Replace with actual sprint
+```
+
 ## Workflow Steps
 
 ### Step 1: Collect Sprint Status Data
 
+{% if work_tracking.platform == 'azure-devops' %}
 1. **Query current sprint work items:**
    ```bash
    # Get all work items in current sprint
    az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo], [{{ work_tracking.custom_fields.story_points or 'Microsoft.VSTS.Scheduling.StoryPoints' }}] FROM WorkItems WHERE [System.TeamProject] = '{{ work_tracking.project }}' AND [System.IterationPath] UNDER '{{ work_tracking.iteration_format.format(project=work_tracking.project, sprint='CURRENT_SPRINT') }}'" --output json
    ```
+{% else %}
+1. **Query current sprint work items:**
+   ```python
+   # Get all work items in current sprint
+   sprint_items = adapter.query_sprint_work_items(current_sprint)
+
+   print(f"📋 Sprint Work Items ({len(sprint_items)}):")
+   for item in sprint_items:
+       points = item.get('story_points', '-')
+       assignee = item.get('assigned_to', 'Unassigned')
+       print(f"  WI-{item['id']}: {item['title']}")
+       print(f"    State: {item['state']} | Points: {points} | Assigned: {assignee}")
+
+   # Get sprint summary
+   summary = adapter.get_sprint_summary(current_sprint)
+   print(f"\n📊 Sprint Status:")
+   print(f"  Total items: {summary['total_items']}")
+   print(f"  Total points: {summary['total_points']}")
+   print(f"  Completed points: {summary['completed_points']}")
+   print(f"  Completion: {(summary['completed_points']/max(summary['total_points'],1))*100:.1f}%")
+   ```
+{% endif %}
 
 2. **Calculate sprint metrics:**
    - **Total story points**: Planned vs. completed
