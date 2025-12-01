@@ -11,7 +11,7 @@ context:
 
 ## Purpose
 
-Contains Claude Code configuration and runtime state for the Trusted AI Development (TAID) framework. This directory is the operational center for AI-assisted workflows, storing configuration, rendered agents/workflows, execution state, and analytics.
+Contains Claude Code configuration and runtime state for the Trustable AI framework. This directory is the operational center for AI-assisted workflows, storing configuration, rendered agents/workflows, execution state, and analytics.
 
 ## Key Components
 
@@ -25,7 +25,7 @@ Contains Claude Code configuration and runtime state for the Trusted AI Developm
 
 ## Architecture
 
-This directory bridges the TAID framework with Claude Code:
+This directory bridges the Trustable AI framework with Claude Code:
 1. **Configuration**: `config.yaml` defines project-specific settings
 2. **Template Rendering**: Framework renders agents/workflows to `.claude/agents/` and `.claude/commands/`
 3. **Runtime State**: Workflows persist state to `.claude/workflow-state/` for checkpointing
@@ -36,13 +36,13 @@ This directory bridges the TAID framework with Claude Code:
 
 Initialize this directory in your project:
 ```bash
-taid init  # Creates .claude/ with default config.yaml
+trustable-ai init  # Creates .claude/ with default config.yaml
 ```
 
 Render agents and workflows:
 ```bash
-taid agent render-all     # Renders to .claude/agents/
-taid workflow render-all  # Renders to .claude/commands/
+trustable-ai agent render-all     # Renders to .claude/agents/
+trustable-ai workflow render-all  # Renders to .claude/commands/
 ```
 
 ## File Conventions

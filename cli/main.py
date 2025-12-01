@@ -1,5 +1,5 @@
 """
-Main CLI entry point for Trusted AI Development (TAID).
+Main CLI entry point for Trustable AI.
 
 Provides commands for initializing, configuring, and managing AI-assisted
 software development workflows.
@@ -9,23 +9,23 @@ from pathlib import Path
 
 
 @click.group()
-@click.version_option(version="1.0.0", prog_name="taid")
+@click.version_option(version="1.1.0", prog_name="trustable-ai")
 def cli():
     """
-    Trusted AI Development (taid) - AI-assisted software lifecycle automation.
+    Trustable AI - AI-assisted software lifecycle automation.
 
     Initialize, configure, and manage multi-agent workflows for software development
     with Claude Code integration.
 
     Get started:
 
-      taid init              Initialize TAID in your project
+      trustable-ai init              Initialize Trustable AI in your project
 
-      taid agent list        List available agents
+      trustable-ai agent list        List available agents
 
-      taid workflow list     List available workflows
+      trustable-ai workflow list     List available workflows
 
-      taid doctor            Check configuration health
+      trustable-ai doctor            Check configuration health
     """
     pass
 

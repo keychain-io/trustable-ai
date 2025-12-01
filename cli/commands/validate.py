@@ -13,7 +13,7 @@ from agents import AgentRegistry
 def validate_command(verbose: bool):
     """Validate framework configuration and setup."""
 
-    click.echo("\n🔍 Validating Trusted AI Development (TAID) setup\n")
+    click.echo("\n🔍 Validating Trustable AI setup\n")
 
     errors = []
     warnings = []

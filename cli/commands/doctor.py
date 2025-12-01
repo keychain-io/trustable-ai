@@ -1,5 +1,5 @@
 """
-Doctor command for TAID CLI.
+Doctor command for Trustable AI CLI.
 
 Performs health checks on the framework installation and configuration.
 """
@@ -13,7 +13,7 @@ from pathlib import Path
 @click.option("--fix", is_flag=True, help="Attempt to fix issues automatically")
 def doctor(fix: bool):
     """
-    Run health checks on TAID installation.
+    Run health checks on Trustable AI installation.
 
     Checks:
     - Python version and dependencies
@@ -22,7 +22,7 @@ def doctor(fix: bool):
     - Azure CLI (if configured)
     - Skills availability
     """
-    click.echo("TAID Health Check")
+    click.echo("Trustable AI Health Check")
     click.echo("=" * 50)
 
     issues = []
@@ -53,7 +53,7 @@ def doctor(fix: bool):
     else:
         issues.append("Configuration file not found")
         click.echo(f"  ✗ Configuration file not found at {config_path}")
-        click.echo("    Run 'taid init' to create configuration")
+        click.echo("    Run 'trustable-ai init' to create configuration")
 
     # Check 3: Directory structure
     click.echo("\n[3/7] Checking directory structure...")
@@ -164,7 +164,7 @@ def doctor(fix: bool):
     click.echo("=" * 50)
 
     if not issues and not warnings:
-        click.echo("\n✓ All checks passed! TAID is ready to use.")
+        click.echo("\n✓ All checks passed! Trustable AI is ready to use.")
     else:
         if issues:
             click.echo(f"\n✗ {len(issues)} issue(s) found:")
@@ -177,8 +177,8 @@ def doctor(fix: bool):
                 click.echo(f"  - {warning}")
 
         if issues:
-            click.echo("\nRun 'taid init' to set up the framework.")
+            click.echo("\nRun 'trustable-ai init' to set up the framework.")
         if fix:
             click.echo("\nSome issues were automatically fixed.")
         else:
-            click.echo("\nRun 'taid doctor --fix' to attempt automatic fixes.")
+            click.echo("\nRun 'trustable-ai doctor --fix' to attempt automatic fixes.")

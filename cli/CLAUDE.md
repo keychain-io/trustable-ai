@@ -1,6 +1,6 @@
 ---
 context:
-  keywords: [cli, command, taid, init, validate, doctor, render, agent, workflow]
+  keywords: [cli, command, trustable-ai, init, validate, doctor, render, agent, workflow]
   task_types: [cli-development, command-implementation]
   priority: medium
   max_tokens: 600
@@ -13,11 +13,11 @@ context:
 
 ## Purpose
 
-Command-line interface for Trusted AI Development (TAID). Provides the `taid` command for initializing, configuring, and managing AI-assisted software development workflows.
+Command-line interface for Trustable AI. Provides the `trustable-ai` command for initializing, configuring, and managing AI-assisted software development workflows.
 
 ## Key Components
 
-- **main.py**: CLI entry point using Click framework, defines `taid` command group
+- **main.py**: CLI entry point using Click framework, defines `trustable-ai` command group
 - **commands/**: Subcommands organized by function (init, configure, agent, workflow, etc.)
 - **__init__.py**: Module exports
 
@@ -25,7 +25,7 @@ Command-line interface for Trusted AI Development (TAID). Provides the `taid` co
 
 The CLI uses Click's command group pattern:
 ```
-taid (main group)
+trustable-ai (main group)
 ├── init              (commands/init.py)
 ├── configure         (commands/configure.py)
 ├── agent             (commands/agent.py)
@@ -41,51 +41,51 @@ taid (main group)
 ## Command Overview
 
 ### Core Commands
-- **taid init**: Initialize TAID in a project (creates .claude/config.yaml)
-- **taid configure**: Configure work tracking platforms (Azure DevOps, file-based)
-- **taid validate**: Validate configuration against schema
-- **taid doctor**: Health check for TAID setup
+- **trustable-ai init**: Initialize Trustable AI in a project (creates .claude/config.yaml)
+- **trustable-ai configure**: Configure work tracking platforms (Azure DevOps, file-based)
+- **trustable-ai validate**: Validate configuration against schema
+- **trustable-ai doctor**: Health check for Trustable AI setup
 
 ### Agent Management
-- **taid agent list**: List available agents
-- **taid agent enable/disable**: Enable/disable agents
-- **taid agent render**: Render specific agent template
-- **taid agent render-all**: Render all enabled agents to .claude/agents/
+- **trustable-ai agent list**: List available agents
+- **trustable-ai agent enable/disable**: Enable/disable agents
+- **trustable-ai agent render**: Render specific agent template
+- **trustable-ai agent render-all**: Render all enabled agents to .claude/agents/
 
 ### Workflow Management
-- **taid workflow list**: List available workflows
-- **taid workflow render**: Render specific workflow template
-- **taid workflow render-all**: Render all workflows to .claude/commands/
+- **trustable-ai workflow list**: List available workflows
+- **trustable-ai workflow render**: Render specific workflow template
+- **trustable-ai workflow render-all**: Render all workflows to .claude/commands/
 
 ### Other Commands
-- **taid status**: Show project status and configuration summary
-- **taid learnings**: Manage captured learnings
-- **taid context**: Generate context for specific tasks
-- **taid skill**: Manage and list skills
+- **trustable-ai status**: Show project status and configuration summary
+- **trustable-ai learnings**: Manage captured learnings
+- **trustable-ai context**: Generate context for specific tasks
+- **trustable-ai skill**: Manage and list skills
 
 ## Usage Examples
 
 ```bash
-# Initialize TAID in your project
+# Initialize Trustable AI in your project
 cd my-project
-taid init
+trustable-ai init
 
 # Configure Azure DevOps
-taid configure azure-devops
+trustable-ai configure azure-devops
 
 # List and enable agents
-taid agent list
-taid agent enable business-analyst
-taid agent render-all
+trustable-ai agent list
+trustable-ai agent enable business-analyst
+trustable-ai agent render-all
 
 # Render workflows as slash commands
-taid workflow render-all
+trustable-ai workflow render-all
 
 # Validate configuration
-taid validate
+trustable-ai validate
 
 # Check system health
-taid doctor
+trustable-ai doctor
 ```
 
 ## Conventions

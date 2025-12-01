@@ -105,7 +105,7 @@ def configure_azure_devops():
 
     except FileNotFoundError as e:
         click.echo(f"❌ Error: {e}")
-        click.echo("Run 'taid init' to initialize the framework.")
+        click.echo("Run 'trustable-ai init' to initialize the framework.")
 
 
 @configure_command.command(name="file-based")
@@ -161,7 +161,7 @@ def configure_file_based():
 
     except FileNotFoundError as e:
         click.echo(f"❌ Error: {e}")
-        click.echo("Run 'taid init' to initialize the framework.")
+        click.echo("Run 'trustable-ai init' to initialize the framework.")
 
 
 @configure_command.command(name="quality-standards")

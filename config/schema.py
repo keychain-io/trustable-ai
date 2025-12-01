@@ -1,5 +1,5 @@
 """
-Configuration schema for Trusted AI Development (TAID).
+Configuration schema for Trustable AI.
 
 Defines Pydantic models for type-safe configuration validation.
 """

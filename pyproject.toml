@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "trusted-ai-dev"
-version = "1.0.0"
+name = "trustable-ai"
+version = "1.1.0"
 description = "AI-assisted software lifecycle tools with multi-agent orchestration, state management, and work tracking integration"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 authors = [
-    {name = "Trusted AI Development Contributors"}
+    {name = "Trustable AI Contributors"}
 ]
 keywords = [
     "ai",
@@ -54,7 +54,7 @@ azure = [
 ]
 
 [project.scripts]
-taid = "cli.main:cli"
+trustable-ai = "cli.main:cli"
 
 [tool.black]
 line-length = 88

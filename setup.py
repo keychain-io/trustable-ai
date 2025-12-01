@@ -1,5 +1,5 @@
 """
-Setup configuration for Trusted AI Development (TAID).
+Setup configuration for Trustable AI.
 """
 from setuptools import setup, find_packages
 from pathlib import Path
@@ -9,13 +9,13 @@ readme_path = Path(__file__).parent / "README.md"
 long_description = readme_path.read_text() if readme_path.exists() else ""
 
 setup(
-    name="trusted-ai-dev",
-    version="1.0.0",
-    author="Trusted AI Development Contributors",
+    name="trustable-ai",
+    version="1.1.0",
+    author="Trustable AI Contributors",
     description="AI-assisted software lifecycle tools with multi-agent orchestration, state management, and work tracking integration",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/trusted-ai-dev/trusted-ai-dev",
+    url="https://github.com/trustable-ai/trustable-ai",
     packages=find_packages(),
     package_data={
         "": ["*.j2", "*.yaml", "*.yml", "*.md"],
@@ -42,7 +42,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "taid=cli.main:cli",
+            "trustable-ai=cli.main:cli",
         ],
     },
     python_requires=">=3.9",

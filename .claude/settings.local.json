@@ -28,7 +28,8 @@
       "Bash(taid agent:*)",
       "Bash(taid workflow:*)",
       "Bash(taid doctor:*)",
-      "Bash(taid configure:*)"
+      "Bash(taid configure:*)",
+      "Bash(trustable-ai:*)"
     ],
     "deny": [],
     "ask": []

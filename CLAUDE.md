@@ -1,6 +1,6 @@
 ---
 context:
-  keywords: [taid, framework, project, overview]
+  keywords: [trustable-ai, framework, project, overview]
   task_types: [any]
   priority: high
   max_tokens: 1500
@@ -16,7 +16,7 @@ context:
     - path: config/CLAUDE.md
       when: [config, configuration, schema, yaml, settings]
     - path: cli/CLAUDE.md
-      when: [cli, command, taid, init, validate, doctor]
+      when: [cli, command, trustable-ai, init, validate, doctor]
     - path: skills/CLAUDE.md
       when: [skill, capability, plugin]
     - path: tests/CLAUDE.md
@@ -30,15 +30,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Trusted AI Development (TAID) is an AI-assisted software lifecycle framework featuring multi-agent orchestration, state management, and work tracking integration. It enables reliable software development with Claude Code through specialized agents, re-entrant workflows, and hierarchical context management.
+Trustable AI is an AI-assisted software lifecycle framework featuring multi-agent orchestration, state management, and work tracking integration. It enables reliable software development with Claude Code through specialized agents, re-entrant workflows, and hierarchical context management.
 
-**Current State (v1.0.0):**
+**Current State (v1.1.0):**
 - ✅ Configuration system with Pydantic validation
 - ✅ Agent template rendering with project context injection (12 agents)
 - ✅ Workflow template rendering (7 workflows)
 - ✅ Azure DevOps adapter for work item operations
 - ✅ File-based task tracking adapter
-- ✅ CLI (`taid`) for initialization, configuration, and management
+- ✅ CLI (`trustable-ai`) for initialization, configuration, and management
 - ✅ State management with re-entrancy support
 - ✅ Profiling and analytics
 - ✅ Skills system for reusable capabilities
@@ -102,36 +102,36 @@ black . && ruff . && mypy .
 ### CLI Commands
 ```bash
 # Initialize framework in a project
-taid init
+trustable-ai init
 
 # Configure Azure DevOps
-taid configure azure-devops
+trustable-ai configure azure-devops
 
 # Configure file-based tracking
-taid configure file-based
+trustable-ai configure file-based
 
 # Manage agents
-taid agent list                          # List available agents
-taid agent enable <agent-name>           # Enable agent in config
-taid agent disable <agent-name>          # Disable agent in config
-taid agent render <agent-name> --show    # Render specific agent
-taid agent render-all                    # Render all to .claude/agents/
+trustable-ai agent list                          # List available agents
+trustable-ai agent enable <agent-name>           # Enable agent in config
+trustable-ai agent disable <agent-name>          # Disable agent in config
+trustable-ai agent render <agent-name> --show    # Render specific agent
+trustable-ai agent render-all                    # Render all to .claude/agents/
 
 # Manage workflows
-taid workflow list                       # List available workflows
-taid workflow render <name> --show       # Show rendered workflow
-taid workflow render <name> -o file.md   # Save to file
-taid workflow render-all                 # Render all to .claude/commands/
+trustable-ai workflow list                       # List available workflows
+trustable-ai workflow render <name> --show       # Show rendered workflow
+trustable-ai workflow render <name> -o file.md   # Save to file
+trustable-ai workflow render-all                 # Render all to .claude/commands/
 
 # State management
-taid state list                          # List workflow states
-taid state resume <id>                   # Resume interrupted workflow
+trustable-ai state list                          # List workflow states
+trustable-ai state resume <id>                   # Resume interrupted workflow
 
 # Validate configuration
-taid validate
+trustable-ai validate
 
 # Health check
-taid doctor
+trustable-ai doctor
 ```
 
 ## Architecture
@@ -219,8 +219,8 @@ taid doctor
   - `workflow-resume.j2`: Resume incomplete workflows from within Claude Code
 
 **Workflow Usage:**
-1. Render workflow template: `taid workflow render sprint-planning --show`
-2. Render all workflows to slash commands: `taid workflow render-all`
+1. Render workflow template: `trustable-ai workflow render sprint-planning --show`
+2. Render all workflows to slash commands: `trustable-ai workflow render-all`
 3. Use slash commands in Claude Code (e.g., `/sprint-planning`)
 4. Claude Code follows the instructions using configured agents
 5. State is persisted for re-entrancy (resume on failure)
@@ -346,13 +346,13 @@ agent_config:
 1. Create template in `agents/templates/<agent-name>.j2`
 2. Use Jinja2 variables: `{{ project.tech_stack }}`, `{{ quality_standards }}`, etc.
 3. Add agent to `enabled_agents` in configuration
-4. Test with `taid agent enable <agent-name>`
+4. Test with `trustable-ai agent enable <agent-name>`
 
 ### Adding a New Workflow
 1. Create template in `workflows/templates/<workflow-name>.j2`
 2. Define workflow steps with agent calls
 3. Include state checkpoints between steps
-4. Test with `taid workflow render <workflow-name> --show`
+4. Test with `trustable-ai workflow render <workflow-name> --show`
 
 ### Adding a Platform Adapter
 1. Create directory `adapters/<platform>/`
@@ -365,15 +365,15 @@ agent_config:
 1. Check state files in `.claude/workflow-state/`
 2. Review profiling reports in `.claude/profiling/`
 3. Enable debug logging in workflow execution
-4. Use `taid validate` to check configuration
+4. Use `trustable-ai validate` to check configuration
 5. Test individual agents before running full workflows
 
 ## Important Notes
 
 - **Credentials:** Azure DevOps adapter uses Azure CLI credentials. Ensure `az login` is completed before running workflows.
 - **Organization URL Format:** The organization URL must be the full Azure DevOps URL (e.g., `https://dev.azure.com/yourorg`), not just the organization name.
-- **State Persistence:** Workflow state is persisted to disk. Clean up old state files periodically with `taid state cleanup`.
+- **State Persistence:** Workflow state is persisted to disk. Clean up old state files periodically with `trustable-ai state cleanup`.
 - **Token Budgets:** Context loaders respect token budgets. Adjust `max_tokens` parameter based on workflow needs.
-- **Template Customization:** After `taid init`, templates are copied to project's `.claude/` directory for customization.
+- **Template Customization:** After `trustable-ai init`, templates are copied to project's `.claude/` directory for customization.
 - **Agent Models:** Different agents can use different Claude models (Opus for architecture, Sonnet for engineering).
-- **File-Based Tracking:** Use `taid configure file-based` for zero-dependency task management.
+- **File-Based Tracking:** Use `trustable-ai configure file-based` for zero-dependency task management.

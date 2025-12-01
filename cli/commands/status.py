@@ -16,7 +16,7 @@ import yaml
 @click.option("--all", "show_all", is_flag=True, help="Show all status information")
 def status(workflows: bool, sprints: bool, show_all: bool):
     """
-    Show TAID status and active workflows.
+    Show Trustable AI status and active workflows.
 
     Displays:
     - Configuration summary

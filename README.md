@@ -1,10 +1,10 @@
-# Trusted AI Development (TAID)
+# Trustable AI
 
 An AI-assisted software lifecycle framework featuring multi-agent orchestration, state management, and work tracking integration. Build real software projects reliably with Claude Code.
 
 ## Overview
 
-Trusted AI Development (TAID) provides a sophisticated system for managing AI-assisted software development workflows. It coordinates specialized AI agents to handle complex development tasks while maintaining context, state, and integration with your work tracking platform.
+Trustable AI provides a sophisticated system for managing AI-assisted software development workflows. It coordinates specialized AI agents to handle complex development tasks while maintaining context, state, and integration with your work tracking platform.
 
 **Key Capabilities:**
 - Multi-agent orchestration with 13 specialized agents
@@ -18,12 +18,12 @@ Trusted AI Development (TAID) provides a sophisticated system for managing AI-as
 ## Installation
 
 ```bash
-pip install trusted-ai-dev
+pip install trustable-ai
 ```
 
 With Azure DevOps support:
 ```bash
-pip install trusted-ai-dev[azure]
+pip install trustable-ai[azure]
 ```
 
 For development:
@@ -37,7 +37,7 @@ pip install -e ".[dev]"
 
 ```bash
 cd your-project/
-taid init
+trustable-ai init
 ```
 
 The interactive init wizard will:
@@ -48,39 +48,39 @@ The interactive init wizard will:
 5. Optionally render agents and workflows to `.claude/`
 6. Optionally generate hierarchical CLAUDE.md context files
 
-**Re-entrant:** Running `taid init` again loads existing values as defaults, so you can update individual settings without re-entering everything.
+**Re-entrant:** Running `trustable-ai init` again loads existing values as defaults, so you can update individual settings without re-entering everything.
 
 ### Non-Interactive Mode
 
 ```bash
 # Initialize with all defaults
-taid init --no-interactive
+trustable-ai init --no-interactive
 ```
 
 ### Agent and Workflow Management
 
 ```bash
 # List available agents
-taid agent list
+trustable-ai agent list
 
 # Enable agents (individually or all at once)
-taid agent enable senior-engineer
-taid agent enable all
+trustable-ai agent enable senior-engineer
+trustable-ai agent enable all
 
 # Render all enabled agents to .claude/agents/
-taid agent render-all
+trustable-ai agent render-all
 
 # Also render agent slash commands to .claude/commands/
-taid agent render-all --with-commands
+trustable-ai agent render-all --with-commands
 
 # Or render commands separately
-taid agent render-commands
+trustable-ai agent render-commands
 
 # Render workflows to .claude/commands/
-taid workflow render-all
+trustable-ai workflow render-all
 
 # Validate your setup
-taid validate
+trustable-ai validate
 ```
 
 ### Use with Claude Code
@@ -126,26 +126,26 @@ After rendering, use the slash commands in Claude Code:
 
 ### Hierarchical Context Generation
 
-TAID can automatically generate hierarchical CLAUDE.md files for your codebase:
+Trustable AI can automatically generate hierarchical CLAUDE.md files for your codebase:
 
 ```bash
 # Preview what would be generated
-taid context generate --dry-run
+trustable-ai context generate --dry-run
 
 # Generate CLAUDE.md files (skips existing)
-taid context generate
+trustable-ai context generate
 
 # Force overwrite existing files
-taid context generate --force
+trustable-ai context generate --force
 
 # Limit depth of directory traversal
-taid context generate --depth 2
+trustable-ai context generate --depth 2
 
 # Build searchable context index
-taid context index
+trustable-ai context index
 
 # Look up relevant context for a task
-taid context lookup "implement user authentication"
+trustable-ai context lookup "implement user authentication"
 ```
 
 Context generation creates:
@@ -176,10 +176,10 @@ This will:
 **Or use the CLI:**
 ```bash
 # View workflow states
-taid state list
+trustable-ai state list
 
 # Resume interrupted workflow (outputs instructions)
-taid state resume sprint-planning-sprint-10
+trustable-ai state resume sprint-planning-sprint-10
 ```
 
 ### Skills System
@@ -194,14 +194,14 @@ Reusable capabilities for common tasks:
 
 Capture institutional knowledge from development sessions:
 ```bash
-taid learnings capture
-taid learnings list
-taid learnings archive
+trustable-ai learnings capture
+trustable-ai learnings list
+trustable-ai learnings archive
 ```
 
 ## Configuration
 
-The `taid init` command creates `.claude/config.yaml` in your project. You can also create it manually:
+The `trustable-ai init` command creates `.claude/config.yaml` in your project. You can also create it manually:
 
 ```yaml
 project:
@@ -254,47 +254,47 @@ implementation_tier: "tier-0"
 
 ```bash
 # Initialization (re-entrant)
-taid init              # Initialize or update TAID configuration
-taid init --no-interactive  # Use defaults without prompts
-taid validate          # Validate configuration
-taid doctor            # Health check and diagnostics
-taid status            # Overall status
+trustable-ai init              # Initialize or update Trustable AI configuration
+trustable-ai init --no-interactive  # Use defaults without prompts
+trustable-ai validate          # Validate configuration
+trustable-ai doctor            # Health check and diagnostics
+trustable-ai status            # Overall status
 
 # Agent Management
-taid agent list            # List available agents
-taid agent enable <name>   # Enable an agent
-taid agent enable all      # Enable all agents
-taid agent disable <name>  # Disable an agent
-taid agent render <name>   # Render specific agent
-taid agent render all      # Render all enabled agents
-taid agent render-all      # Render all enabled agents to .claude/agents/
-taid agent render-all --with-commands  # Also render agent slash commands
-taid agent render-commands # Render agent slash commands to .claude/commands/
+trustable-ai agent list            # List available agents
+trustable-ai agent enable <name>   # Enable an agent
+trustable-ai agent enable all      # Enable all agents
+trustable-ai agent disable <name>  # Disable an agent
+trustable-ai agent render <name>   # Render specific agent
+trustable-ai agent render all      # Render all enabled agents
+trustable-ai agent render-all      # Render all enabled agents to .claude/agents/
+trustable-ai agent render-all --with-commands  # Also render agent slash commands
+trustable-ai agent render-commands # Render agent slash commands to .claude/commands/
 
 # Workflow Management
-taid workflow list             # List available workflows
-taid workflow render <name>    # Render specific workflow
-taid workflow render-all       # Render all workflows to .claude/commands/
+trustable-ai workflow list             # List available workflows
+trustable-ai workflow render <name>    # Render specific workflow
+trustable-ai workflow render-all       # Render all workflows to .claude/commands/
 
 # State Management
-taid state list            # List workflow states
-taid state show <id>       # Show specific state
-taid state resume <id>     # Resume interrupted workflow
-taid state cleanup         # Clean up old state files
+trustable-ai state list            # List workflow states
+trustable-ai state show <id>       # Show specific state
+trustable-ai state resume <id>     # Resume interrupted workflow
+trustable-ai state cleanup         # Clean up old state files
 
 # Context Management
-taid context generate      # Generate hierarchical CLAUDE.md files
-taid context generate --dry-run  # Preview without creating files
-taid context generate --force    # Overwrite existing files
-taid context generate -d 2       # Limit depth
-taid context index         # Build context index
-taid context show          # Show loaded contexts
-taid context lookup <task> # Find relevant context for a task
+trustable-ai context generate      # Generate hierarchical CLAUDE.md files
+trustable-ai context generate --dry-run  # Preview without creating files
+trustable-ai context generate --force    # Overwrite existing files
+trustable-ai context generate -d 2       # Limit depth
+trustable-ai context index         # Build context index
+trustable-ai context show          # Show loaded contexts
+trustable-ai context lookup <task> # Find relevant context for a task
 
 # Configuration
-taid configure azure-devops    # Configure Azure DevOps
-taid configure file-based      # Configure file-based tracking
-taid configure quality         # Configure quality standards
+trustable-ai configure azure-devops    # Configure Azure DevOps
+trustable-ai configure file-based      # Configure file-based tracking
+trustable-ai configure quality         # Configure quality standards
 ```
 
 ## Work Tracking Platforms
@@ -303,7 +303,7 @@ taid configure quality         # Configure quality standards
 
 ```bash
 # Configure Azure DevOps
-taid configure azure-devops
+trustable-ai configure azure-devops
 
 # Ensure you've logged in
 az login
@@ -313,7 +313,7 @@ az login
 
 For projects without external work tracking:
 ```bash
-taid configure file-based
+trustable-ai configure file-based
 ```
 
 Tasks are stored in `.claude/tasks/` as YAML files.
@@ -341,18 +341,18 @@ project-root/
 
 ### Hierarchical Context
 
-TAID uses hierarchical CLAUDE.md files to provide maximal context with minimal tokens:
+Trustable AI uses hierarchical CLAUDE.md files to provide maximal context with minimal tokens:
 - Root CLAUDE.md for project overview
 - Module-level CLAUDE.md for specific areas
 - Auto-generated context index for smart loading
-- Use `taid context generate` to create the hierarchy automatically
+- Use `trustable-ai context generate` to create the hierarchy automatically
 
 ## Development
 
 ```bash
 # Clone repository
-git clone https://github.com/trusted-ai-dev/trusted-ai-dev
-cd trusted-ai-dev
+git clone https://github.com/trustable-ai/trustable-ai
+cd trustable-ai
 
 # Install for development
 pip install -e ".[dev]"
@@ -380,6 +380,6 @@ MIT License - see LICENSE file for details.
 
 ## Links
 
-- Documentation: https://trusted-ai-dev.github.io
-- Issues: https://github.com/trusted-ai-dev/trusted-ai-dev/issues
-- PyPI: https://pypi.org/project/trusted-ai-dev/
+- Documentation: https://trustable-ai.github.io
+- Issues: https://github.com/trustable-ai/trustable-ai/issues
+- PyPI: https://pypi.org/project/trustable-ai/

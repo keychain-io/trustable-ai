@@ -1,5 +1,5 @@
 """
-Trusted AI Development (TAID) - Skills System
+Trustable AI - Skills System
 
 Skills provide reusable capabilities for common development tasks.
 Each skill includes Python implementations and documentation.

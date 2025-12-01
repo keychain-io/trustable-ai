@@ -106,7 +106,7 @@ for workflow in registry.list_workflows():
     registry.save_rendered_workflow(workflow, Path(".claude/commands"))
 
 # Use rendered workflow in Claude Code
-# 1. Render workflows: taid workflow render-all
+# 1. Render workflows: trustable-ai workflow render-all
 # 2. In Claude Code: /sprint-planning
 ```
 
@@ -134,7 +134,7 @@ To create a new workflow:
 3. **Add State Management**: Use WorkflowState for checkpointing
 4. **Add Profiling**: Use WorkflowProfiler for tracking
 5. **Test**: Render and test the workflow
-6. **Deploy**: Run `taid workflow render-all` to deploy
+6. **Deploy**: Run `trustable-ai workflow render-all` to deploy
 
 Example template structure:
 ```jinja2

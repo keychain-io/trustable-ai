@@ -2,20 +2,20 @@
 
 ## Purpose
 
-CLI command implementations for the `taid` command-line tool. Each file implements a specific command or command group using Click framework.
+CLI command implementations for the `trustable-ai` command-line tool. Each file implements a specific command or command group using Click framework.
 
 ## Key Components
 
-- **init.py**: `taid init` - Initialize TAID framework in a project
-- **configure.py**: `taid configure` - Configure work tracking platforms
-- **agent.py**: `taid agent` - Agent management commands (list, enable, disable, render)
-- **workflow.py**: `taid workflow` - Workflow management commands (list, render)
-- **validate.py**: `taid validate` - Validate configuration against schema
-- **doctor.py**: `taid doctor` - System health check and diagnostics
-- **status.py**: `taid status` - Show project status and configuration
-- **learnings.py**: `taid learnings` - Manage captured learnings
-- **context.py**: `taid context` - Generate context for tasks
-- **skill.py**: `taid skill` - Manage skills
+- **init.py**: `trustable-ai init` - Initialize Trustable AI framework in a project
+- **configure.py**: `trustable-ai configure` - Configure work tracking platforms
+- **agent.py**: `trustable-ai agent` - Agent management commands (list, enable, disable, render)
+- **workflow.py**: `trustable-ai workflow` - Workflow management commands (list, render)
+- **validate.py**: `trustable-ai validate` - Validate configuration against schema
+- **doctor.py**: `trustable-ai doctor` - System health check and diagnostics
+- **status.py**: `trustable-ai status` - Show project status and configuration
+- **learnings.py**: `trustable-ai learnings` - Manage captured learnings
+- **context.py**: `trustable-ai context` - Generate context for tasks
+- **skill.py**: `trustable-ai skill` - Manage skills
 - **__init__.py**: Module exports for command registration
 
 ## Command Patterns

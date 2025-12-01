@@ -1,5 +1,5 @@
 """
-Initialize command - sets up Trusted AI Development (TAID) in a project.
+Initialize command - sets up Trustable AI in a project.
 
 This command is re-entrant: running it again will load existing values as defaults,
 allowing you to update individual settings without re-entering everything.
@@ -53,7 +53,7 @@ def init_command(
     config_path: Optional[str],
 ):
     """
-    Initialize Trusted AI Development in your project.
+    Initialize Trustable AI in your project.
 
     This command is re-entrant: running it again will load existing values as defaults,
     allowing you to update individual settings without re-entering everything.
@@ -68,10 +68,10 @@ def init_command(
     existing_config = _load_existing_config(config_file)
 
     if existing_config:
-        click.echo("\n🔄 Updating Trusted AI Development (TAID) configuration")
+        click.echo("\n🔄 Updating Trustable AI configuration")
         click.echo("   (Press Enter to keep existing values)\n")
     else:
-        click.echo("\n🚀 Initializing Trusted AI Development (TAID)\n")
+        click.echo("\n🚀 Initializing Trustable AI\n")
 
     # Get project name
     existing_name = _get_existing_value(existing_config, "project.name", "My Project")
@@ -370,11 +370,11 @@ def init_command(
         click.echo("Next steps:")
         click.echo(f"  1. Review configuration: {config_file}")
         click.echo(f"  2. Review and enhance CLAUDE.md files with project-specific details")
-        click.echo(f"  3. Configure work tracking: taid configure {platform}")
-        click.echo("  4. Validate setup: taid validate")
+        click.echo(f"  3. Configure work tracking: trustable-ai configure {platform}")
+        click.echo("  4. Validate setup: trustable-ai validate")
         click.echo("  5. Start using workflows in Claude Code (e.g., /sprint-planning)\n")
     else:
-        click.echo("Configuration updated. Run 'taid validate' to verify settings.\n")
+        click.echo("Configuration updated. Run 'trustable-ai validate' to verify settings.\n")
 
 
 def _create_gitignore(claude_dir: Path) -> None:
@@ -399,7 +399,7 @@ def _create_readme(claude_dir: Path, project_name: str) -> None:
     readme_file = claude_dir / "README.md"
 
     if not readme_file.exists():
-        content = f"""# Trusted AI Development (TAID)
+        content = f"""# Trustable AI
 
 This directory contains AI-assisted workflow automation configuration for **{project_name}**.
 
@@ -415,11 +415,11 @@ This directory contains AI-assisted workflow automation configuration for **{pro
 ## Quick Commands
 
 ```bash
-taid agent list         # List available agents
-taid agent render-all   # Render agents to .claude/agents/
-taid workflow list      # List available workflows
-taid workflow render-all # Render workflows to .claude/commands/
-taid validate           # Validate configuration
+trustable-ai agent list         # List available agents
+trustable-ai agent render-all   # Render agents to .claude/agents/
+trustable-ai workflow list      # List available workflows
+trustable-ai workflow render-all # Render workflows to .claude/commands/
+trustable-ai validate           # Validate configuration
 ```
 
 ## Configuration
