@@ -33,10 +33,10 @@ def capture(title: str, category: str, content: str, tags: tuple, source: str, w
     Capture a new learning.
 
     Examples:
-        taid learnings capture "Iteration path format" -c azure-devops \\
+        trustable-ai learnings capture "Iteration path format" -c azure-devops \\
             -m "Use simplified format: Project\\\\SprintName"
 
-        taid learnings capture "Test isolation" -c testing \\
+        trustable-ai learnings capture "Test isolation" -c testing \\
             -m "Always use separate database for tests" \\
             -t testing -t database -s "Sprint 3 retro"
     """
@@ -95,16 +95,16 @@ def list_learnings(category: str, tag: str, limit: int):
     List captured learnings.
 
     Examples:
-        taid learnings list
-        taid learnings list -c azure-devops
-        taid learnings list -t security -n 5
+        trustable-ai learnings list
+        trustable-ai learnings list -c azure-devops
+        trustable-ai learnings list -t security -n 5
     """
     learnings_dir = Path(".claude/learnings")
     index_file = learnings_dir / "index.yaml"
 
     if not index_file.exists():
         click.echo("No learnings captured yet.")
-        click.echo("Use 'taid learnings capture' to add a learning.")
+        click.echo("Use 'trustable-ai learnings capture' to add a learning.")
         return
 
     with open(index_file) as f:
@@ -153,7 +153,7 @@ def show_learning(learning_id: str):
     Show details of a specific learning.
 
     Example:
-        taid learnings show azure-devops-20250101120000
+        trustable-ai learnings show azure-devops-20250101120000
     """
     learnings_dir = Path(".claude/learnings")
     learning_file = learnings_dir / f"{learning_id}.yaml"
@@ -188,7 +188,7 @@ def search_learnings(query: str):
     Search learnings by text.
 
     Example:
-        taid learnings search "iteration path"
+        trustable-ai learnings search "iteration path"
     """
     learnings_dir = Path(".claude/learnings")
 
@@ -273,8 +273,8 @@ def export_learnings(format: str, output: str):
     Export learnings for documentation or context.
 
     Examples:
-        taid learnings export -f markdown -o LEARNINGS.md
-        taid learnings export -f json -o learnings.json
+        trustable-ai learnings export -f markdown -o LEARNINGS.md
+        trustable-ai learnings export -f json -o learnings.json
     """
     learnings_dir = Path(".claude/learnings")
 

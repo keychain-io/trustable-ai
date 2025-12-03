@@ -20,7 +20,26 @@ class FileBasedAdapter:
 
     Stores work items as YAML files, providing the same interface
     as the Azure DevOps adapter.
+
+    Work items use type-prefixed IDs for human readability:
+    - EPIC-001, EPIC-002, ...
+    - FEATURE-001, FEATURE-002, ...
+    - STORY-001, STORY-002, ...
+    - TASK-001, TASK-002, ...
+    - BUG-001, BUG-002, ...
     """
+
+    # Map work item types to ID prefixes
+    TYPE_PREFIXES = {
+        "Epic": "EPIC",
+        "Feature": "FEATURE",
+        "User Story": "STORY",
+        "Task": "TASK",
+        "Bug": "BUG",
+    }
+
+    # Reverse mapping for prefix to type
+    PREFIX_TO_TYPE = {v: k for k, v in TYPE_PREFIXES.items()}
 
     def __init__(
         self,
@@ -37,7 +56,8 @@ class FileBasedAdapter:
         self.work_items_dir = work_items_dir or Path(".claude/work-items")
         self.project_name = project_name
         self._ensure_directories()
-        self._next_id = self._get_next_id()
+        # Track next ID per type prefix
+        self._next_ids = self._get_next_ids()
 
     def _ensure_directories(self) -> None:
         """Create necessary directories."""
@@ -48,19 +68,66 @@ class FileBasedAdapter:
         (self.work_items_dir / "bugs").mkdir(exist_ok=True)
         (self.work_items_dir / "sprints").mkdir(exist_ok=True)
 
-    def _get_next_id(self) -> int:
-        """Get the next available work item ID."""
-        max_id = 0
+    def _get_next_ids(self) -> Dict[str, int]:
+        """Get the next available work item ID for each type prefix."""
+        next_ids = {prefix: 1 for prefix in self.TYPE_PREFIXES.values()}
+
         for work_item_type in ["epics", "features", "tasks", "bugs"]:
             type_dir = self.work_items_dir / work_item_type
             for file in type_dir.glob("*.yaml"):
                 try:
-                    id_match = re.search(r"WI-(\d+)", file.stem)
-                    if id_match:
-                        max_id = max(max_id, int(id_match.group(1)))
+                    # Try new format: PREFIX-NNN
+                    for prefix in self.TYPE_PREFIXES.values():
+                        pattern = rf"{prefix}-(\d+)"
+                        id_match = re.search(pattern, file.stem)
+                        if id_match:
+                            current_id = int(id_match.group(1))
+                            next_ids[prefix] = max(next_ids[prefix], current_id + 1)
+                            break
+                    else:
+                        # Try legacy format: WI-NNN (for backward compatibility)
+                        id_match = re.search(r"WI-(\d+)", file.stem)
+                        if id_match:
+                            # Legacy items get converted based on directory
+                            legacy_prefix_map = {
+                                "epics": "EPIC",
+                                "features": "FEATURE",
+                                "tasks": "TASK",
+                                "bugs": "BUG",
+                            }
+                            prefix = legacy_prefix_map.get(work_item_type, "TASK")
+                            current_id = int(id_match.group(1))
+                            next_ids[prefix] = max(next_ids[prefix], current_id + 1)
                 except ValueError:
                     pass
-        return max_id + 1
+        return next_ids
+
+    def _get_next_id_for_type(self, work_item_type: str) -> str:
+        """Get the next ID string for a work item type (e.g., 'EPIC-001')."""
+        prefix = self.TYPE_PREFIXES.get(work_item_type, "TASK")
+        next_num = self._next_ids.get(prefix, 1)
+        self._next_ids[prefix] = next_num + 1
+        return f"{prefix}-{next_num:03d}"
+
+    def _parse_work_item_id(self, work_item_id: str) -> tuple:
+        """Parse a work item ID into (prefix, number). Returns (None, None) if invalid."""
+        if isinstance(work_item_id, int):
+            # Legacy numeric ID - search all directories
+            return None, work_item_id
+
+        # Try new format: PREFIX-NNN
+        for prefix in self.TYPE_PREFIXES.values():
+            pattern = rf"^({prefix})-(\d+)$"
+            match = re.match(pattern, str(work_item_id))
+            if match:
+                return match.group(1), int(match.group(2))
+
+        # Try legacy format: WI-NNN
+        match = re.match(r"^WI-(\d+)$", str(work_item_id))
+        if match:
+            return "WI", int(match.group(1))
+
+        return None, None
 
     def _type_to_dir(self, work_item_type: str) -> str:
         """Map work item type to directory name."""
@@ -81,27 +148,27 @@ class FileBasedAdapter:
         assigned_to: Optional[str] = None,
         iteration: Optional[str] = None,
         fields: Optional[Dict[str, Any]] = None,
-        parent_id: Optional[int] = None,
+        parent_id: Optional[str] = None,
         verify: bool = False
     ) -> Dict[str, Any]:
         """
         Create a new work item.
 
         Args:
-            work_item_type: Type (Epic, Feature, Task, Bug)
+            work_item_type: Type (Epic, Feature, User Story, Task, Bug)
             title: Work item title
             description: Description
             assigned_to: Assignee
             iteration: Sprint/iteration name
             fields: Additional fields (story points, priority, etc.)
-            parent_id: Parent work item ID
+            parent_id: Parent work item ID (e.g., 'EPIC-001')
             verify: Whether to return verification dict
 
         Returns:
             Work item dict or verification result
         """
-        work_item_id = self._next_id
-        self._next_id += 1
+        # Generate type-prefixed ID (e.g., EPIC-001, TASK-002)
+        work_item_id = self._get_next_id_for_type(work_item_type)
 
         work_item = {
             "id": work_item_id,
@@ -125,9 +192,9 @@ class FileBasedAdapter:
             if "Microsoft.VSTS.Common.Priority" in fields:
                 work_item["priority"] = fields["Microsoft.VSTS.Common.Priority"]
 
-        # Save work item
+        # Save work item with type-prefixed filename
         type_dir = self._type_to_dir(work_item_type)
-        file_path = self.work_items_dir / type_dir / f"WI-{work_item_id}.yaml"
+        file_path = self.work_items_dir / type_dir / f"{work_item_id}.yaml"
 
         with open(file_path, "w") as f:
             yaml.dump(work_item, f, default_flow_style=False, sort_keys=False)
@@ -153,7 +220,7 @@ class FileBasedAdapter:
 
     def update_work_item(
         self,
-        work_item_id: int,
+        work_item_id: str,
         state: Optional[str] = None,
         assigned_to: Optional[str] = None,
         fields: Optional[Dict[str, Any]] = None,
@@ -163,7 +230,7 @@ class FileBasedAdapter:
         Update an existing work item.
 
         Args:
-            work_item_id: Work item ID
+            work_item_id: Work item ID (e.g., 'EPIC-001' or legacy 'WI-1')
             state: New state
             assigned_to: New assignee
             fields: Fields to update
@@ -172,8 +239,8 @@ class FileBasedAdapter:
         Returns:
             Updated work item dict or verification result
         """
-        work_item = self.get_work_item(work_item_id)
-        if not work_item:
+        work_item, file_path = self._get_work_item_with_path(work_item_id)
+        if not work_item or not file_path:
             raise ValueError(f"Work item {work_item_id} not found")
 
         if state:
@@ -188,10 +255,7 @@ class FileBasedAdapter:
 
         work_item["updated_at"] = datetime.now().isoformat()
 
-        # Save updated work item
-        type_dir = self._type_to_dir(work_item["type"])
-        file_path = self.work_items_dir / type_dir / f"WI-{work_item_id}.yaml"
-
+        # Save updated work item to its existing path
         with open(file_path, "w") as f:
             yaml.dump(work_item, f, default_flow_style=False, sort_keys=False)
 
@@ -209,14 +273,47 @@ class FileBasedAdapter:
 
         return work_item
 
-    def get_work_item(self, work_item_id: int) -> Optional[Dict[str, Any]]:
-        """Get a work item by ID."""
+    def _get_work_item_with_path(self, work_item_id: str) -> tuple:
+        """
+        Get a work item and its file path by ID.
+
+        Supports both new format (EPIC-001) and legacy format (WI-1).
+
+        Returns:
+            Tuple of (work_item_dict, file_path) or (None, None) if not found
+        """
+        work_item_id_str = str(work_item_id)
+
         for work_item_type in ["epics", "features", "tasks", "bugs"]:
-            file_path = self.work_items_dir / work_item_type / f"WI-{work_item_id}.yaml"
+            type_dir = self.work_items_dir / work_item_type
+
+            # Try new format: PREFIX-NNN.yaml
+            file_path = type_dir / f"{work_item_id_str}.yaml"
             if file_path.exists():
                 with open(file_path) as f:
-                    return yaml.safe_load(f)
-        return None
+                    return yaml.safe_load(f), file_path
+
+            # Try legacy format: WI-N.yaml
+            if isinstance(work_item_id, int) or work_item_id_str.isdigit():
+                legacy_path = type_dir / f"WI-{work_item_id}.yaml"
+                if legacy_path.exists():
+                    with open(legacy_path) as f:
+                        return yaml.safe_load(f), legacy_path
+
+        return None, None
+
+    def get_work_item(self, work_item_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a work item by ID.
+
+        Args:
+            work_item_id: Work item ID (e.g., 'EPIC-001', 'TASK-002', or legacy 'WI-1')
+
+        Returns:
+            Work item dict or None if not found
+        """
+        work_item, _ = self._get_work_item_with_path(work_item_id)
+        return work_item
 
     def query_work_items(
         self,
@@ -261,17 +358,28 @@ class FileBasedAdapter:
 
                 results.append(work_item)
 
-        return sorted(results, key=lambda x: x.get("id", 0))
+        # Sort by ID - handle both new format (EPIC-001) and legacy (numeric)
+        def sort_key(x):
+            item_id = x.get("id", "")
+            if isinstance(item_id, int):
+                return ("", item_id)
+            # Parse string ID like "EPIC-001" -> ("EPIC", 1)
+            match = re.match(r"([A-Z]+)-(\d+)", str(item_id))
+            if match:
+                return (match.group(1), int(match.group(2)))
+            return (str(item_id), 0)
+
+        return sorted(results, key=sort_key)
 
     def add_comment(
         self,
-        work_item_id: int,
+        work_item_id: str,
         comment: str,
         author: Optional[str] = None
     ) -> Dict[str, Any]:
         """Add a comment to a work item."""
-        work_item = self.get_work_item(work_item_id)
-        if not work_item:
+        work_item, file_path = self._get_work_item_with_path(work_item_id)
+        if not work_item or not file_path:
             raise ValueError(f"Work item {work_item_id} not found")
 
         comment_entry = {
@@ -284,9 +392,6 @@ class FileBasedAdapter:
         work_item["updated_at"] = datetime.now().isoformat()
 
         # Save updated work item
-        type_dir = self._type_to_dir(work_item["type"])
-        file_path = self.work_items_dir / type_dir / f"WI-{work_item_id}.yaml"
-
         with open(file_path, "w") as f:
             yaml.dump(work_item, f, default_flow_style=False, sort_keys=False)
 
@@ -294,15 +399,15 @@ class FileBasedAdapter:
 
     def link_work_items(
         self,
-        source_id: int,
-        target_id: int,
+        source_id: str,
+        target_id: str,
         relation_type: str = "related"
     ) -> Dict[str, Any]:
         """Link two work items."""
-        source = self.get_work_item(source_id)
+        source, source_path = self._get_work_item_with_path(source_id)
         target = self.get_work_item(target_id)
 
-        if not source or not target:
+        if not source or not target or not source_path:
             raise ValueError("One or both work items not found")
 
         link = {
@@ -314,22 +419,16 @@ class FileBasedAdapter:
         source.setdefault("links", []).append(link)
 
         # Save updated source
-        type_dir = self._type_to_dir(source["type"])
-        file_path = self.work_items_dir / type_dir / f"WI-{source_id}.yaml"
-
-        with open(file_path, "w") as f:
+        with open(source_path, "w") as f:
             yaml.dump(source, f, default_flow_style=False, sort_keys=False)
 
         return link
 
-    def _add_child_to_parent(self, parent_id: int, child_id: int) -> None:
+    def _add_child_to_parent(self, parent_id: str, child_id: str) -> None:
         """Add a child reference to a parent work item."""
-        parent = self.get_work_item(parent_id)
-        if parent:
+        parent, file_path = self._get_work_item_with_path(parent_id)
+        if parent and file_path:
             parent.setdefault("child_ids", []).append(child_id)
-
-            type_dir = self._type_to_dir(parent["type"])
-            file_path = self.work_items_dir / type_dir / f"WI-{parent_id}.yaml"
 
             with open(file_path, "w") as f:
                 yaml.dump(parent, f, default_flow_style=False, sort_keys=False)

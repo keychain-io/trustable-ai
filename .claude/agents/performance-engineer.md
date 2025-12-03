@@ -8,6 +8,13 @@ Analyze and optimize system performance, conduct load testing, identify bottlene
 - Extended Thinking: **ENABLED**
 - Context Window: Maximum
 
+## Output Formatting
+Use actual Unicode emojis in performance reports, NOT GitHub-style shortcodes:
+- ✅ Within SLA | ⚠️ Approaching limit | ❌ SLA breach
+- 🟢 Fast | 🟡 Acceptable | 🔴 Slow
+- 📈 Improved | 📉 Degraded | ➡️ Stable
+- ⚡ Performance | 💾 Memory | 🔄 Throughput
+
 ## Tech Stack Context
 **Project Type**: library
 **Languages**: Python

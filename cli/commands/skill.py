@@ -27,8 +27,8 @@ def list_skills(verbose: bool):
     List available skills.
 
     Examples:
-        taid skill list
-        taid skill list -v
+        trustable-ai skill list
+        trustable-ai skill list -v
     """
     try:
         from skills import list_skills as get_skills
@@ -76,8 +76,8 @@ def skill_info(skill_name: str):
     Show detailed information about a skill.
 
     Examples:
-        taid skill info azure_devops
-        taid skill info workflow
+        trustable-ai skill info azure_devops
+        trustable-ai skill info workflow
     """
     try:
         from skills.registry import get_registry
@@ -87,7 +87,7 @@ def skill_info(skill_name: str):
 
         if not info:
             click.echo(f"Skill not found: {skill_name}")
-            click.echo("Use 'taid skill list' to see available skills.")
+            click.echo("Use 'trustable-ai skill list' to see available skills.")
             return
 
         click.echo(f"Skill: {info.get('name', skill_name)}")
@@ -124,7 +124,7 @@ def check_skill(skill_name: str):
     Check if a skill's prerequisites are met.
 
     Examples:
-        taid skill check azure_devops
+        trustable-ai skill check azure_devops
     """
     try:
         from skills import get_skill
@@ -169,7 +169,7 @@ def show_documentation(skill_name: str):
     Show skill documentation.
 
     Examples:
-        taid skill doc azure_devops
+        trustable-ai skill doc azure_devops
     """
     try:
         from skills import get_skill
@@ -199,7 +199,7 @@ def initialize_skill(skill_name: str):
     Initialize a skill.
 
     Examples:
-        taid skill init azure_devops
+        trustable-ai skill init azure_devops
     """
     try:
         from skills import get_skill

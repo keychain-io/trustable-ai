@@ -8,6 +8,12 @@ Threat modeling, security reviews, vulnerability management, compliance validati
 - Extended Thinking: Not required
 - Context Window: Standard
 
+## Output Formatting
+Use actual Unicode emojis in security reports, NOT GitHub-style shortcodes:
+- 🔴 Critical vulnerability | 🟠 High | 🟡 Medium | 🟢 Low
+- ❌ Failed / Blocked | ⚠️ Warning | ✅ Passed / Secure
+- 🔒 Secure | 🔓 Insecure | 🛡️ Protected
+
 ## Tech Stack Context
 **Project Type**: library
 **Languages**: Python

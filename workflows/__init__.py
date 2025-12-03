@@ -1,4 +1,4 @@
-"""Workflow management for Claude Workflow Framework."""
+"""Workflow management for Trustable AI Workbench."""
 
 from .registry import WorkflowRegistry, load_workflow, list_workflows
 

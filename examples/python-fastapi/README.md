@@ -1,6 +1,6 @@
-# Python FastAPI Example - Claude Workflow Framework
+# Python FastAPI Example - Trustable AI Workbench
 
-This example demonstrates how to use the Claude Workflow Framework with a Python FastAPI project.
+This example demonstrates how to use the Trustable AI Workbench with a Python FastAPI project.
 
 ## Project Overview
 
@@ -13,10 +13,10 @@ This example demonstrates how to use the Claude Workflow Framework with a Python
 
 ## Setup
 
-### 1. Install Claude Workflow Framework
+### 1. Install Trustable AI Workbench
 
 ```bash
-pip install claude-workflow-framework
+pip install trustable-ai
 ```
 
 ### 2. Initialize in Your Project
@@ -266,7 +266,7 @@ repos:
   - repo: local
     hooks:
       - id: cwf-validate
-        name: Validate Claude Workflow Framework
+        name: Validate Trustable AI Workbench
         entry: cwf validate
         language: system
         pass_filenames: false
@@ -297,7 +297,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install claude-workflow-framework
+          pip install trustable-ai
 
       - name: Run Sprint Planning
         env:
@@ -458,10 +458,10 @@ cwf agent render-all -o .claude/agents --force
 
 ## Support
 
-- Framework Documentation: https://github.com/keychain/claude-workflow-framework
-- Issues: https://github.com/keychain/claude-workflow-framework/issues
-- Discussions: https://github.com/keychain/claude-workflow-framework/discussions
+- Framework Documentation: https://github.com/keychain/trustable-ai-workbench
+- Issues: https://github.com/keychain/trustable-ai-workbench/issues
+- Discussions: https://github.com/keychain/trustable-ai-workbench/discussions
 
 ---
 
-*Example project for Claude Workflow Framework*
+*Example project for Trustable AI Workbench*

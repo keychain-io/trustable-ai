@@ -29,7 +29,11 @@
       "Bash(taid workflow:*)",
       "Bash(taid doctor:*)",
       "Bash(taid configure:*)",
-      "Bash(trustable-ai:*)"
+      "Bash(trustable-ai:*)",
+      "Bash(git init:*)",
+      "Bash(PYTHONPATH=src python3 -m pytest:*)",
+      "Bash(git reset:*)",
+      "Bash(PYTHONPATH=/mnt/c/Users/sundance/workspace/keychain/misc-projects/trusted-ai-test-project/src python3:*)"
     ],
     "deny": [],
     "ask": []

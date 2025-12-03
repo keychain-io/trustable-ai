@@ -1,0 +1,177 @@
+# Update Context Files
+
+Automatically update the hierarchical CLAUDE.md and README.md documentation structure for {{ project.name }}.
+
+## What This Does
+
+This workflow updates your project's context documentation:
+- **README.md files**: Human-readable documentation for each directory
+- **CLAUDE.md files**: Context directives for Claude Code
+
+Existing files are **merged** - your custom content is preserved while the structure is updated.
+
+## Quick Start
+
+Run these commands to update your context files:
+
+```bash
+# Update all CLAUDE.md files (merges with existing)
+trustable-ai context generate --merge
+
+# Or regenerate everything (overwrites)
+trustable-ai context generate --force
+
+# Rebuild the context index after updating
+trustable-ai context index
+```
+
+## Step-by-Step Instructions
+
+### Step 1: Preview Changes
+
+First, see what directories will be updated:
+
+```bash
+trustable-ai context generate --dry-run
+```
+
+This shows which directories have CLAUDE.md files and which need creation.
+
+### Step 2: Update Context Files
+
+**Option A: Merge with existing files (recommended)**
+
+```bash
+trustable-ai context generate --merge
+```
+
+This updates the front matter (keywords, children, priorities) while keeping your custom content.
+
+**Option B: Create new files only (skip existing)**
+
+```bash
+trustable-ai context generate
+```
+
+This creates CLAUDE.md for directories that don't have one.
+
+**Option C: Regenerate all files**
+
+```bash
+trustable-ai context generate --force
+```
+
+This overwrites all files with fresh content.
+
+### Step 3: Rebuild Context Index
+
+After updating files, rebuild the search index:
+
+```bash
+trustable-ai context index
+```
+
+### Step 4: Verify Context Loading
+
+Test that context loads correctly for common tasks:
+
+```bash
+# Test different task types
+trustable-ai context directed implementation
+trustable-ai context directed testing
+trustable-ai context directed --keywords api --keywords endpoint
+
+# View the context tree
+trustable-ai context directed --tree
+```
+
+## Generated File Structure
+
+After running, you'll have:
+
+```
+{{ project.name | lower | replace(' ', '-') }}/
++-- README.md           # Human-readable project documentation
++-- CLAUDE.md           # Claude Code context directives
++-- src/
+|   +-- README.md       # Source code documentation
+|   +-- CLAUDE.md       # Source context directives
++-- tests/
+|   +-- README.md       # Test documentation
+|   +-- CLAUDE.md       # Test context directives
++-- .claude/
+    +-- context-index.yaml  # Fast lookup index
+```
+
+## What Gets Generated
+
+**README.md files contain:**
+- Directory purpose and overview
+- Structure listing
+- Development guidelines
+- Getting started instructions
+
+**CLAUDE.md files contain:**
+- YAML front matter for directed context loading
+- Keywords for matching tasks
+- Children directives for loading related contexts
+- Context hints for Claude Code
+
+## Customizing Generated Files
+
+After generation, enhance your files by:
+
+1. **Adding project-specific details** to README.md files
+2. **Adjusting keywords** in CLAUDE.md front matter for your terminology
+3. **Adding custom children** to load additional contexts
+4. **Setting priorities** for frequently-used directories
+
+Example front matter customization:
+
+```yaml
+---
+context:
+  keywords: [your-custom-keyword, api, service]
+  task_types: [implementation, debugging]
+  priority: high
+  max_tokens: 1000
+  children:
+    - path: src/your-module/CLAUDE.md
+      when: [your-feature, related-keyword]
+  dependencies: []
+---
+```
+
+## Troubleshooting
+
+**Problem: Empty CLAUDE.md files**
+- Run `trustable-ai context generate --force` to regenerate
+- Ensure the directory has source files
+
+**Problem: Context not loading for tasks**
+- Check keywords in CLAUDE.md front matter
+- Run `trustable-ai context index` to rebuild index
+- Use `trustable-ai context lookup "your task"` to test
+
+**Problem: Merge conflicts**
+- Use `trustable-ai context generate --force` to regenerate
+- Manually copy custom content back afterward
+
+## Configuration
+
+- **Project**: {{ project.name }}
+- **Type**: {{ project.type }}
+{% if project.tech_stack.languages %}
+- **Languages**: {{ project.tech_stack.languages | join(', ') }}
+{% endif %}
+{% if project.tech_stack.frameworks %}
+- **Frameworks**: {{ project.tech_stack.frameworks | join(', ') }}
+{% endif %}
+
+## Success Checklist
+
+- [ ] `trustable-ai context generate --merge` completes successfully
+- [ ] `trustable-ai context index` builds the search index
+- [ ] `trustable-ai context directed --tree` shows the hierarchy
+- [ ] README.md files are human-readable
+- [ ] CLAUDE.md files have appropriate keywords

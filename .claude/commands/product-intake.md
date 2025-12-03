@@ -1,0 +1,538 @@
+# Product Intake Workflow
+
+**Project**: Trusted AI Development Workbench
+**Workflow**: Product Intake
+**Purpose**: Triage incoming work requests, bugs, and ideas into the backlog
+
+## Output Formatting Requirements
+
+**IMPORTANT**: Use actual Unicode emojis in reports, NOT GitHub-style shortcodes:
+- :bug: Bug | :bulb: Idea | :memo: Feature Request | :question: Question
+- :fire: Urgent | :exclamation: High | :arrow_up: Medium | :arrow_down: Low
+
+---
+
+## Where This Fits
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  WORK INTAKE FLOW                                                           │
+│                                                                             │
+│  External Sources                                                           │
+│  ├── Customer feedback                                                      │
+│  ├── Bug reports                                                            │
+│  ├── Feature requests                                                       │
+│  ├── Technical debt items                                                   │
+│  ├── Stakeholder ideas                                                      │
+│  └── Support tickets                                                        │
+│      │                                                                      │
+│      ▼                                                                      │
+│  ══════════════════                                                         │
+│  YOU ARE HERE: /product-intake                                              │
+│  ══════════════════                                                         │
+│      │                                                                      │
+│      ├──► Bugs ──────────────► Backlog (prioritized for fix)               │
+│      ├──► Small Features ───► Backlog (ready for grooming)                 │
+│      ├──► Large Features ───► /epic-breakdown (needs decomposition)        │
+│      └──► Strategic Ideas ──► /roadmap-planning (next planning cycle)      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Prerequisites
+
+1. **Work tracking configured** in file-based
+2. **Intake item** (bug report, feature request, customer feedback, etc.)
+3. **Agents enabled** for triage analysis
+
+---
+
+## Workflow Initialization
+
+```python
+import sys
+sys.path.insert(0, ".claude/skills")
+
+from workflow_state import WorkflowState
+from workflow_profiler import WorkflowProfiler
+from work_tracking import get_adapter
+from pathlib import Path
+from datetime import datetime
+
+# Initialize
+adapter = get_adapter()
+print(f":clipboard: Work Tracking: {adapter.platform}")
+
+# Initialize state
+intake_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+state = WorkflowState("product-intake", f"intake-{intake_id}")
+profiler = WorkflowProfiler(f"product-intake-{intake_id}")
+```
+
+---
+
+## Phase 1: Capture Intake Item
+
+### Step 1.1: Classify Intake Type
+
+```python
+print("\n:inbox_tray: PRODUCT INTAKE")
+print("=" * 60)
+print("\nWhat type of item is this?")
+print("  1. :bug: Bug Report (something is broken)")
+print("  2. :bulb: Feature Request (new capability needed)")
+print("  3. :wrench: Technical Debt (code/architecture improvement)")
+print("  4. :shield: Security Issue (vulnerability or concern)")
+print("  5. :zap: Performance Issue (slowness or resource problem)")
+print("  6. :question: Question/Clarification (needs investigation)")
+print("  7. :memo: Customer Feedback (general input)")
+
+intake_type_map = {
+    '1': ('Bug', 'Bug'),
+    '2': ('Feature', 'Feature'),
+    '3': ('Technical Debt', 'Task'),
+    '4': ('Security', 'Bug'),
+    '5': ('Performance', 'Bug'),
+    '6': ('Investigation', 'Task'),
+    '7': ('Feedback', 'User Story'),
+}
+
+type_choice = input("\nSelect type (1-7): ")
+intake_type, work_item_type = intake_type_map.get(type_choice, ('Feature', 'Feature'))
+
+state.set_metadata("intake_type", intake_type)
+state.set_metadata("work_item_type", work_item_type)
+```
+
+### Step 1.2: Capture Details
+
+```python
+print(f"\n:pencil: Describe the {intake_type}")
+print("-" * 40)
+
+# Title
+title = input("Title (brief summary): ")
+
+# Description
+print("\nDescription (detailed explanation, end with blank line):")
+desc_lines = []
+while True:
+    line = input()
+    if line == "":
+        break
+    desc_lines.append(line)
+description = "\n".join(desc_lines)
+
+# Source
+print("\nSource of this item:")
+print("  1. Customer report")
+print("  2. Internal team")
+print("  3. Support ticket")
+print("  4. Monitoring/alerts")
+print("  5. Code review")
+print("  6. Other")
+source_choice = input("Select source (1-6): ")
+source_map = {
+    '1': 'Customer',
+    '2': 'Internal',
+    '3': 'Support',
+    '4': 'Monitoring',
+    '5': 'Code Review',
+    '6': 'Other'
+}
+source = source_map.get(source_choice, 'Other')
+
+# For bugs: reproduction steps
+if intake_type in ['Bug', 'Security', 'Performance']:
+    print("\nReproduction steps (if applicable, end with blank line):")
+    repro_lines = []
+    while True:
+        line = input()
+        if line == "":
+            break
+        repro_lines.append(line)
+    repro_steps = "\n".join(repro_lines)
+
+    print("\nExpected vs Actual behavior:")
+    expected = input("Expected: ")
+    actual = input("Actual: ")
+else:
+    repro_steps = ""
+    expected = ""
+    actual = ""
+
+# Urgency
+print("\nUrgency level:")
+print("  1. :fire: Critical (production down, data loss, security breach)")
+print("  2. :exclamation: High (major feature broken, significant impact)")
+print("  3. :arrow_up: Medium (important but workaround exists)")
+print("  4. :arrow_down: Low (nice to have, minor inconvenience)")
+urgency_choice = input("Select urgency (1-4): ")
+urgency_map = {'1': 'Critical', '2': 'High', '3': 'Medium', '4': 'Low'}
+urgency = urgency_map.get(urgency_choice, 'Medium')
+
+state.set_metadata("title", title)
+state.set_metadata("description", description)
+state.set_metadata("source", source)
+state.set_metadata("urgency", urgency)
+```
+
+---
+
+## Phase 2: Triage Analysis
+
+### Step 2.1: AI-Assisted Triage
+
+**Agent**: Business Analyst
+**Model**: claude-sonnet-4.5
+
+1. **Read agent definition:** `.claude/agents/business-analyst.md`
+
+2. **Task:** "Triage this incoming work item:
+
+   **Type**: {intake_type}
+   **Title**: {title}
+   **Description**: {description}
+   **Source**: {source}
+   **Reported Urgency**: {urgency}
+
+
+   **Project Context**:
+   - Project: Trusted AI Development Workbench
+   - Type: library
+
+   **Triage Analysis Required:**
+
+   1. **Validate Urgency**: Is the reported urgency appropriate?
+      - Critical: Production outage, data loss, active security breach
+      - High: Major feature broken, significant user impact
+      - Medium: Important but has workaround
+      - Low: Minor issue, cosmetic, nice-to-have
+
+   2. **Classify Size**:
+      - Small: Can be done in 1-2 days, single component
+      - Medium: 3-5 days, multiple components
+      - Large: 1-2 weeks, needs breakdown into Features
+      - Epic: Multiple weeks, needs /epic-breakdown workflow
+
+   3. **Identify Related Work**:
+      - Is this a duplicate of existing work item?
+      - Does this relate to an existing Epic or Feature?
+      - Are there similar items that should be grouped?
+
+   4. **Assess Impact**:
+      - Users affected (all, segment, single)
+      - Revenue impact (direct, indirect, none)
+      - Reputation risk (high, medium, low)
+
+   5. **Recommend Action**:
+      - Create as Bug/Task/Feature and add to backlog
+      - Escalate to on-call (if critical)
+      - Defer to roadmap planning (if strategic)
+      - Request more information (if unclear)
+      - Reject (if out of scope or duplicate)
+
+   **Output Format**:
+   ```json
+   {
+     'validated_urgency': 'Critical|High|Medium|Low',
+     'urgency_rationale': 'Why this urgency level',
+     'size': 'Small|Medium|Large|Epic',
+     'size_rationale': 'Why this size',
+     'potential_duplicates': ['WI-123', 'WI-456'],
+     'related_epics': ['EPIC-001'],
+     'impact': {
+       'users_affected': 'All|Segment|Single',
+       'revenue_impact': 'Direct|Indirect|None',
+       'reputation_risk': 'High|Medium|Low'
+     },
+     'recommended_action': 'Create|Escalate|Defer|Request Info|Reject',
+     'action_rationale': 'Why this action',
+     'suggested_title': 'Improved title if needed',
+     'suggested_tags': ['tag1', 'tag2'],
+     'questions': ['Clarifying question if needed']
+   }
+   ```"
+
+3. **Spawn agent** using Task tool with model `claude-sonnet-4.5`
+
+4. **Checkpoint:** Save triage analysis to state
+
+### Step 2.2: Technical Assessment (For Bugs/Technical Items)
+
+
+---
+
+## Phase 3: Human Review & Decision
+
+### Step 3.1: Present Triage Results
+
+```python
+print("\n" + "=" * 80)
+print(":mag: TRIAGE RESULTS")
+print("=" * 80)
+
+print(f"\n:label: Title: {suggested_title or title}")
+print(f":inbox_tray: Type: {intake_type}")
+print(f":exclamation: Urgency: {validated_urgency} (reported: {urgency})")
+print(f":straight_ruler: Size: {size}")
+print(f":busts_in_silhouette: Impact: {impact['users_affected']} users | "
+      f"Revenue: {impact['revenue_impact']} | Risk: {impact['reputation_risk']}")
+
+print(f"\n:arrow_right: Recommended Action: {recommended_action}")
+print(f"   Rationale: {action_rationale}")
+
+if potential_duplicates:
+    print(f"\n:warning: Potential Duplicates: {', '.join(potential_duplicates)}")
+
+if related_epics:
+    print(f":link: Related Epics: {', '.join(related_epics)}")
+
+if questions:
+    print(f"\n:question: Questions Needing Answers:")
+    for q in questions:
+        print(f"   - {q}")
+
+
+print("\n" + "=" * 80)
+```
+
+### Step 3.2: Confirm Action
+
+```python
+print("\nConfirm action:")
+print(f"  [c] Create work item as recommended ({recommended_action})")
+print("  [m] Modify (change type, urgency, etc.)")
+print("  [e] Escalate to on-call")
+print("  [d] Defer to roadmap planning")
+print("  [r] Reject (out of scope/duplicate)")
+print("  [q] Request more information")
+
+action = input("\nSelect action: ").lower()
+
+if action == 'm':
+    # Allow modifications
+    new_urgency = input(f"New urgency [{validated_urgency}]: ") or validated_urgency
+    new_type = input(f"New type [{work_item_type}]: ") or work_item_type
+    validated_urgency = new_urgency
+    work_item_type = new_type
+    action = 'c'  # Then create
+
+if action == 'r':
+    rejection_reason = input("Rejection reason: ")
+    state.set_metadata("rejection_reason", rejection_reason)
+    print(f":x: Item rejected: {rejection_reason}")
+    state.complete_workflow()
+    exit()
+
+if action == 'q':
+    info_needed = input("What information is needed? ")
+    # Create investigation task
+    work_item_type = "Task"
+    title = f"[Investigation] {title}"
+    description += f"\n\n## Information Needed\n{info_needed}"
+```
+
+---
+
+## Phase 4: Work Item Creation
+
+### Step 4.1: Create Work Item
+
+```python
+if action in ['c', 'e']:
+    print(f"\n:rocket: Creating {work_item_type}...")
+
+    # Build description
+    full_description = f"""## Summary
+{description}
+
+
+## Triage Information
+- **Source**: {source}
+- **Urgency**: {validated_urgency}
+- **Size**: {size}
+- **Impact**: {impact['users_affected']} users affected
+
+
+
+---
+*Created via /product-intake workflow on {datetime.now().strftime('%Y-%m-%d %H:%M')}*
+"""
+
+    # Map urgency to priority
+    priority_map = {'Critical': 1, 'High': 2, 'Medium': 3, 'Low': 4}
+    priority = priority_map.get(validated_urgency, 3)
+
+    # Create work item
+    try:
+        result = adapter.create_work_item(
+            work_item_type=work_item_type,
+            title=suggested_title or title,
+            description=full_description,
+            fields={
+                'Microsoft.VSTS.Common.Priority': priority,
+                'System.Tags': '; '.join(suggested_tags + [
+                    f'intake-{intake_type.lower().replace(" ", "-")}',
+                    f'urgency-{validated_urgency.lower()}',
+                    f'source-{source.lower()}'
+                ])
+            },
+            verify=True
+        )
+
+        work_item_id = result['id']
+        state.record_work_item_created(work_item_id, {'title': title, 'type': intake_type})
+
+        print(f":white_check_mark: Created {work_item_type} {work_item_id}: {suggested_title or title}")
+
+        # Link to related Epic if identified
+        if related_epics:
+            for epic_ref in related_epics:
+                try:
+                    epic_id = epic_ref.replace('EPIC-', '')
+                    adapter.link_work_items(work_item_id, epic_id, "Related")
+                    print(f"  :link: Linked to {epic_ref}")
+                except:
+                    pass
+
+    except Exception as e:
+        print(f":red_circle: Failed to create work item: {e}")
+        state.record_error(str(e), {'title': title})
+```
+
+### Step 4.2: Handle Escalation
+
+```python
+if action == 'e':
+    print("\n:rotating_light: ESCALATION")
+    print("-" * 40)
+    print("This item has been marked for escalation.")
+    print(f"Work Item: {work_item_id}")
+    print(f"Urgency: {validated_urgency}")
+
+    # Add escalation tag
+    try:
+        adapter.update_work_item(
+            work_item_id=work_item_id,
+            fields={
+                'System.Tags': f"{'; '.join(suggested_tags)}; escalated; on-call"
+            }
+        )
+    except:
+        pass
+
+    print("\n:arrow_right: Next steps:")
+    print("  1. Notify on-call engineer")
+    print("  2. Create incident channel (if applicable)")
+    print("  3. Begin investigation immediately")
+```
+
+### Step 4.3: Handle Deferral to Roadmap
+
+```python
+if action == 'd':
+    print("\n:calendar: DEFERRED TO ROADMAP")
+    print("-" * 40)
+    print("This item will be considered in the next roadmap planning cycle.")
+
+    # Create as an idea/proposal
+    work_item_type = "Feature"
+    result = adapter.create_work_item(
+        work_item_type=work_item_type,
+        title=f"[Proposal] {suggested_title or title}",
+        description=full_description + "\n\n## Status\nDeferred to roadmap planning",
+        fields={
+            'System.State': 'Proposed',
+            'System.Tags': '; '.join(['roadmap-candidate', 'deferred'] + suggested_tags)
+        },
+        verify=True
+    )
+
+    work_item_id = result['id']
+    print(f":white_check_mark: Created proposal {work_item_id} for roadmap consideration")
+```
+
+---
+
+## Phase 5: Completion
+
+### Step 5.1: Route to Next Workflow
+
+```python
+print("\n" + "=" * 80)
+print(":white_check_mark: INTAKE COMPLETE")
+print("=" * 80)
+
+if size == 'Epic':
+    print(f"\n:arrow_right: This item is Epic-sized.")
+    print(f"   Run /epic-breakdown with work item {work_item_id}")
+elif size == 'Large':
+    print(f"\n:arrow_right: This item is Large-sized.")
+    print("   Consider running /epic-breakdown or add to /backlog-grooming")
+elif validated_urgency == 'Critical':
+    print(f"\n:fire: CRITICAL item created: {work_item_id}")
+    print("   Immediate attention required!")
+else:
+    print(f"\n:arrow_right: Item {work_item_id} added to backlog")
+    print("   Will be refined in next /backlog-grooming session")
+
+state.complete_workflow()
+profiler.save_report()
+```
+
+---
+
+## Batch Intake Mode
+
+For processing multiple items at once:
+
+```python
+# Optional: Batch mode for processing multiple items
+def batch_intake(items_file):
+    """Process multiple intake items from a file."""
+    import json
+
+    with open(items_file) as f:
+        items = json.load(f)
+
+    results = []
+    for item in items:
+        # Process each item through triage
+        result = process_single_intake(item)
+        results.append(result)
+
+    print(f"\n:package: Batch processing complete")
+    print(f"   Total items: {len(items)}")
+    print(f"   Created: {sum(1 for r in results if r.get('created'))}")
+    print(f"   Rejected: {sum(1 for r in results if r.get('rejected'))}")
+```
+
+---
+
+## Configuration
+
+**Agents Used:**
+- Business Analyst (triage analysis)- Senior Engineer (technical assessment)
+**Work Item Types Created:**
+- Bug: Bug
+- Feature: Feature
+- Task: Task
+- Story: User Story
+
+---
+
+## Success Criteria
+
+- :white_check_mark: Item properly classified and triaged
+- :white_check_mark: Urgency validated and appropriate
+- :white_check_mark: Size estimated for planning
+- :white_check_mark: Duplicates/related work identified
+- :white_check_mark: Work item created in file-based
+- :white_check_mark: Routed to appropriate next workflow
+
+---
+
+*Generated by Trustable AI Workbench for Trusted AI Development Workbench*

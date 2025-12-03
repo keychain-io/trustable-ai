@@ -1,4 +1,4 @@
-"""CLI tool for Claude Workflow Framework."""
+"""CLI tool for Trustable AI Workbench."""
 
 from .main import cli
 

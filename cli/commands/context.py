@@ -32,8 +32,8 @@ def build_index(output: str, root: str):
     creating an index for fast context lookup.
 
     Examples:
-        taid context index
-        taid context index -o .claude/context-index.yaml
+        trustable-ai context index
+        trustable-ai context index -o .claude/context-index.yaml
     """
     root_path = Path(root)
     output_path = Path(output)
@@ -129,15 +129,15 @@ def show_index(keywords: bool, templates: bool):
     Show context index contents.
 
     Examples:
-        taid context show
-        taid context show -k
-        taid context show -t
+        trustable-ai context show
+        trustable-ai context show -k
+        trustable-ai context show -t
     """
     index_path = Path(".claude/context-index.yaml")
 
     if not index_path.exists():
         click.echo("Context index not found.")
-        click.echo("Run 'taid context index' to build it.")
+        click.echo("Run 'trustable-ai context index' to build it.")
         return
 
     with open(index_path) as f:
@@ -186,14 +186,14 @@ def lookup_context(task_description: str, max_tokens: int):
     Look up relevant context for a task.
 
     Examples:
-        taid context lookup "implement user authentication"
-        taid context lookup "fix database connection issue" -t 8000
+        trustable-ai context lookup "implement user authentication"
+        trustable-ai context lookup "fix database connection issue" -t 8000
     """
     index_path = Path(".claude/context-index.yaml")
 
     if not index_path.exists():
         click.echo("Context index not found.")
-        click.echo("Run 'taid context index' to build it.")
+        click.echo("Run 'trustable-ai context index' to build it.")
         return
 
     with open(index_path) as f:
@@ -253,13 +253,13 @@ def load_context(task_description: str, output: str):
     Load and combine context for a task.
 
     Examples:
-        taid context load "implement API endpoint"
-        taid context load "fix authentication" -o context.md
+        trustable-ai context load "implement API endpoint"
+        trustable-ai context load "fix authentication" -o context.md
     """
     index_path = Path(".claude/context-index.yaml")
 
     if not index_path.exists():
-        click.echo("Context index not found. Run 'taid context index' first.")
+        click.echo("Context index not found. Run 'trustable-ai context index' first.")
         return
 
     with open(index_path) as f:
@@ -383,10 +383,10 @@ def directed_load(task_type: str, keywords: tuple, max_tokens: int, tree: bool, 
     keywords and task types specified in CLAUDE.md front matter.
 
     Examples:
-        taid context directed sprint-planning
-        taid context directed --keywords azure --keywords work-item
-        taid context directed sprint-planning -k azure -k workflow --tree
-        taid context directed --tree
+        trustable-ai context directed sprint-planning
+        trustable-ai context directed --keywords azure --keywords work-item
+        trustable-ai context directed sprint-planning -k azure -k workflow --tree
+        trustable-ai context directed --tree
     """
     try:
         from core.directed_loader import DirectedContextLoader
@@ -470,24 +470,58 @@ def _print_tree(node: dict, indent: int = 0):
         _print_tree(child, indent + 2)
 
 
+def _merge_claude_md_content(existing_content: str, new_front_matter: str) -> str:
+    """
+    Merge new front matter with existing CLAUDE.md content.
+
+    Preserves user customizations while updating the directed context configuration.
+    """
+    import re
+
+    # Split existing content into front matter and body
+    front_matter_pattern = r'^---\n(.*?)\n---\n'
+    match = re.match(front_matter_pattern, existing_content, re.DOTALL)
+
+    if match:
+        # File has existing front matter - replace it
+        existing_body = existing_content[match.end():]
+    else:
+        # File has no front matter - preserve entire content as body
+        existing_body = existing_content
+
+    # Combine new front matter with existing body
+    return new_front_matter + existing_body
+
+
 @context.command("generate")
 @click.option("--root", "-r", type=click.Path(exists=True), default=".", help="Root directory to analyze")
 @click.option("--dry-run", is_flag=True, help="Show plan without creating files")
-@click.option("--force", "-f", is_flag=True, help="Overwrite existing CLAUDE.md files")
+@click.option("--force", "-f", is_flag=True, help="Overwrite existing CLAUDE.md files completely (disables merge)")
+@click.option("--no-merge", is_flag=True, help="Skip existing files instead of merging")
 @click.option("--depth", "-d", type=int, default=3, help="Maximum directory depth to analyze")
-def generate_context(root: str, dry_run: bool, force: bool, depth: int):
+def generate_context(root: str, dry_run: bool, force: bool, no_merge: bool, depth: int):
     """
     Generate hierarchical CLAUDE.md structure for a repository.
 
     Analyzes the repository structure and creates CLAUDE.md files at key
     directories to provide context for Claude Code.
 
+    By default, existing files are MERGED (front matter updated, content preserved).
+
     Examples:
-        taid context generate                    # Generate for current directory
-        taid context generate --dry-run          # Show plan without creating
-        taid context generate -d 2               # Only go 2 levels deep
-        taid context generate -f                 # Overwrite existing files
+        trustable-ai context generate            # Generate/merge for current directory
+        trustable-ai context generate --dry-run  # Show plan without creating
+        trustable-ai context generate -d 2       # Only go 2 levels deep
+        trustable-ai context generate -f         # Overwrite existing files completely
+        trustable-ai context generate --no-merge # Skip existing files
     """
+    # Merge is default unless --force or --no-merge is specified
+    merge = not force and not no_merge
+
+    if force and no_merge:
+        click.echo("Error: Cannot use --force and --no-merge together.")
+        click.echo("Use --force to completely overwrite, or --no-merge to skip existing files.")
+        return
     root_path = Path(root).resolve()
 
     click.echo(f"\n🔍 Analyzing repository structure: {root_path}\n")
@@ -512,37 +546,82 @@ def generate_context(root: str, dry_run: bool, force: bool, depth: int):
         click.echo("\nTo create files, run without --dry-run")
         return
 
-    # Generate CLAUDE.md files
-    click.echo(f"\n📝 Generating CLAUDE.md files...\n")
+    # Generate README.md and CLAUDE.md files
+    mode_desc = "merging" if merge else "generating"
+    click.echo(f"\n📝 Generating context files (README.md + CLAUDE.md)...\n")
 
-    created = 0
+    created_readme = 0
+    created_claude = 0
+    merged_claude = 0
     skipped = 0
 
     for dir_info in analysis["directories"]:
         dir_path = root_path / dir_info["relative_path"]
+        readme_path = dir_path / "README.md"
         claude_path = dir_path / "CLAUDE.md"
 
-        if claude_path.exists() and not force:
-            click.echo(f"  ⏭ {dir_info['relative_path']}/CLAUDE.md (exists, use -f to overwrite)")
+        # Generate README.md (human-readable documentation)
+        if readme_path.exists() and not force:
+            click.echo(f"  ⏭ {dir_info['relative_path']}/README.md (exists)")
+        else:
+            readme_content = _generate_readme_content(dir_info, analysis)
+            if readme_content and readme_content.strip():
+                readme_path.write_text(readme_content)
+                click.echo(f"  ✓ {dir_info['relative_path']}/README.md")
+                created_readme += 1
+            else:
+                click.echo(f"  ⚠ {dir_info['relative_path']}/README.md (skipped - empty content)")
+
+        # Generate CLAUDE.md (Claude Code directives)
+        if claude_path.exists():
+            if merge:
+                # Merge mode: update front matter, preserve custom content
+                try:
+                    existing_content = claude_path.read_text(encoding="utf-8")
+                    new_front_matter = _generate_front_matter(dir_info, analysis)
+                    merged_content = _merge_claude_md_content(existing_content, new_front_matter)
+
+                    if merged_content and merged_content.strip():
+                        claude_path.write_text(merged_content)
+                        click.echo(f"  🔄 {dir_info['relative_path']}/CLAUDE.md (merged)")
+                        merged_claude += 1
+                    else:
+                        click.echo(f"  ⚠ {dir_info['relative_path']}/CLAUDE.md (merge failed - empty)")
+                        skipped += 1
+                except Exception as e:
+                    click.echo(f"  ✗ {dir_info['relative_path']}/CLAUDE.md (merge error: {e})")
+                    skipped += 1
+                continue
+            elif not force and not merge:
+                click.echo(f"  ⏭ {dir_info['relative_path']}/CLAUDE.md (exists, use -f to overwrite)")
+                skipped += 1
+                continue
+
+        # Generate new content
+        content = _generate_claude_md_content(dir_info, analysis)
+
+        # Validate content is not empty (empty CLAUDE.md files cause API Error 400)
+        if not content or not content.strip():
+            click.echo(f"  ⚠ {dir_info['relative_path']}/CLAUDE.md (skipped - empty content)")
             skipped += 1
             continue
-
-        # Generate content
-        content = _generate_claude_md_content(dir_info, analysis)
 
         # Write file
         claude_path.write_text(content)
         click.echo(f"  ✓ {dir_info['relative_path']}/CLAUDE.md")
-        created += 1
+        created_claude += 1
 
     click.echo(f"\n✅ Generation complete!")
-    click.echo(f"   Created: {created} files")
-    click.echo(f"   Skipped: {skipped} files (already exist)")
+    click.echo(f"   README.md created: {created_readme} files")
+    click.echo(f"   CLAUDE.md created: {created_claude} files")
+    if merged_claude > 0:
+        click.echo(f"   CLAUDE.md merged: {merged_claude} files")
+    click.echo(f"   Skipped: {skipped} files")
 
     click.echo("\n📌 Next steps:")
     click.echo("   1. Review generated CLAUDE.md files")
     click.echo("   2. Add project-specific details and guidelines")
-    click.echo("   3. Run 'taid context index' to build the context index")
+    click.echo("   3. Run 'trustable-ai context index' to build the context index")
 
 
 def _analyze_repository(root: Path, max_depth: int) -> dict:
@@ -828,13 +907,10 @@ def _generate_front_matter(dir_info: dict, analysis: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _generate_claude_md_content(dir_info: dict, analysis: dict) -> str:
-    """Generate CLAUDE.md content for a directory."""
+def _generate_readme_content(dir_info: dict, analysis: dict) -> str:
+    """Generate README.md content for a directory (human-readable documentation)."""
     relative_path = dir_info["relative_path"]
     dir_type = dir_info["type"]
-
-    # Generate front matter for directed context loading
-    front_matter = _generate_front_matter(dir_info, analysis)
 
     # Templates for different directory types
     templates = {
@@ -842,7 +918,7 @@ def _generate_claude_md_content(dir_info: dict, analysis: dict) -> str:
 
 ## Overview
 
-This is the root CLAUDE.md file providing project-wide context for Claude Code.
+{purpose}
 
 ## Project Structure
 
@@ -852,24 +928,36 @@ This is the root CLAUDE.md file providing project-wide context for Claude Code.
 
 {key_dirs}
 
+## Getting Started
+
+```bash
+# Install dependencies
+# TODO: Add installation commands
+
+# Run the project
+# TODO: Add run commands
+```
+
 ## Development Guidelines
 
 - Follow existing code patterns and conventions
 - Write tests for new functionality
 - Update documentation when making changes
+- Run linting and tests before committing
 
-## Getting Started
+## Contributing
 
-```bash
-# TODO: Add setup instructions
-```
+1. Create a feature branch from `main`
+2. Make your changes with clear commit messages
+3. Write/update tests as needed
+4. Submit a pull request for review
 
-## Important Notes
+## Additional Resources
 
-- TODO: Add project-specific notes and guidelines
+- TODO: Add links to documentation, wiki, or related resources
 ''',
 
-        "source": '''# {dir_name} - Source Code
+        "source": '''# {dir_name}
 
 ## Purpose
 
@@ -882,19 +970,21 @@ This directory contains the main source code for the project.
 ## Key Components
 
 - TODO: Document key modules and their responsibilities
+- TODO: Explain the architecture and design patterns used
 
-## Conventions
+## Development Conventions
 
-- Follow the existing code style
+- Follow the existing code style and naming conventions
 - Add docstrings/comments for complex logic
 - Keep modules focused and single-purpose
+- Write unit tests for new functionality
 ''',
 
-        "tests": '''# {dir_name} - Tests
+        "tests": '''# {dir_name}
 
 ## Purpose
 
-This directory contains tests for the project.
+This directory contains the test suite for the project.
 
 ## Test Structure
 
@@ -903,20 +993,30 @@ This directory contains tests for the project.
 ## Running Tests
 
 ```bash
-# TODO: Add test commands
-pytest  # For Python
-npm test  # For Node.js
+# Run all tests
+pytest                    # Python
+npm test                  # Node.js
+go test ./...             # Go
+
+# Run specific test file
+pytest tests/test_specific.py
+npm test -- --grep "test name"
+
+# Run with coverage
+pytest --cov=src
+npm run test:coverage
 ```
 
 ## Writing Tests
 
-- Follow existing test patterns
+- Follow existing test patterns and naming conventions
 - Name test files with `test_` prefix (Python) or `.test.` suffix (JS)
-- Use fixtures for common setup
-- Aim for meaningful test coverage
+- Use fixtures and mocks for common setup
+- Aim for meaningful test coverage (not just line coverage)
+- Test edge cases and error conditions
 ''',
 
-        "api": '''# {dir_name} - API
+        "api": '''# {dir_name}
 
 ## Purpose
 
@@ -928,13 +1028,15 @@ This directory contains API definitions and endpoints.
 
 ## API Guidelines
 
-- Follow RESTful conventions
-- Document all endpoints
-- Include request/response examples
-- Handle errors consistently
+- Follow RESTful conventions for endpoint design
+- Use consistent naming (kebab-case for URLs)
+- Document all endpoints with OpenAPI/Swagger
+- Include request/response examples in documentation
+- Handle errors consistently with proper HTTP status codes
+- Validate all input data at API boundaries
 ''',
 
-        "infrastructure": '''# {dir_name} - Infrastructure
+        "infrastructure": '''# {dir_name}
 
 ## Purpose
 
@@ -944,12 +1046,13 @@ This directory contains infrastructure as code and deployment configurations.
 
 {structure}
 
-## Guidelines
+## Infrastructure Guidelines
 
-- Document all resources
+- Document all resources and their purposes
 - Use variables for environment-specific values
-- Follow security best practices
-- Test changes in non-production first
+- Follow security best practices (least privilege, secrets management)
+- Test changes in non-production environments first
+- Keep configurations modular and reusable
 ''',
 
         "default": '''# {dir_name}
@@ -965,6 +1068,7 @@ This directory contains infrastructure as code and deployment configurations.
 ## Guidelines
 
 - TODO: Add specific guidelines for this directory
+- TODO: Document the key components and their responsibilities
 '''
     }
 
@@ -979,18 +1083,18 @@ This directory contains infrastructure as code and deployment configurations.
             continue
         if item.name in {"node_modules", "venv", "__pycache__", "dist", "build"}:
             continue
-        prefix = "📁" if item.is_dir() else "📄"
-        structure_lines.append(f"- {prefix} {item.name}")
+        prefix = "+" if item.is_dir() else "-"
+        structure_lines.append(f"{prefix} {item.name}")
 
-    structure = "\n".join(structure_lines[:15]) if structure_lines else "- (empty)"
-    if len(structure_lines) > 15:
-        structure += f"\n- ... and {len(structure_lines) - 15} more items"
+    structure = "\n".join(structure_lines[:20]) if structure_lines else "- (empty)"
+    if len(structure_lines) > 20:
+        structure += f"\n... and {len(structure_lines) - 20} more items"
 
     # Generate key directories list
     key_dirs = ""
     if dir_type == "root":
         key_dir_lines = []
-        for d in analysis["directories"][1:6]:  # Skip root, show next 5
+        for d in analysis["directories"][1:8]:  # Skip root, show next 7
             key_dir_lines.append(f"- **{d['relative_path']}/** - {d['type']}")
         key_dirs = "\n".join(key_dir_lines) if key_dir_lines else "- (none identified)"
 
@@ -999,24 +1103,25 @@ This directory contains infrastructure as code and deployment configurations.
 
     # Purpose based on type
     purposes = {
-        "source": "Main source code",
-        "tests": "Test suite",
-        "api": "API definitions",
-        "documentation": "Project documentation",
-        "infrastructure": "Infrastructure as code",
-        "configuration": "Configuration files",
-        "scripts": "Utility scripts",
-        "services": "Service implementations",
-        "components": "UI/functional components",
-        "utilities": "Utility functions and helpers",
-        "models": "Data models",
-        "schemas": "Data schemas",
-        "module": "Application module",
+        "root": "This is the project root directory.",
+        "source": "Contains the main source code for the project.",
+        "tests": "Contains the test suite for the project.",
+        "api": "Contains API definitions and endpoints.",
+        "documentation": "Contains project documentation.",
+        "infrastructure": "Contains infrastructure as code and deployment configurations.",
+        "configuration": "Contains configuration files for the project.",
+        "scripts": "Contains utility and automation scripts.",
+        "services": "Contains service implementations and business logic.",
+        "components": "Contains UI or functional components.",
+        "utilities": "Contains utility functions and helper modules.",
+        "models": "Contains data models and entities.",
+        "schemas": "Contains data schemas and validation definitions.",
+        "module": "Contains an application module or feature.",
     }
-    purpose = purposes.get(dir_type, f"Contains {dir_type} code")
+    purpose = purposes.get(dir_type, f"Contains {dir_type} code and related files.")
 
     # Format template
-    content = template.format(
+    return template.format(
         project_name=Path(analysis["root"]).name,
         dir_name=dir_name,
         structure=structure,
@@ -1024,5 +1129,82 @@ This directory contains infrastructure as code and deployment configurations.
         purpose=purpose,
     )
 
-    # Prepend front matter for directed context loading
-    return front_matter + content
+
+def _generate_claude_md_content(dir_info: dict, analysis: dict) -> str:
+    """Generate CLAUDE.md content for a directory (Claude Code directives)."""
+    relative_path = dir_info["relative_path"]
+    dir_type = dir_info["type"]
+
+    # Generate front matter for directed context loading
+    front_matter = _generate_front_matter(dir_info, analysis)
+
+    # Get directory name
+    dir_name = Path(relative_path).name if relative_path != "." else Path(analysis["root"]).name
+
+    # Generate Claude-specific content that references README.md
+    claude_content = f'''# {dir_name}
+
+This file provides Claude Code with context and directives for this directory.
+For human-readable documentation, see [README.md](README.md).
+
+## Context for Claude
+
+'''
+
+    # Add context hints based on directory type
+    context_hints = {
+        "root": '''This is the project root. When working here:
+- Check README.md for project setup and conventions
+- Review CLAUDE.md files in subdirectories for component-specific context
+- Follow the development guidelines in README.md
+''',
+        "source": '''This directory contains source code. When working here:
+- Follow existing code patterns and style conventions
+- Ensure new code has appropriate test coverage
+- Keep modules focused and single-purpose
+- Add docstrings for public APIs
+''',
+        "tests": '''This directory contains tests. When working here:
+- Follow existing test patterns and naming conventions
+- Use fixtures for common test setup
+- Test both happy paths and edge cases
+- Keep tests isolated and independent
+''',
+        "api": '''This directory contains API code. When working here:
+- Follow RESTful conventions
+- Validate all input at API boundaries
+- Return consistent error responses
+- Document endpoints with OpenAPI annotations
+''',
+        "infrastructure": '''This directory contains infrastructure code. When working here:
+- Make minimal, targeted changes
+- Document all resources being modified
+- Consider security implications
+- Test in non-production first
+''',
+        "configuration": '''This directory contains configuration. When working here:
+- Use environment variables for secrets
+- Document all configuration options
+- Maintain backwards compatibility when possible
+''',
+    }
+
+    claude_content += context_hints.get(dir_type, '''When working in this directory:
+- Review existing code patterns before making changes
+- Follow the project's coding conventions
+- Update tests and documentation as needed
+''')
+
+    # Add key file references if available
+    dir_path = Path(dir_info["path"])
+    key_files = []
+    for item in dir_path.iterdir():
+        if item.is_file() and item.name.lower() in ["readme.md", "changelog.md", "contributing.md", "setup.py", "pyproject.toml", "package.json", "cargo.toml", "go.mod"]:
+            key_files.append(item.name)
+
+    if key_files:
+        claude_content += "\n## Key Files\n\n"
+        for f in key_files:
+            claude_content += f"- [{f}]({f})\n"
+
+    return front_matter + claude_content

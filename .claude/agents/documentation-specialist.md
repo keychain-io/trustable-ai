@@ -120,21 +120,21 @@ When creating documentation:
 
 ## Commands
 
-You can use these taid commands to help with documentation:
+You can use these trustable-ai commands to help with documentation:
 
 ```bash
 # Generate initial CLAUDE.md structure
-taid context generate --dry-run
+trustable-ai context generate --dry-run
 
 # Create CLAUDE.md files
-taid context generate
+trustable-ai context generate
 
 # Build context index
-taid context index
+trustable-ai context index
 
 # Show context summary
-taid context show
+trustable-ai context show
 
 # Test context lookup
-taid context lookup "your task description"
+trustable-ai context lookup "your task description"
 ```

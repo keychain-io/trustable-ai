@@ -1,6 +1,6 @@
-# .NET Web API Example - Claude Workflow Framework
+# .NET Web API Example - Trustable AI Workbench
 
-This example demonstrates how to use the Claude Workflow Framework with a .NET Web API project.
+This example demonstrates how to use the Trustable AI Workbench with a .NET Web API project.
 
 ## Project Overview
 
@@ -13,12 +13,12 @@ This example demonstrates how to use the Claude Workflow Framework with a .NET W
 
 ## Setup
 
-### 1. Install Claude Workflow Framework
+### 1. Install Trustable AI Workbench
 
 Since the framework is Python-based, install it in your development environment:
 
 ```bash
-pip install claude-workflow-framework
+pip install trustable-ai
 ```
 
 > **Note**: The framework is used for workflow automation and doesn't need to be part of your .NET project dependencies.
@@ -328,8 +328,8 @@ stages:
               versionSpec: '3.10'
 
           - script: |
-              pip install claude-workflow-framework
-            displayName: 'Install Claude Workflow Framework'
+              pip install trustable-ai
+            displayName: 'Install Trustable AI Workbench'
 
           - script: |
               export AZURE_DEVOPS_PAT=$(AZURE_DEVOPS_PAT)
@@ -580,8 +580,8 @@ Customize `.claude/agents/senior-engineer.md` with .NET examples:
 
 - [.NET Documentation](https://learn.microsoft.com/en-us/dotnet/)
 - [Azure DevOps REST API](https://learn.microsoft.com/en-us/rest/api/azure/devops/)
-- [Claude Workflow Framework](https://github.com/keychain/claude-workflow-framework)
+- [Trustable AI Workbench](https://github.com/keychain/trustable-ai-workbench)
 
 ---
 
-*Example project for Claude Workflow Framework with .NET*
+*Example project for Trustable AI Workbench with .NET*

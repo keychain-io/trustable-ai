@@ -42,7 +42,7 @@ def list_agents(enabled_only: bool):
 
     except FileNotFoundError as e:
         click.echo(f"❌ Error: {e}")
-        click.echo("Run 'taid init' to initialize the framework.")
+        click.echo("Run 'trustable-ai init' to initialize the framework.")
 
 
 @agent_command.command(name="enable")

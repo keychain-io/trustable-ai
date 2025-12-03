@@ -222,6 +222,29 @@ def init_command(
         _create_gitignore(claude_dir)
         _create_readme(claude_dir, project_name)
 
+    # Check if work tracking configuration is incomplete and offer to complete it
+    if interactive and platform != "file-based" and (not organization or not project):
+        click.echo(f"\n⚠️  Work tracking ({platform}) is not fully configured.")
+        click.echo(f"   Missing: {'organization, ' if not organization else ''}{'project' if not project else ''}")
+
+        if click.confirm(f"\nWould you like to complete {platform} configuration now?", default=True):
+            # Import and run the configure command inline
+            from cli.commands.configure import configure_azure_devops, configure_file_based
+
+            if platform == "azure-devops":
+                # Run Azure DevOps configuration
+                ctx = click.Context(configure_azure_devops)
+                ctx.invoke(configure_azure_devops)
+                # Reload config after configuration
+                try:
+                    config = load_config(config_file)
+                except Exception:
+                    pass
+            else:
+                click.echo(f"\n   Run 'trustable-ai configure {platform}' to complete configuration.")
+        else:
+            click.echo(f"\n   Run 'trustable-ai configure {platform}' later to complete configuration.")
+
     # Agent selection
     if interactive:
         click.echo("\n🤖 Agent Selection")
@@ -291,21 +314,35 @@ def init_command(
                     click.echo(f"   ✗ /{workflow_name}: {e}")
 
         # Ask about context generation
-        if click.confirm("\nGenerate hierarchical CLAUDE.md context files?", default=not existing_config):
-            from cli.commands.context import _analyze_repository, _generate_claude_md_content
+        if click.confirm("\nGenerate hierarchical context files (README.md + CLAUDE.md)?", default=not existing_config):
+            from cli.commands.context import _analyze_repository, _generate_claude_md_content, _generate_readme_content
 
-            click.echo("\n📝 Generating CLAUDE.md context hierarchy...")
+            click.echo("\n📝 Generating context file hierarchy (README.md + CLAUDE.md)...")
 
             root_path = Path.cwd()
             analysis = _analyze_repository(root_path, max_depth=3)
 
-            created = 0
+            created_readme = 0
+            created_claude = 0
             skipped = 0
 
             for dir_info in analysis["directories"]:
                 dir_path = root_path / dir_info["relative_path"]
+                readme_path = dir_path / "README.md"
                 claude_path = dir_path / "CLAUDE.md"
 
+                # Generate README.md if it doesn't exist
+                if not readme_path.exists():
+                    try:
+                        readme_content = _generate_readme_content(dir_info, analysis)
+                        if readme_content and readme_content.strip():
+                            readme_path.write_text(readme_content)
+                            click.echo(f"   ✓ {dir_info['relative_path']}/README.md")
+                            created_readme += 1
+                    except Exception as e:
+                        click.echo(f"   ✗ {dir_info['relative_path']}/README.md: {e}")
+
+                # Generate CLAUDE.md
                 if claude_path.exists():
                     click.echo(f"   ⏭ {dir_info['relative_path']}/CLAUDE.md (exists)")
                     skipped += 1
@@ -313,13 +350,20 @@ def init_command(
 
                 try:
                     content = _generate_claude_md_content(dir_info, analysis)
+
+                    # Validate content is not empty (empty CLAUDE.md files cause API Error 400)
+                    if not content or not content.strip():
+                        click.echo(f"   ⚠ {dir_info['relative_path']}/CLAUDE.md (skipped - empty content)")
+                        skipped += 1
+                        continue
+
                     claude_path.write_text(content)
                     click.echo(f"   ✓ {dir_info['relative_path']}/CLAUDE.md")
-                    created += 1
+                    created_claude += 1
                 except Exception as e:
                     click.echo(f"   ✗ {dir_info['relative_path']}/CLAUDE.md: {e}")
 
-            click.echo(f"\n   Created {created} CLAUDE.md files, skipped {skipped} existing")
+            click.echo(f"\n   Created {created_readme} README.md, {created_claude} CLAUDE.md files, skipped {skipped} existing")
 
             # Build context index
             click.echo("\n📝 Building context index...")

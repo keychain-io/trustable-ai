@@ -2,257 +2,292 @@
 
 **Project**: Trusted AI Development Workbench
 **Workflow**: Sprint Execution Monitoring
-**Purpose**: Monitor sprint progress, identify blockers, and generate daily/weekly reports
+**Purpose**: Monitor sprint progress, identify blockers, and generate daily reports
 
-## Overview
+## Output Formatting Requirements
 
-This workflow monitors active sprint execution, tracks progress against sprint goals, identifies blockers, and provides regular status reports to stakeholders.
-
-## Prerequisites
-
-- Active sprint in azure-devops
-- Work items assigned to current sprint
-- Sprint goals defined
-
-## Workflow Steps
-
-### Step 1: Collect Sprint Status Data
-
-1. **Query current sprint work items:**
-   ```bash
-   # Get all work items in current sprint
-   az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo], [Microsoft.VSTS.Scheduling.StoryPoints] FROM WorkItems WHERE [System.TeamProject] = 'Trusted AI Development Workbench' AND [System.IterationPath] UNDER 'Trusted AI Development Workbench\\CURRENT_SPRINT'" --output json
-   ```
-
-2. **Calculate sprint metrics:**
-   - **Total story points**: Planned vs. completed
-   - **Burndown data**: Remaining work over time
-   - **Work item status**: New / Active / Resolved / Closed
-   - **Team capacity**: Available vs. allocated
-   - **Velocity**: Story points per day
-   - **Blockers**: Items tagged or flagged as blocked
-
-3. **Identify issues:**
-   - Work items not updated in 3+ days
-   - Items without assignee
-   - Items marked as blocked
-   - Items exceeding estimated time
-   - High-priority items not started
-
-### Step 2: Daily Standup Report Generation
-
-1. **Read agent definition:** `.claude/agents/scrum-master.md`
-2. **Task:** "Generate daily standup report for the sprint:
-   - Summarize yesterday's progress (story points completed)
-   - Identify work planned for today
-   - List current blockers and impediments
-   - Flag items at risk of not completing
-   - Provide recommendations for team focus
-   - Track toward sprint goal"
-3. **Spawn agent** using Task tool with model `claude-sonnet-4.5`
-4. **Input:** Sprint status data from Step 1
-5. **Display output** to user
-6. **Collect:**
-   - Daily progress summary
-   - Blockers list
-   - Items at risk
-   - Team focus recommendations
-
-### Step 3: Identify and Analyze Blockers
-
-1. **Read agent definition:** `.claude/agents/senior-engineer.md`
-2. **Task:** "Analyze blocked work items and suggest resolutions:
-   - Review each blocked item's context
-   - Identify root cause of blocker
-   - Suggest technical solutions or workarounds
-   - Recommend who should be involved
-   - Estimate impact on sprint goal"
-3. **Spawn agent** using Task tool with model `claude-sonnet-4.5`
-4. **Input:** List of blocked items
-5. **Display output** to user
-6. **Collect:**
-   - Blocker analysis
-   - Suggested resolutions
-   - Impact assessment
-
-### Step 4: Quality Health Check
-
-1. **Run automated quality checks:**
-   ```bash
-   # Test coverage check
-   pytest --cov=src --cov-report=term
-
-   # Security scan
-   # (Run your security scanner here)
-
-   # Code quality
-   # (Run linters/analyzers here)
-   ```
-
-2. **Compare against standards:**
-   - Test coverage: Current vs. 80%
-   - Critical vulnerabilities: Current vs. 0
-   - High vulnerabilities: Current vs. 0
-   - Code complexity: Current vs. 10
-
-3. **Flag quality regressions:**
-   - Identify when metrics fall below standards
-   - Link to specific work items causing regression
-   - Recommend remediation actions
-
-### Step 5: Security Status Review (Weekly)
-
-1. **Read agent definition:** `.claude/agents/security-specialist.md`
-2. **Task:** "Review sprint security status:
-   - Analyze security scan results
-   - Review vulnerability trends
-   - Assess impact of security issues on sprint
-   - Recommend security-focused tasks
-   - Check compliance with security standards"
-3. **Spawn agent** using Task tool with model `claude-sonnet-4.5`
-4. **Input:** Security scan results and vulnerability data
-5. **Display output** to user
-6. **Collect:**
-   - Security status summary
-   - Critical issues requiring immediate attention
-   - Recommended security tasks
-
-### Step 6: Generate Status Report
-
-Report includes:
-- Sprint progress (story points, velocity, trend)
-- Work item status breakdown
-- Quality metrics vs. standards
-- Blockers and risks
-- Items at risk
-- Sprint goal progress
-- Recommendations
-
-### Step 7: Update Stakeholders
-
-1. **Daily standup report** (automated):
-   - Save to `.claude/reports/daily/sprint-[NUMBER]-day-[DAY].md`
-   - Post to team chat (Slack/Teams via webhook)
-   - Update Azure DevOps dashboard
-
-2. **Weekly status report** (for stakeholders):
-   - Save to `.claude/reports/weekly/sprint-[NUMBER]-week-[WEEK].md`
-   - Email to stakeholders
-   - Update project wiki
-
-3. **Real-time blockers alert**:
-   - Create Task for each new blocker
-   - Assign to appropriate resolver
-   - Tag with "blocker" and "urgent"
-
-### Step 8: Automated Actions (Optional)
-
-Create work items for:
-- Stale items (no update in 3+ days)
-- Blocked items requiring resolution
-- Quality regressions
-
-## Execution Schedule
-
-### Daily (Automated)
-- **Every morning at 9 AM**:
-  - Run Steps 1-3 (status collection, standup report, blocker analysis)
-  - Generate daily standup report
-  - Send to team channel
-
-### Weekly (Automated)
-- **Every Friday at 4 PM**:
-  - Run full workflow (all steps)
-  - Generate comprehensive weekly report
-  - Send to stakeholders
-  - Update project dashboard
-
-### Ad-hoc (Manual)
-- Run whenever sprint health check is needed
-- Before sprint review preparation
-- When major blockers emerge
-
-## Setup for Automated Execution
-
-### GitHub Actions
-
-
-```yaml
-# .github/workflows/sprint-monitoring.yml
-name: Sprint Execution Monitoring
-
-on:
-  schedule:
-    - cron: '0 9 * * 1-5'  # Weekdays at 9 AM
-    - cron: '0 16 * * 5'   # Friday at 4 PM (weekly report)
-
-jobs:
-  monitor-sprint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - run: pip install claude-workflow-framework
-      - name: Generate Sprint Report
-        env:
-          AZURE_DEVOPS_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          cwf workflow run sprint-execution --report-type daily
-```
-
-### Azure DevOps Pipeline
-
-
-```yaml
-# azure-sprint-monitoring.yml
-schedules:
-  - cron: "0 9 * * 1-5"
-    displayName: Daily Sprint Standup
-    branches:
-      include:
-        - main
-  - cron: "0 16 * * 5"
-    displayName: Weekly Sprint Report
-    branches:
-      include:
-        - main
-
-steps:
-  - script: |
-      pip install claude-workflow-framework
-      cwf workflow run sprint-execution
-    env:
-      AZURE_DEVOPS_PAT: $(AZURE_DEVOPS_PAT)
-      ANTHROPIC_API_KEY: $(ANTHROPIC_API_KEY)
-```
-
-## Success Criteria
-
-- ✅ Daily standup reports generated and shared
-- ✅ Blockers identified and assigned for resolution
-- ✅ Sprint progress visible to all stakeholders
-- ✅ Quality metrics tracked against standards
-- ✅ Risks flagged early for mitigation
-- ✅ Team stays aligned on sprint goals
-
-## Configuration
-
-**Agents Used:**
-- Scrum Master (daily reports)- Senior Engineer (blocker analysis)- Security Specialist (weekly security review)
-**Quality Standards:**
-- Test Coverage: ≥ 80%
-- Critical Vulnerabilities: ≤ 0
-- High Vulnerabilities: ≤ 0
-- Code Complexity: ≤ 10
-
-**Report Frequency:**
-- Daily: Standup reports
-- Weekly: Comprehensive status
-- Ad-hoc: On-demand health checks
+**IMPORTANT**: Use actual Unicode emojis in reports, NOT GitHub-style shortcodes.
 
 ---
 
-*Generated by Claude Workflow Framework for Trusted AI Development Workbench*
+## Workflow Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SPRINT EXECUTION MONITORING                                                │
+│                                                                             │
+│  Step 1: Collect sprint status data                                        │
+│  Step 2: /scrum-master → Daily standup report                              │
+│  Step 3: /senior-engineer → Blocker analysis (if blocked items)            │
+│  Step 4: Quality health check                                              │
+│  Step 5: /security-specialist → Weekly security review                     │
+│  Step 6: Generate status report                                            │
+│                                                                             │
+│  Each agent command spawns a FRESH CONTEXT WINDOW via Task tool            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Initialize Workflow
+
+```python
+current_sprint = input("Sprint name (e.g., Sprint 1): ")
+
+# Load sprint work items from .claude/work-items/
+from pathlib import Path
+import yaml
+
+sprint_items = []
+work_items_dir = Path(".claude/work-items")
+for f in work_items_dir.glob("*.yaml"):
+    with open(f) as file:
+        item = yaml.safe_load(file)
+        if item.get('sprint') == current_sprint:
+            sprint_items.append(item)
+
+print(f"📋 Found {len(sprint_items)} items in {current_sprint}")
+```
+
+---
+
+## Step 1: Collect Sprint Status Data
+
+Gather metrics from work items:
+
+```python
+# Calculate metrics
+completed = [i for i in sprint_items if i['status'] == 'Done']
+in_progress = [i for i in sprint_items if i['status'] == 'In Progress']
+blocked = [i for i in sprint_items if i['status'] == 'Blocked']
+not_started = [i for i in sprint_items if i['status'] == 'New']
+
+total_points = sum(i.get('story_points', 0) for i in sprint_items)
+completed_points = sum(i.get('story_points', 0) for i in completed)
+
+print(f"📊 Sprint Status:")
+print(f"  Total: {len(sprint_items)} items ({total_points} pts)")
+print(f"  ✅ Done: {len(completed)} ({completed_points} pts)")
+print(f"  🔄 In Progress: {len(in_progress)}")
+print(f"  🔴 Blocked: {len(blocked)}")
+print(f"  ⬜ Not Started: {len(not_started)}")
+```
+
+---
+
+## Step 2: Generate Daily Standup Report
+
+**Call `/scrum-master` with the following task:**
+
+```
+## YOUR TASK: Generate Daily Standup Report
+
+Create a daily standup report for the team.
+
+### Sprint Data
+- Sprint: {current_sprint}
+- Total Items: {len(sprint_items)}
+- Completed: {len(completed)} ({completed_points} pts)
+- In Progress: {len(in_progress)}
+- Blocked: {len(blocked)}
+- Not Started: {len(not_started)}
+
+### Work Items
+{List of all work items with status}
+
+### Generate Report Including:
+
+1. **Yesterday's Progress**
+   - What was completed
+   - Story points delivered
+
+2. **Today's Focus**
+   - What should be worked on
+   - Priority items
+
+3. **Blockers & Impediments**
+   - Current blockers
+   - Who needs to resolve them
+
+4. **Sprint Health**
+   - On track / At risk / Behind
+   - Days remaining
+   - Burndown status
+
+5. **Recommendations**
+   - Team focus areas
+   - Risk mitigations
+
+### Output Format
+
+Return a formatted standup report in markdown.
+```
+
+**After the agent completes:**
+- Display standup report to user
+- Save to `.claude/reports/daily/`
+
+---
+
+## Step 3: Analyze Blockers (If Any)
+
+**IF THERE ARE BLOCKED ITEMS**, call `/senior-engineer` with the following task:
+
+```
+## YOUR TASK: Analyze Blocked Work Items
+
+Review blocked items and suggest resolutions.
+
+### Blocked Items
+{List of blocked work items with details}
+
+### For Each Blocker, Analyze:
+
+1. **Root Cause**
+   - Why is this blocked?
+   - Technical vs. organizational blocker
+
+2. **Impact Assessment**
+   - How many items depend on this?
+   - Sprint goal impact
+
+3. **Resolution Options**
+   - Technical solutions or workarounds
+   - Who needs to be involved
+   - Estimated time to resolve
+
+4. **Priority Ranking**
+   - Which blockers to resolve first
+   - Critical path analysis
+
+### Output Format
+
+Return JSON with blocker analysis and recommendations.
+```
+
+**After the agent completes:**
+- Display blocker analysis
+- Recommend actions to unblock items
+
+---
+
+## Step 4: Quality Health Check
+
+Run automated quality checks:
+
+```bash
+# Run tests with coverage
+python -m pytest --cov=src --cov-report=term
+
+# Check coverage against standard
+# Target: 80%
+```
+
+Compare results against quality standards:
+- Test Coverage: Current vs. 80%
+- Critical Vulnerabilities: Current vs. 0
+- Code Complexity: Current vs. 10
+
+---
+
+## Step 5: Weekly Security Review (Fridays Only)
+
+**FOR WEEKLY REPORTS ONLY**, call `/security-specialist` with the following task:
+
+```
+## YOUR TASK: Weekly Security Status Review
+
+Review sprint security status.
+
+### Quality Standards
+- Critical Vulnerabilities: Max 0
+- High Vulnerabilities: Max 0
+
+### Security Scan Results
+{Include any security scan output}
+
+### Analyze:
+
+1. **Vulnerability Status**
+   - New vulnerabilities this sprint
+   - Resolved vulnerabilities
+   - Outstanding issues
+
+2. **Security Impact of Changes**
+   - Features with security implications
+   - Authentication/authorization changes
+
+3. **Recommendations**
+   - Critical issues requiring immediate attention
+   - Security tasks for next sprint
+
+### Output Format
+
+Return security review report in markdown.
+```
+
+---
+
+## Step 6: Generate Status Report
+
+Compile comprehensive report:
+
+```
+════════════════════════════════════════════════════════════════════════════════
+📊 SPRINT STATUS REPORT - {current_sprint}
+════════════════════════════════════════════════════════════════════════════════
+
+📈 Progress: {completed_points}/{total_points} points ({percentage}%)
+
+📋 Work Items:
+  ✅ Done: {done_count}
+  🔄 In Progress: {in_progress_count}
+  🔴 Blocked: {blocked_count}
+  ⬜ Not Started: {not_started_count}
+
+⚠️ Blockers:
+  {blocker_list}
+
+🔒 Quality:
+  - Test Coverage: {coverage}% (target: 80%)
+  - Vulnerabilities: {vuln_count}
+
+🎯 Sprint Health: {On Track / At Risk / Behind}
+
+════════════════════════════════════════════════════════════════════════════════
+```
+
+---
+
+## Agent Commands Used
+
+| Step | Agent Command | When | Purpose |
+|------|---------------|------|---------|
+| 2 | `/scrum-master` | Daily | Standup report |
+| 3 | `/senior-engineer` | When blocked | Blocker analysis |
+| 5 | `/security-specialist` | Weekly | Security review |
+
+**Key**: Each agent command spawns a **fresh context window** via the Task tool.
+
+---
+
+## Execution Schedule
+
+- **Daily (9 AM)**: Steps 1-4 (status, standup, blockers, quality)
+- **Weekly (Friday 4 PM)**: Full workflow including security review
+- **Ad-hoc**: Run manually when needed
+
+---
+
+## Configuration
+
+**Work Tracking Platform:** file-based
+
+**Quality Standards:**
+- Test Coverage: >= 80%
+- Critical Vulnerabilities: <= 0
+- Code Complexity: <= 10
+
+---
+
+*Generated by Trustable AI Workbench for Trusted AI Development Workbench*

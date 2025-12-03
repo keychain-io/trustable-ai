@@ -1,0 +1,176 @@
+{#
+  Example: How to properly spawn agents in workflows
+
+  This template demonstrates the correct pattern for spawning specialized
+  agents with fresh context windows.
+#}
+
+# Example: Agent Spawning Pattern
+
+This document demonstrates how workflows should instruct Claude Code to
+spawn specialized agents using the Task tool.
+
+---
+
+## Step X: Create Specification (Spawn Senior Engineer)
+
+**YOU MUST USE THE TASK TOOL FOR THIS STEP.**
+
+Do not perform this work yourself. Instead, spawn a specialized agent:
+
+### Task Tool Parameters
+
+```
+Tool: Task
+Parameters:
+  subagent_type: "general-purpose"
+  model: "opus"
+  description: "Create feature specification"
+  prompt: [SEE BELOW]
+```
+
+### Prompt to Send to Agent
+
+Copy the contents of `.claude/agents/senior-engineer.md` and append this task:
+
+---
+
+**YOUR TASK**
+
+Create a detailed specification for Feature {feature_id}.
+
+**Input Materials:**
+- Epic: {epic_title}
+- Feature: {feature_title}
+- Acceptance Criteria: {acceptance_criteria}
+
+**Required Output:**
+1. API Contract with:
+   - Function signatures with types
+   - Input constraints
+   - Output guarantees
+   - Error conditions
+2. Test scenarios covering:
+   - Happy path
+   - Edge cases
+   - Error handling
+3. Implementation notes
+
+**IMPORTANT**: You have a fresh context dedicated to this task.
+Focus entirely on creating a precise, unambiguous specification.
+
+---
+
+**After the agent completes:** Save the output to `docs/specifications/`.
+
+---
+
+## Step Y: Spec-Driven Testing (Spawn QA Tester - NO CODE ACCESS)
+
+**YOU MUST USE THE TASK TOOL FOR THIS STEP.**
+
+**CRITICAL - Information Asymmetry:** This agent must NOT see the implementation.
+
+### Task Tool Parameters
+
+```
+Tool: Task
+Parameters:
+  subagent_type: "general-purpose"
+  model: "sonnet"
+  description: "Generate spec-driven tests"
+  prompt: [SEE BELOW - SPEC ONLY, NO CODE]
+```
+
+### Prompt to Send to Agent
+
+Copy the contents of `.claude/agents/spec-driven-tester.md` and append:
+
+---
+
+**YOUR TASK**
+
+Generate comprehensive tests from this specification ONLY.
+
+**Specification:**
+{specification_content}
+
+**API Contract:**
+{api_contract}
+
+**YOU DO NOT HAVE ACCESS TO:**
+- The implementation code
+- The developer's tests
+- Any hint about how the code was written
+
+**Required Output:**
+- Test file with comprehensive test cases
+- Each test derived from specification
+- Coverage of all acceptance criteria
+
+**WHY THIS MATTERS**: By not seeing the implementation, you cannot share
+the developer's blind spots. Your tests verify what SHOULD happen based
+on the spec, not what DOES happen based on the code.
+
+---
+
+**After the agent completes:** Save tests to `tests/test_{feature}_spec.py`
+
+---
+
+## Step Z: Adversarial Testing (Spawn Red Team - FULL ACCESS)
+
+**YOU MUST USE THE TASK TOOL FOR THIS STEP.**
+
+This agent gets EVERYTHING and tries to break the code.
+
+### Task Tool Parameters
+
+```
+Tool: Task
+Parameters:
+  subagent_type: "general-purpose"
+  model: "sonnet"
+  description: "Adversarial bug hunting"
+  prompt: [SEE BELOW - EVERYTHING INCLUDED]
+```
+
+### Prompt to Send to Agent
+
+Copy the contents of `.claude/agents/adversarial-tester.md` and append:
+
+---
+
+**YOUR TASK**
+
+Find bugs that the spec-driven tests missed.
+
+**You have access to EVERYTHING:**
+
+1. **Specification:** {spec}
+2. **Implementation:** {code}
+3. **Existing Tests:** {tests}
+4. **Test Results:** All passing
+
+**Your Goal:** BREAK THE CODE
+
+Find:
+- Edge cases not in spec or tests
+- Race conditions
+- Resource leaks
+- Security vulnerabilities
+- Unexpected inputs
+- State corruption scenarios
+
+**Success Metric:** Bugs found, not tests passed.
+
+---
+
+## Key Pattern Summary
+
+1. **Always say "YOU MUST USE THE TASK TOOL"** - explicit instruction
+2. **Specify model**: opus for deep work, sonnet for implementation
+3. **Include agent definition** in the prompt
+4. **Describe what the agent receives** (information asymmetry)
+5. **Describe required output format**
+6. **Handle agent output** after completion

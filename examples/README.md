@@ -64,7 +64,7 @@ pip install trusted-ai-dev
 
 # Initialize in your project
 cd your-project
-taid init
+trustable-ai init
 
 # Copy example config as starting point
 cp examples/python-fastapi/.claude/config.yaml .claude/config.yaml

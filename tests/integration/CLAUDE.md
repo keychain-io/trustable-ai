@@ -6,7 +6,7 @@ Integration tests for TAID framework. These tests verify end-to-end functionalit
 
 ## Key Components
 
-- **test_cli_init.py**: Test `taid init` command for project initialization
+- **test_cli_init.py**: Test `trustable-ai init` command for project initialization
 - **test_cli_agent.py**: Test agent management CLI commands (list, enable, render)
 - **test_cli_workflow.py**: Test workflow management CLI commands
 - **test_cli_validate.py**: Test configuration validation command
@@ -26,7 +26,7 @@ from cli.main import cli
 @pytest.mark.integration
 @pytest.mark.cli
 def test_init_command(tmp_path, monkeypatch):
-    """Test taid init command."""
+    """Test trustable-ai init command."""
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()
 

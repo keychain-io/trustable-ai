@@ -2,634 +2,370 @@
 
 **Project**: {{ project.name }}
 **Workflow**: Sprint Completion
-**Purpose**: Administrative closure and documentation of completed sprint
+**Purpose**: Close sprint, archive data, calculate metrics, and prepare for next sprint
 
 ## Output Formatting Requirements
 
-**IMPORTANT**: Use actual Unicode emojis in reports, NOT GitHub-style shortcodes:
-- ✅ Completed | ⚠️ Carried over | ❌ Cancelled
-- 🎯 Goal achieved | 📉 Below target | 📈 Exceeded
-- 📊 Metrics | 📋 Summary | 🔄 Carryover
-
-## Overview
-
-This workflow handles the formal completion of a sprint, including archiving incomplete work, calculating final metrics, generating completion reports, and preparing for the next sprint.
-
-## Prerequisites
-
-- Sprint nearing completion or at sprint end date
-- All work items in final states (Done/Closed or carried over)
-- Sprint review completed
-- Sprint retrospective completed
-
-## Initialize Work Tracking
-
-```python
-# Initialize work tracking adapter (auto-selects Azure DevOps or file-based)
-import sys
-sys.path.insert(0, ".claude/skills")
-from work_tracking import get_adapter
-
-adapter = get_adapter()
-print(f"📋 Work Tracking: {adapter.platform}")
-
-# Set sprint names
-current_sprint_name = "Sprint X"  # Replace with actual sprint
-next_sprint_name = "Sprint Y"     # Replace with next sprint
-```
-
-## Workflow Steps
-
-### Step 1: Collect Final Sprint Metrics
-
-{% if work_tracking.platform == 'azure-devops' %}
-1. **Query all sprint work items:**
-   ```bash
-   # Get all work items from the sprint
-   az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo], [{{ work_tracking.custom_fields.story_points or 'Microsoft.VSTS.Scheduling.StoryPoints' }}], [System.ChangedDate] FROM WorkItems WHERE [System.TeamProject] = '{{ work_tracking.project }}' AND [System.IterationPath] = '{{ work_tracking.iteration_format.format(project=work_tracking.project, sprint='SPRINT_NAME') }}'" --output json
-   ```
-{% else %}
-1. **Query all sprint work items:**
-   ```python
-   # Get all work items from the sprint
-   sprint_items = adapter.query_sprint_work_items(current_sprint_name)
-
-   print(f"📋 Sprint Work Items ({len(sprint_items)}):")
-   for item in sprint_items:
-       points = item.get('story_points', '-')
-       print(f"  WI-{item['id']}: {item['title']} [{item['state']}] ({points} pts)")
-
-   # Get sprint summary
-   summary = adapter.get_sprint_summary(current_sprint_name)
-   print(f"\n📊 Sprint Summary:")
-   print(f"  Total items: {summary['total_items']}")
-   print(f"  Total points: {summary['total_points']}")
-   print(f"  Completed points: {summary['completed_points']}")
-   print(f"  By state: {summary['by_state']}")
-   ```
-{% endif %}
-
-2. **Calculate final metrics:**
-   - **Total Story Points**: Planned vs. Completed
-   - **Completion Rate**: Percentage of items completed
-   - **Final Velocity**: Story points completed
-   - **Carry Over**: Items moving to next sprint
-   - **Team Capacity**: Actual vs. planned
-   - **Cycle Time**: Average time from Active to Done
-   - **Quality Metrics**:
-     - Test coverage: {{ quality_standards.test_coverage_min }}%
-     - Vulnerabilities: Critical {{ quality_standards.critical_vulnerabilities_max }}, High {{ quality_standards.high_vulnerabilities_max or 0 }}
-     - Bugs created vs. fixed
-     - Code review feedback
-
-3. **Categorize work items:**
-   - ✅ **Completed**: Done/Closed/Resolved
-   - ⏭️ **Carry Over**: Active items moving to next sprint
-   - ❌ **Removed**: Items removed from sprint
-   - 🐛 **Bugs**: Bugs found and fixed in sprint
-   - 📊 **Technical Debt**: Debt added vs. paid down
-
-### Step 2: Handle Incomplete Work Items
-
-1. **Identify incomplete items:**
-   ```python
-   # Filter for incomplete items
-   completed_states = ['Done', 'Closed', 'Resolved', 'Completed']
-   incomplete_items = [item for item in sprint_items if item.get('state') not in completed_states]
-
-   print(f"⏳ Incomplete Items ({len(incomplete_items)}):")
-   for item in incomplete_items:
-       print(f"  WI-{item['id']}: {item['title']} [{item['state']}]")
-   ```
-
-2. **Categorize incomplete items:**
-   - **Carry Over to Next Sprint**: Active items with progress
-   - **Return to Backlog**: Items not started or blocked
-   - **Archive**: Items no longer relevant
-
-{% if config.is_agent_enabled('scrum-master') %}
-3. **Analyze incomplete work:**
-   - **Read agent definition:** `.claude/agents/scrum-master.md`
-   - **Task:** "Analyze incomplete work items and recommend disposition:
-     - Review each incomplete item's status
-     - Identify reason for incompletion (blocked, underestimated, etc.)
-     - Recommend carry over vs. return to backlog
-     - Assess impact on next sprint capacity
-     - Suggest re-estimation if needed"
-   - **Spawn agent** using Task tool with model `{{ config.get_agent_model('scrum-master') or 'sonnet' }}`
-   - **Input:** List of incomplete items with activity history
-   - **Collect:**
-     - Carry over recommendations
-     - Re-estimation suggestions
-     - Next sprint capacity impact
-
-{% endif %}
-4. **Process incomplete items:**
-   ```python
-   # Define next sprint iteration path
-   next_sprint_path = f"{{ work_tracking.project }}\\{next_sprint_name}"
-   backlog_path = "{{ work_tracking.project }}\\Backlog"
-
-   for item in carry_over_items:
-       # Move to next sprint
-       result = adapter.update_work_item(
-           work_item_id=item['id'],
-           fields={
-               'System.IterationPath': next_sprint_path,
-           },
-           verify=True
-       )
-
-       # Add comment explaining carry over
-       adapter.add_comment(
-           work_item_id=item['id'],
-           comment=f"Carried over from {current_sprint_name}. Reason: {item.get('carry_over_reason', 'Not completed in sprint')}"
-       )
-       print(f"  ⏭️ WI-{item['id']}: Carried over to {next_sprint_name}")
-
-   for item in return_to_backlog_items:
-       # Remove from sprint
-       result = adapter.update_work_item(
-           work_item_id=item['id'],
-           state='New',
-           fields={
-               'System.IterationPath': backlog_path,
-           },
-           verify=True
-       )
-
-       # Add comment
-       adapter.add_comment(
-           work_item_id=item['id'],
-           comment=f"Returned to backlog from {current_sprint_name}. Reason: {item.get('return_reason', 'Not started')}"
-       )
-       print(f"  ↩️ WI-{item['id']}: Returned to backlog")
-   ```
-
-### Step 3: Calculate Sprint Performance Metrics
-
-1. **Velocity Analysis:**
-   - **Planned Velocity**: Total story points planned
-   - **Actual Velocity**: Story points completed
-   - **Velocity Accuracy**: Actual / Planned ratio
-   - **Trending**: Compare to last 3 sprints
-
-2. **Quality Metrics:**
-   - **Test Coverage**: Final coverage percentage
-   - **Code Quality**: Complexity, duplication metrics
-   - **Defect Density**: Bugs per story point
-   - **Security**: Vulnerabilities found and fixed
-   - **Technical Debt**: Debt ratio change
-
-3. **Process Metrics:**
-   - **Cycle Time**: Average time to complete items
-   - **Work Item Age**: Average age at completion
-   - **Blocker Impact**: Days lost to blockers
-   - **Estimation Accuracy**: Estimated vs. actual effort
-
-4. **Team Metrics:**
-   - **Capacity Utilization**: Actual work vs. capacity
-   - **Focus Factor**: Productive vs. non-productive time
-   - **Collaboration**: Pair programming, code reviews
-   - **Meeting Time**: Time spent in ceremonies
-
-### Step 4: Generate Sprint Completion Report
-
-Create comprehensive completion report:
-
-```markdown
-# Sprint Completion Report - {{ project.name }}
-
-**Sprint**: [Sprint Name]
-**Duration**: [Start Date] - [End Date] ([X] working days)
-**Team**: [Team Name]
-**Capacity**: [X] story points
+**IMPORTANT**: Use actual Unicode emojis in reports, NOT GitHub-style shortcodes.
 
 ---
 
-## 📊 Sprint Summary
+## Workflow Overview
 
-### Commitment vs. Delivery
-- **Planned**: [X] story points ([Y] items)
-- **Completed**: [Z] story points ([W] items)
-- **Completion Rate**: [%]%
-- **Velocity**: [Z] story points
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SPRINT COMPLETION                                                          │
+│                                                                             │
+│  Step 1: Collect final sprint metrics                                      │
+│  Step 2: /scrum-master → Analyze incomplete work (if any)                  │
+│  Step 3: Process incomplete items (carry over / backlog)                   │
+│  Step 4: Calculate performance metrics                                     │
+│  Step 5: Generate completion report                                        │
+│  Step 6: Archive sprint data                                               │
+│  Step 7: Prepare next sprint                                               │
+│                                                                             │
+│  Agent command spawns a FRESH CONTEXT WINDOW via Task tool                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
-### Work Breakdown
-- ✅ Completed: [X] items ([Y] SP)
-- ⏭️ Carried Over: [X] items ([Y] SP)
-- ❌ Removed: [X] items ([Y] SP)
-- 🐛 Bugs Fixed: [X] items
+---
+
+## Initialize Workflow
+
+```python
+current_sprint = input("Sprint to close (e.g., Sprint 1): ")
+next_sprint = input("Next sprint name (e.g., Sprint 2): ")
+
+# Load all sprint work items
+from pathlib import Path
+import yaml
+
+sprint_items = []
+work_items_dir = Path(".claude/work-items")
+for f in work_items_dir.glob("*.yaml"):
+    with open(f) as file:
+        item = yaml.safe_load(file)
+        if item.get('sprint') == current_sprint:
+            sprint_items.append(item)
+
+print(f"📋 Found {len(sprint_items)} items in {current_sprint}")
+```
+
+---
+
+## Step 1: Collect Final Sprint Metrics
+
+```python
+# Categorize items
+completed_states = ['Done', 'Closed', 'Resolved', 'Completed']
+completed = [i for i in sprint_items if i['status'] in completed_states]
+incomplete = [i for i in sprint_items if i['status'] not in completed_states]
+
+# Calculate metrics
+total_points = sum(i.get('story_points', 0) for i in sprint_items)
+completed_points = sum(i.get('story_points', 0) for i in completed)
+completion_rate = (completed_points / total_points * 100) if total_points > 0 else 0
+
+print(f"📊 Final Sprint Metrics:")
+print(f"  Total: {len(sprint_items)} items ({total_points} pts)")
+print(f"  ✅ Completed: {len(completed)} ({completed_points} pts)")
+print(f"  ⏳ Incomplete: {len(incomplete)}")
+print(f"  📈 Completion Rate: {completion_rate:.1f}%")
+print(f"  🚀 Velocity: {completed_points} story points")
+```
+
+---
+
+## Step 2: Analyze Incomplete Work (If Any)
+
+**IF THERE ARE INCOMPLETE ITEMS**, call `/scrum-master` with the following task:
+
+```
+## YOUR TASK: Analyze Incomplete Work Items
+
+Review incomplete items and recommend disposition.
+
+### Incomplete Items
+{List incomplete items with details: title, status, story_points, progress}
+
+### For Each Item, Determine:
+
+1. **Reason for Incompletion**
+   - Blocked by external dependency
+   - Underestimated complexity
+   - Scope creep
+   - Started late
+   - Not started (deprioritized)
+
+2. **Progress Made**
+   - Percentage complete
+   - Work already done
+   - Work remaining
+
+3. **Recommendation**
+   - **CARRY_OVER**: Move to next sprint (item has significant progress)
+   - **BACKLOG**: Return to backlog (item not started or blocked indefinitely)
+   - **ARCHIVE**: Close as won't do (item no longer relevant)
+
+4. **Re-estimation**
+   - Does the item need re-estimation?
+   - Suggested new story points
+
+5. **Next Sprint Impact**
+   - How much capacity will carry-over items consume?
+
+### Output Format
+
+Return JSON with:
+```json
+{
+  "items": [
+    {
+      "id": "FEATURE-001",
+      "recommendation": "CARRY_OVER|BACKLOG|ARCHIVE",
+      "reason": "...",
+      "progress_pct": 60,
+      "re_estimate": 3,
+      "notes": "..."
+    }
+  ],
+  "carry_over_points": 8,
+  "capacity_impact": "15% of next sprint"
+}
+```
+```
+
+**After the agent completes:**
+- Parse recommendations
+- Present to user for approval
+
+---
+
+## Step 3: Process Incomplete Items
+
+Based on recommendations (after user approval):
+
+```python
+for item in carry_over_items:
+    # Update item to next sprint
+    item['sprint'] = next_sprint
+    item['carry_over_from'] = current_sprint
+    item['carry_over_reason'] = recommendation['reason']
+
+    # Save updated item
+    # Add carry-over comment
+
+    print(f"  ⏭️ {item['id']}: Carried over to {next_sprint}")
+
+for item in backlog_items:
+    # Remove sprint assignment
+    item['sprint'] = None
+    item['status'] = 'New'
+
+    print(f"  ↩️ {item['id']}: Returned to backlog")
+
+for item in archive_items:
+    # Mark as won't do
+    item['status'] = 'Closed'
+    item['resolution'] = "Won't Do"
+
+    print(f"  🗃️ {item['id']}: Archived")
+```
+
+---
+
+## Step 4: Calculate Performance Metrics
+
+```python
+metrics = {
+    'sprint': current_sprint,
+    'planned_points': total_points,
+    'completed_points': completed_points,
+    'velocity': completed_points,
+    'completion_rate': completion_rate,
+    'items_completed': len(completed),
+    'items_carried_over': len(carry_over_items),
+    'items_to_backlog': len(backlog_items),
+}
+
+# Quality metrics
+metrics['quality'] = {
+    'test_coverage': get_test_coverage(),  # From test runner
+    'bugs_created': count_bugs_created(),
+    'bugs_fixed': count_bugs_fixed(),
+}
+
+print(f"📈 Performance Summary:")
+print(f"  Velocity: {metrics['velocity']} pts")
+print(f"  Completion: {metrics['completion_rate']:.1f}%")
+print(f"  Quality: {metrics['quality']['test_coverage']}% coverage")
+```
+
+---
+
+## Step 5: Generate Completion Report
+
+```markdown
+# Sprint Completion Report
+
+**Sprint**: {current_sprint}
+**Duration**: {start_date} - {end_date}
+
+---
+
+## 📊 Summary
+
+| Metric | Value |
+|--------|-------|
+| Planned Points | {total_points} |
+| Completed Points | {completed_points} |
+| Velocity | {velocity} pts |
+| Completion Rate | {completion_rate}% |
+
+---
+
+## 📋 Work Breakdown
+
+### ✅ Completed ({completed_count})
+{List completed items}
+
+### ⏭️ Carried Over ({carry_over_count})
+{List carried over items with reasons}
+
+### ↩️ Returned to Backlog ({backlog_count})
+{List items returned to backlog}
+
+---
+
+## 📈 Quality Metrics
+
+- Test Coverage: {coverage}% (target: {{ quality_standards.test_coverage_min }}%)
+- Bugs Created: {bugs_created}
+- Bugs Fixed: {bugs_fixed}
 
 ---
 
 ## 🎯 Sprint Goal
 
-**Goal**: [Sprint goal statement]
-**Status**: [✅ Achieved / ⚠️ Partially Achieved / ❌ Not Achieved]
-
-**Analysis**:
-[Detailed analysis of sprint goal achievement]
-
----
-
-## 📈 Performance Metrics
-
-### Velocity Trend
-| Sprint | Planned | Completed | Accuracy |
-|--------|---------|-----------|----------|
-| {{ 'Sprint N-2' }} | [X] SP | [Y] SP | [Z]% |
-| {{ 'Sprint N-1' }} | [X] SP | [Y] SP | [Z]% |
-| {{ 'Current' }} | [X] SP | [Y] SP | [Z]% |
-
-**Trend**: [↑ Improving / → Stable / ↓ Declining]
-
-### Quality Metrics
-- **Test Coverage**: [X]% (target: {{ quality_standards.test_coverage_min }}%)
-  - Change: [↑/↓ X%] from last sprint
-- **Critical Vulnerabilities**: [X] (max: {{ quality_standards.critical_vulnerabilities_max }})
-- **High Vulnerabilities**: [X] (max: {{ quality_standards.high_vulnerabilities_max or 0 }})
-- **Code Complexity**: [Avg X] (max: {{ quality_standards.code_complexity_max }})
-- **Bugs Created**: [X]
-- **Bugs Fixed**: [Y]
-- **Defect Density**: [X bugs per 10 SP]
-
-### Process Metrics
-- **Average Cycle Time**: [X] days
-- **Average Work Item Age**: [X] days
-- **Blocker Days**: [X] days total
-- **Estimation Accuracy**: [X]%
-
-### Team Metrics
-- **Capacity Utilization**: [X]% of planned capacity
-- **Focus Factor**: [X]%
-- **Code Reviews**: [X] PRs reviewed
-- **Pair Programming**: [X]% of work
-
----
-
-## ⏭️ Incomplete Work
-
-### Carried Over ([X] items, [Y] SP)
-{% raw %}
-{% for item in carry_over_items %}
-- **[WI-{{ item.id }}]** {{ item.title }} ([{{ item.story_points }}] SP)
-  - Reason: {{ item.carry_over_reason }}
-  - Progress: {{ item.progress_pct }}%
-  - Next sprint impact: {{ item.impact }}
-{% endfor %}
-{% endraw %}
-
-### Returned to Backlog ([X] items, [Y] SP)
-{% raw %}
-{% for item in backlog_items %}
-- **[WI-{{ item.id }}]** {{ item.title }}
-  - Reason: {{ item.return_reason }}
-  - Recommendation: {{ item.recommendation }}
-{% endfor %}
-{% endraw %}
-
----
-
-## 🏆 Achievements
-
-### Completed Features
-{% raw %}
-{% for feature in completed_features %}
-- **{{ feature.title }}**
-  - Story points: {{ feature.story_points }}
-  - Business value: {{ feature.business_value }}
-  - Impact: {{ feature.impact }}
-{% endfor %}
-{% endraw %}
-
-### Notable Accomplishments
-- [List key achievements]
-- [Technical improvements]
-- [Process improvements]
+**Goal**: {sprint_goal}
+**Status**: {Achieved / Partially Achieved / Not Achieved}
 
 ---
 
 ## 📝 Lessons Learned
 
-### What Went Well
-- [Items from retrospective]
-
-### What Needs Improvement
-- [Items from retrospective]
-
-### Action Items for Next Sprint
-- [Action items from retrospective]
+{Include retrospective notes if available}
 
 ---
 
-## 📊 Burndown Analysis
+## 📅 Next Sprint
 
-**Burndown Pattern**: [Ideal / Early / Late / Stalled]
-
-**Key Observations**:
-- [Analysis of burndown chart]
-- [Identification of delays or accelerations]
-- [Correlation with blockers or external events]
+**Name**: {next_sprint}
+**Carry-over Impact**: {carry_over_points} pts
+**Recommended Capacity**: {recommended_capacity} pts
 
 ---
 
-## 🔄 Sprint Retrospective Summary
-
-**Retrospective Held**: [Date]
-**Participants**: [X] team members
-
-**Key Insights**:
-- [Top 3 insights from retrospective]
-
-**Improvement Items Created**: [X] work items
-- [List of improvement work items]
-
----
-
-## 📅 Next Sprint Planning
-
-### Recommended Capacity
-Based on this sprint's performance:
-- **Recommended Velocity**: [X] story points
-- **Team Capacity**: [Y] hours
-- **Adjustment Factors**:
-  - Carry over impact: [-X SP]
-  - Team changes: [±X SP]
-  - Holidays/PTO: [-X SP]
-
-### Priorities for Next Sprint
-1. [Priority 1]
-2. [Priority 2]
-3. [Priority 3]
-
-### Technical Debt
-- **Current Debt Ratio**: [X]%
-- **Recommendation**: Allocate [Y]% of next sprint to debt reduction
-
----
-
-## 📎 Attachments
-
-- [Link to Sprint Board]({{ work_tracking.organization }}/{{ work_tracking.project }})
-- [Link to Retrospective Notes](.claude/retrospectives/sprint-[N]-retro.md)
-- [Link to Burndown Chart]
-- [Link to Test Coverage Report]
-- [Link to Security Scan Results]
-
----
-
-## ✅ Sprint Closure Checklist
-
-- [x] All work items in final state (Done/Carried Over/Removed)
-- [x] Incomplete work processed and documented
-- [x] Sprint metrics calculated and recorded
-- [x] Completion report generated
-- [x] Retrospective completed
-- [x] Action items created for next sprint
-- [x] Sprint board archived
-- [x] Stakeholders notified
-
----
-
-**Sprint Status**: ✅ CLOSED
-**Report Generated**: [Date/Time]
-**Next Sprint**: [Sprint Name] (starts [Date])
-
----
-
-*Generated by Claude Workflow Framework for {{ project.name }}*
+*Generated by Trustable AI Workbench*
 ```
 
-### Step 5: Archive Sprint Data
+Save to `.claude/reports/sprint-completion/sprint-{N}-completion.md`
 
-1. **Save completion report:**
-   ```bash
-   mkdir -p .claude/reports/sprint-completion
-   echo "$completion_report" > .claude/reports/sprint-completion/sprint-[N]-completion.md
-   ```
+---
 
-2. **Export sprint data:**
-   ```python
-   import json
-   from datetime import datetime
+## Step 6: Archive Sprint Data
 
-   sprint_data = {
-       'sprint_name': sprint_name,
-       'start_date': start_date,
-       'end_date': end_date,
-       'planned_sp': planned_story_points,
-       'completed_sp': completed_story_points,
-       'velocity': velocity,
-       'completion_rate': completion_rate,
-       'carry_over_count': len(carry_over_items),
-       'quality_metrics': {
-           'test_coverage': test_coverage_pct,
-           'critical_vulns': critical_vulns,
-           'high_vulns': high_vulns,
-           'bugs_created': bugs_created,
-           'bugs_fixed': bugs_fixed,
-       },
-       'completed_items': [item['id'] for item in completed_items],
-       'carried_over_items': [item['id'] for item in carry_over_items],
-   }
+```python
+import json
+from datetime import datetime
 
-   # Save JSON data
-   with open(f'.claude/data/sprint-{sprint_number}.json', 'w') as f:
-       json.dump(sprint_data, f, indent=2)
-   ```
+# Archive sprint data
+archive_data = {
+    'sprint': current_sprint,
+    'completion_date': datetime.now().isoformat(),
+    'metrics': metrics,
+    'completed_items': [i['id'] for i in completed],
+    'carried_over': [i['id'] for i in carry_over_items],
+}
 
-3. **Update velocity history:**
-   ```python
-   # Load velocity history
-   velocity_history = load_velocity_history()
+# Save to archive
+archive_path = Path(f".claude/data/sprint-{sprint_number}.json")
+archive_path.parent.mkdir(parents=True, exist_ok=True)
+with open(archive_path, 'w') as f:
+    json.dump(archive_data, f, indent=2)
 
-   # Add current sprint
-   velocity_history.append({
-       'sprint': sprint_name,
-       'number': sprint_number,
-       'velocity': velocity,
-       'completion_rate': completion_rate,
-       'date': datetime.now().isoformat(),
-   })
-
-   # Save updated history
-   save_velocity_history(velocity_history)
-   ```
-
-### Step 6: Update Roadmap and Planning Artifacts
-
-1. **Update product roadmap:**
-   - Mark completed features
-   - Update timeline based on actual velocity
-   - Adjust future sprint projections
-
-2. **Update release plan:**
-   - Track progress toward release goals
-   - Adjust release dates if needed
-   - Communicate changes to stakeholders
-
-3. **Update team documentation:**
-   - Wiki pages with sprint results
-   - Team dashboard metrics
-   - Stakeholder reports
-
-### Step 7: Close Sprint in Work Tracking Platform
-
-1. **Archive sprint board:**
-   ```bash
-   # Close sprint in Azure DevOps (manual step typically)
-   # Document final state for reference
-   ```
-
-2. **Update sprint status:**
-   ```python
-   # Mark sprint as complete in tracking system
-   # This is usually done through Azure DevOps UI
-   # but can be automated if needed
-   ```
-
-3. **Notify stakeholders:**
-   ```python
-   # Send completion report via email
-   send_email(
-       to=stakeholder_emails,
-       subject=f"Sprint {sprint_name} - Completion Report",
-       body=completion_report_html,
-       attachments=[
-           f'.claude/reports/sprint-completion/sprint-{sprint_number}-completion.md',
-           f'.claude/reports/sprint-completion/sprint-{sprint_number}-metrics.json',
-       ]
-   )
-   ```
-
-### Step 8: Prepare for Next Sprint
-
-1. **Calculate recommended capacity:**
-   - Based on this sprint's velocity
-   - Adjust for carry over items
-   - Account for team changes (PTO, new members, etc.)
-
-2. **Create next sprint structure:**
-   ```bash
-   # Create next sprint in Azure DevOps
-   az boards iteration project create \
-     --name "{{ work_tracking.sprint_naming.format(number='NEXT_SPRINT_NUMBER') }}" \
-     --project "{{ work_tracking.project }}" \
-     --path "{{ work_tracking.project }}"
-   ```
-
-3. **Generate next sprint planning checklist:**
-   - Review backlog priorities
-   - Ensure stories are refined and ready
-   - Confirm team capacity
-   - Schedule sprint planning meeting
-
-## Automation Setup
-
-### Trigger on Sprint End Date
-
-**GitHub Actions** (`.github/workflows/sprint-completion.yml`):
-```yaml
-name: Sprint Completion
-
-on:
-  workflow_dispatch:
-    inputs:
-      sprint_name:
-        description: 'Sprint name to close'
-        required: true
-      sprint_number:
-        description: 'Sprint number'
-        required: true
-
-jobs:
-  complete-sprint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install framework
-        run: pip install claude-workflow-framework
-
-      - name: Run sprint completion
-        env:
-          AZURE_DEVOPS_PAT: ${{ '{{' }} secrets.AZURE_DEVOPS_PAT {{ '}}' }}
-          ANTHROPIC_API_KEY: ${{ '{{' }} secrets.ANTHROPIC_API_KEY {{ '}}' }}
-        run: |
-          cwf workflow run sprint-completion \
-            --sprint "${{ '{{' }} github.event.inputs.sprint_name {{ '}}' }}" \
-            --number "${{ '{{' }} github.event.inputs.sprint_number {{ '}}' }}"
-
-      - name: Commit reports
-        run: |
-          git config user.name "Sprint Completion Bot"
-          git config user.email "bot@yourcompany.com"
-          git add .claude/reports/sprint-completion/
-          git add .claude/data/
-          git commit -m "Sprint ${{ '{{' }} github.event.inputs.sprint_number {{ '}}' }} completion" || true
-          git push
+print(f"📁 Archived sprint data to {archive_path}")
 ```
 
-### Manual Execution
+---
 
-```bash
-# Close current sprint
-cwf workflow run sprint-completion --sprint "Sprint 10" --number 10
+## Step 7: Prepare Next Sprint
 
-# Generate report only (no work item updates)
-cwf workflow run sprint-completion --sprint "Sprint 10" --dry-run
+```python
+# Calculate recommended capacity for next sprint
+carry_over_points = sum(i.get('story_points', 0) for i in carry_over_items)
+available_capacity = team_capacity - carry_over_points
 
-# Archive specific sprint
-cwf workflow run sprint-completion --sprint "Sprint 8" --number 8 --archive-only
+print(f"📅 Next Sprint Preparation:")
+print(f"  Team Capacity: {team_capacity} pts")
+print(f"  Carry-over: -{carry_over_points} pts")
+print(f"  Available: {available_capacity} pts")
+print(f"")
+print(f"➡️ Next: Run /sprint-planning for {next_sprint}")
 ```
 
-## Success Criteria
+---
 
-- ✅ All work items in final state (Done/Carried Over/Removed)
-- ✅ Incomplete work properly documented and moved
-- ✅ Sprint metrics calculated and recorded
-- ✅ Completion report generated and distributed
-- ✅ Sprint data archived for historical analysis
-- ✅ Next sprint prepared with recommended capacity
-- ✅ Stakeholders notified of sprint results
-- ✅ Roadmap and planning artifacts updated
+## Completion Summary
 
-## Post-Workflow
+```
+════════════════════════════════════════════════════════════════════════════════
+✅ SPRINT COMPLETION FINISHED
+════════════════════════════════════════════════════════════════════════════════
 
-1. Review completion report with team lead
-2. Share metrics with stakeholders
-3. Use velocity data for next sprint planning
-4. Track improvement action items
-5. Update team performance dashboards
+Sprint: {current_sprint}
+
+📊 Final Results:
+  - Velocity: {velocity} story points
+  - Completion: {completion_rate}%
+  - Items Done: {completed_count}
+  - Carried Over: {carry_over_count}
+
+📁 Artifacts:
+  - Completion Report: .claude/reports/sprint-completion/
+  - Sprint Archive: .claude/data/
+
+➡️ Next Steps:
+  1. Share completion report with stakeholders
+  2. Run /sprint-planning for {next_sprint}
+
+════════════════════════════════════════════════════════════════════════════════
+```
+
+---
+
+## Agent Commands Used
+
+| Step | Agent Command | When | Purpose |
+|------|---------------|------|---------|
+| 2 | `/scrum-master` | If incomplete items | Analyze incomplete work |
+
+**Key**: Agent command spawns a **fresh context window** via the Task tool.
+
+---
 
 ## Configuration
 
-**Agents Used:**
-{% if config.is_agent_enabled('scrum-master') %}- Scrum Master (incomplete work analysis, recommendations){% endif %}
-
-**Quality Standards Tracked:**
-- Test Coverage: ≥ {{ quality_standards.test_coverage_min }}%
-- Critical Vulnerabilities: ≤ {{ quality_standards.critical_vulnerabilities_max }}
-- High Vulnerabilities: ≤ {{ quality_standards.high_vulnerabilities_max or 0 }}
-- Code Complexity: ≤ {{ quality_standards.code_complexity_max }}
-
-**Metrics Calculated:**
-- Velocity (story points)
-- Completion rate (%)
-- Cycle time (days)
-- Defect density (bugs per 10 SP)
-- Team capacity utilization (%)
+**Work Tracking Platform:** {{ work_tracking.platform }}
 
 **Work Item Types:**
-- {{ work_tracking.work_item_types.story or 'User Story' }}
-- {{ work_tracking.work_item_types.task or 'Task' }}
-- {{ work_tracking.work_item_types.bug or 'Bug' }}
-- {{ work_tracking.work_item_types.feature or 'Feature' }}
+- Feature: {{ work_tracking.work_item_types.feature }}
+- Task: {{ work_tracking.work_item_types.task }}
+- Bug: {{ work_tracking.work_item_types.bug }}
+
+**Quality Standards:**
+- Test Coverage: >= {{ quality_standards.test_coverage_min }}%
 
 ---
 
-*Generated by Claude Workflow Framework for {{ project.name }}*
+*Generated by Trustable AI Workbench for {{ project.name }}*

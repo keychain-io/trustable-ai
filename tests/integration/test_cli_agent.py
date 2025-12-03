@@ -23,7 +23,7 @@ class TestAgentListCommand:
 
             # Should show error about missing config
             assert 'Error' in result.output or 'not found' in result.output.lower()
-            assert 'taid init' in result.output
+            assert 'trustable-ai init' in result.output
 
     def test_agent_list_with_config(self, sample_config_yaml):
         """Test listing agents with configuration."""

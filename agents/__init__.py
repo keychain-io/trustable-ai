@@ -1,4 +1,4 @@
-"""Agent management for Claude Workflow Framework."""
+"""Agent management for Trustable AI Workbench."""
 
 from .registry import AgentRegistry, load_agent, list_agents, render_agent
 

@@ -8,8 +8,8 @@ This workflow creates CLAUDE.md files with front matter that enables **directed 
 
 ## Prerequisites
 
-1. Repository should be initialized with `taid init`
-2. Run `taid context generate --dry-run` first to see the plan
+1. Repository should be initialized with `trustable-ai init`
+2. Run `trustable-ai context generate --dry-run` first to see the plan
 
 ## Workflow Steps
 
@@ -17,14 +17,14 @@ This workflow creates CLAUDE.md files with front matter that enables **directed 
 
 ```bash
 # See what directories will be documented
-taid context generate --dry-run
+trustable-ai context generate --dry-run
 ```
 
 ### Step 2: Generate Base CLAUDE.md Files
 
 ```bash
 # Create initial CLAUDE.md templates
-taid context generate
+trustable-ai context generate
 ```
 
 ### Step 3: Add Context Directives to Root CLAUDE.md
@@ -141,19 +141,19 @@ Or use the CLI:
 
 ```bash
 # Lookup context for a task
-taid context lookup "implement user authentication API"
-taid context lookup "write unit tests for payment service"
-taid context lookup "plan sprint 10 work items"
+trustable-ai context lookup "implement user authentication API"
+trustable-ai context lookup "write unit tests for payment service"
+trustable-ai context lookup "plan sprint 10 work items"
 ```
 
 ### Step 7: Build Context Index
 
 ```bash
 # Build the context index
-taid context index
+trustable-ai context index
 
 # Verify all CLAUDE.md files are indexed
-taid context show
+trustable-ai context show
 ```
 
 ## How Directed Loading Works

@@ -29,8 +29,8 @@ def validate_command(verbose: bool):
         checks_passed += 1
     else:
         click.echo("✗ Configuration file not found")
-        errors.append("Configuration file not found. Run 'taid init' to initialize.")
-        click.echo("\n❌ Validation failed. Run 'taid init' to initialize the framework.\n")
+        errors.append("Configuration file not found. Run 'trustable-ai init' to initialize.")
+        click.echo("\n❌ Validation failed. Run 'trustable-ai init' to initialize the framework.\n")
         raise SystemExit(1)
 
     # Load configuration
@@ -86,17 +86,45 @@ def validate_command(verbose: bool):
 
     # Check 4: Work tracking configuration
     total_checks += 1
-    if config.work_tracking.organization and config.work_tracking.project:
+    platform = config.work_tracking.platform
+
+    if platform == "file-based":
+        # File-based tracking doesn't require organization/project
+        click.echo("✓ Work tracking configured (file-based)")
+        checks_passed += 1
+
+        if verbose:
+            work_items_dir = config.work_tracking.work_items_directory or ".claude/work-items"
+            click.echo(f"    Platform: {platform}")
+            click.echo(f"    Work items directory: {work_items_dir}")
+    elif config.work_tracking.organization and config.work_tracking.project:
         click.echo("✓ Work tracking configured")
         checks_passed += 1
 
         if verbose:
-            click.echo(f"    Platform: {config.work_tracking.platform}")
+            click.echo(f"    Platform: {platform}")
             click.echo(f"    Organization: {config.work_tracking.organization}")
             click.echo(f"    Project: {config.work_tracking.project}")
     else:
-        click.echo("⚠ Work tracking incomplete")
-        warnings.append("Work tracking configuration incomplete")
+        # Provide specific guidance on what's missing
+        click.echo(f"⚠ Work tracking incomplete ({platform})")
+        missing = []
+        if not config.work_tracking.organization:
+            missing.append("organization")
+        if not config.work_tracking.project:
+            missing.append("project")
+
+        warning_msg = f"Work tracking missing: {', '.join(missing)}"
+        if platform == "azure-devops":
+            warning_msg += f"\n    Run: trustable-ai configure azure-devops"
+        elif platform == "jira":
+            warning_msg += f"\n    Run: trustable-ai configure jira"
+        elif platform == "github-projects":
+            warning_msg += f"\n    Run: trustable-ai configure github-projects"
+        else:
+            warning_msg += f"\n    Run: trustable-ai configure {platform}"
+
+        warnings.append(warning_msg)
 
     # Check 5: Quality standards configured
     total_checks += 1
@@ -122,7 +150,7 @@ def validate_command(verbose: bool):
                 click.echo(f"    • {agent}")
     else:
         click.echo("⚠ No agents enabled")
-        warnings.append("No agents enabled. Run 'taid agent enable <name>' to enable agents.")
+        warnings.append("No agents enabled. Run 'trustable-ai agent enable <name>' to enable agents.")
 
     # Summary
     click.echo(f"\n{'='*80}")
@@ -142,7 +170,7 @@ def validate_command(verbose: bool):
     if not errors:
         click.echo("\n✅ Validation successful!\n")
         click.echo("You can now:")
-        click.echo("  • Render agents: taid agent render-all")
-        click.echo("  • Render workflows: taid workflow render-all\n")
+        click.echo("  • Render agents: trustable-ai agent render-all")
+        click.echo("  • Render workflows: trustable-ai workflow render-all\n")
     else:
         click.echo("\n❌ Validation failed. Please fix the errors above.\n")

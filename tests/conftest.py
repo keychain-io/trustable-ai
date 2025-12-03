@@ -1,5 +1,5 @@
 """
-Pytest configuration and fixtures for Claude Workflow Framework tests.
+Pytest configuration and fixtures for Trustable AI Workbench tests.
 
 Provides reusable fixtures for testing components.
 """

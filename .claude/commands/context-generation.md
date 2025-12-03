@@ -1,139 +1,201 @@
 # Context Generation Workflow
 
-Generate hierarchical CLAUDE.md documentation structure for Trusted AI Development Workbench.
+Generate hierarchical CLAUDE.md documentation structure with directed context loading for Trusted AI Development Workbench.
 
 ## Purpose
 
-This workflow analyzes the repository structure and creates CLAUDE.md files at key directories to provide optimal context for Claude Code sessions.
+This workflow creates CLAUDE.md files with front matter that enables **directed context loading** - each file specifies what child contexts to load based on task keywords, allowing Claude Code to load only the relevant context for each task.
 
 ## Prerequisites
 
-1. Repository should be initialized with `taid init`
-2. Run `taid context generate --dry-run` first to see the plan
+1. Repository should be initialized with `trustable-ai init`
+2. Run `trustable-ai context generate --dry-run` first to see the plan
 
 ## Workflow Steps
 
 ### Step 1: Analyze Repository Structure
 
-First, analyze the repository to understand its structure:
-
 ```bash
-# Generate initial CLAUDE.md structure
-taid context generate --dry-run
+# See what directories will be documented
+trustable-ai context generate --dry-run
 ```
-
-Review the output to see which directories will be documented.
 
 ### Step 2: Generate Base CLAUDE.md Files
 
-Generate the initial CLAUDE.md templates:
-
 ```bash
-taid context generate
+# Create initial CLAUDE.md templates
+trustable-ai context generate
 ```
 
-This creates template CLAUDE.md files in key directories.
+### Step 3: Add Context Directives to Root CLAUDE.md
 
-### Step 3: Enhance Root CLAUDE.md
+Update the root CLAUDE.md with front matter that directs context loading:
 
-The root CLAUDE.md should contain:
+```yaml
+---
+context:
+  keywords: [trusted-ai-development-workbench, framework, project, overview]
+  task_types: [any]
+  priority: high
+  max_tokens: 1500
+  children:
+    - path: src/CLAUDE.md
+      when: [implementation, code, feature, bug, api]
+    - path: tests/CLAUDE.md
+      when: [test, testing, pytest, coverage]
+    - path: docs/CLAUDE.md
+      when: [documentation, api-docs]
+    # Add other directories as needed based on your project structure
+  dependencies: []
+---
+# Project Name
+...
+```
 
-1. **Project Overview**: What this project does
-2. **Architecture**: High-level architecture diagram/description
-3. **Key Components**: Main modules and their responsibilities
-4. **Development Setup**: How to set up the development environment
-5. **Coding Standards**: Project-specific conventions
-6. **Important Decisions**: Key architectural decisions and rationale
+**Front Matter Fields:**
+- `keywords`: Keywords that make this context relevant
+- `task_types`: Types of tasks this context applies to
+- `priority`: high/medium/low - affects token allocation
+- `max_tokens`: Maximum tokens to use from this file
+- `children`: Child contexts to potentially load
+  - `path`: Relative path to child CLAUDE.md
+  - `when`: Keywords that trigger loading this child
+- `dependencies`: Contexts that must be loaded first
 
-**Task for Claude:** Read the existing root CLAUDE.md and enhance it with project-specific details by analyzing:
-- README.md
-- Package configuration files (pyproject.toml, package.json, etc.)
-- Main entry points
-- Configuration files
+### Step 4: Add Context Directives to Directory CLAUDE.md Files
 
-### Step 4: Enhance Directory-Level CLAUDE.md Files
+For each directory's CLAUDE.md, add appropriate front matter:
 
-For each directory with a CLAUDE.md, enhance it with:
+**Example for src/CLAUDE.md:**
+```yaml
+---
+context:
+  keywords: [source, code, implementation, api, service]
+  task_types: [implementation, feature-development, bug-fix]
+  priority: high
+  max_tokens: 800
+  children:
+    - path: src/api/CLAUDE.md
+      when: [api, endpoint, route, handler]
+    - path: src/services/CLAUDE.md
+      when: [service, business-logic, domain]
+    - path: src/models/CLAUDE.md
+      when: [model, schema, entity, database]
+  dependencies: []
+---
+# src - Source Code
+...
+```
 
-1. **Module Purpose**: What this directory/module is responsible for
-2. **Key Files**: Important files and their roles
-3. **Dependencies**: What this module depends on
-4. **Dependents**: What depends on this module
-5. **Patterns**: Coding patterns used in this module
+**Example for tests/CLAUDE.md:**
+```yaml
+---
+context:
+  keywords: [test, testing, pytest, fixture, mock, coverage]
+  task_types: [testing, quality-assurance]
+  priority: medium
+  max_tokens: 600
+  children:
+    - path: tests/unit/CLAUDE.md
+      when: [unit, fast]
+    - path: tests/integration/CLAUDE.md
+      when: [integration, e2e]
+  dependencies: []
+---
+# tests - Test Suite
+...
+```
+
+### Step 5: Enhance CLAUDE.md Content
+
+For each CLAUDE.md, ensure it contains:
+
+1. **Purpose**: What this module does (1 paragraph)
+2. **Key Components**: List of important files with descriptions
+3. **Architecture**: How components interact
+4. **Usage Examples**: Code snippets showing typical usage
+5. **Conventions**: Patterns and naming conventions used
 6. **Testing**: How to test this module
 
-**Task for Claude:** For each generated CLAUDE.md:
-1. Read the template content
-2. Analyze the actual code in that directory
-3. Add specific documentation about the code's purpose and usage
-4. Document any non-obvious patterns or conventions
+**Task for Claude:** Read and enhance each CLAUDE.md by analyzing:
+- The actual source code in that directory
+- Imports and dependencies
+- Public interfaces and APIs
+- Test files for usage examples
 
-### Step 5: Add Cross-References
+### Step 6: Test Directed Context Loading
 
-Ensure CLAUDE.md files reference each other appropriately:
-- Root should link to key subdirectories
-- Subdirectories should reference parent context when relevant
-- Related modules should cross-reference each other
+Test the directed loader to verify context is loaded correctly:
 
-### Step 6: Validate Context Hierarchy
+```bash
+# Test context loading for different task types
+python -m core.directed_loader load sprint-planning azure work-item
+python -m core.directed_loader load implementation api feature
+python -m core.directed_loader load testing pytest unit
+
+# View the full context tree
+python -m core.directed_loader tree
+```
+
+Or use the CLI:
+
+```bash
+# Lookup context for a task
+trustable-ai context lookup "implement user authentication API"
+trustable-ai context lookup "write unit tests for payment service"
+trustable-ai context lookup "plan sprint 10 work items"
+```
+
+### Step 7: Build Context Index
 
 ```bash
 # Build the context index
-taid context index
+trustable-ai context index
 
 # Verify all CLAUDE.md files are indexed
-taid context show
+trustable-ai context show
 ```
 
-### Step 7: Test Context Loading
+## How Directed Loading Works
 
-Test that context is loaded correctly for different tasks:
+1. **Start at Root**: Loader begins at root CLAUDE.md
+2. **Match Keywords**: Compares task keywords against `keywords` and `task_types` in front matter
+3. **Follow Children**: If a child's `when` keywords match, that child is loaded
+4. **Recurse**: Process continues recursively through the tree
+5. **Token Budget**: Respects `max_tokens` per file and total budget
 
-```bash
-# Test context lookup for various tasks
-taid context lookup "implement new API endpoint"
-taid context lookup "write tests for user service"
-taid context lookup "deploy to production"
+**Example Flow for "sprint planning with azure devops":**
+```
+Root CLAUDE.md (always loaded, high priority)
+├── workflows/CLAUDE.md (matches: "sprint", "planning")
+├── agents/CLAUDE.md (matches: "sprint-planning" task type)
+└── adapters/azure_devops/CLAUDE.md (matches: "azure", "devops")
 ```
 
 ## Output Structure
 
-After completion, your repository should have:
-
 ```
 project/
-├── CLAUDE.md                    # Root context (project overview)
+├── CLAUDE.md                    # Root (with children directives)
 ├── src/
-│   ├── CLAUDE.md               # Source code context
+│   ├── CLAUDE.md               # Source (children: api, services, models)
 │   ├── api/
-│   │   └── CLAUDE.md           # API-specific context
+│   │   └── CLAUDE.md           # API context
 │   ├── services/
 │   │   └── CLAUDE.md           # Services context
 │   └── models/
-│       └── CLAUDE.md           # Data models context
+│       └── CLAUDE.md           # Models context
 ├── tests/
-│   └── CLAUDE.md               # Testing context
-├── terraform/
-│   └── CLAUDE.md               # Infrastructure context
+│   ├── CLAUDE.md               # Tests (children: unit, integration)
+│   ├── unit/
+│   │   └── CLAUDE.md           # Unit test context
+│   └── integration/
+│       └── CLAUDE.md           # Integration test context
 └── .claude/
-    └── context-index.yaml      # Context index for fast lookup
+    └── context-index.yaml      # Index for fast lookup
 ```
 
-## Best Practices for CLAUDE.md Content
-
-1. **Be Specific**: Generic content doesn't help. Include actual file names, function names, patterns.
-
-2. **Stay Current**: Update CLAUDE.md when making significant changes to a module.
-
-3. **Focus on "Why"**: Code shows "what" and "how". CLAUDE.md should explain "why".
-
-4. **Include Examples**: Show example usage, common patterns, typical workflows.
-
-5. **Document Gotchas**: Known issues, workarounds, things that surprised you.
-
-6. **Keep It Scannable**: Use headers, bullet points, code blocks. Claude needs to quickly find relevant info.
-
-## Configuration Used
+## Configuration
 
 - **Project**: Trusted AI Development Workbench
 - **Type**: library
@@ -141,7 +203,9 @@ project/
 
 ## Success Criteria
 
-- [ ] Root CLAUDE.md contains project-specific information (not just template)
-- [ ] Each key directory has a CLAUDE.md with actual content about that code
-- [ ] Context index is built and working
+- [ ] Root CLAUDE.md has context directives pointing to key directories
+- [ ] Each directory CLAUDE.md has appropriate keywords and task_types
+- [ ] Children directives route to relevant subdirectories
+- [ ] `python -m core.directed_loader tree` shows correct hierarchy
 - [ ] Context lookup returns relevant files for common tasks
+- [ ] Token budgets are respected (verify with `tokens_used` output)

@@ -33,7 +33,7 @@ def status(workflows: bool, sprints: bool, show_all: bool):
     # Load configuration
     config_path = Path(".claude/config.yaml")
     if not config_path.exists():
-        click.echo("\n✗ Not initialized. Run 'taid init' first.")
+        click.echo("\n✗ Not initialized. Run 'trustable-ai init' first.")
         return
 
     try:

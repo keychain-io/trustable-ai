@@ -153,7 +153,7 @@ from cli.main import cli
 @pytest.mark.integration
 @pytest.mark.cli
 def test_init_command(tmp_path, monkeypatch):
-    """Test taid init command."""
+    """Test trustable-ai init command."""
     # Arrange
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()

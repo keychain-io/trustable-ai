@@ -1,1 +1,1 @@
-"""CLI commands for Claude Workflow Framework."""
+"""CLI commands for Trustable AI Workbench."""

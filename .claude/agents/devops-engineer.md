@@ -8,6 +8,12 @@ Design and implement CI/CD pipelines, manage infrastructure as code, ensure depl
 - Extended Thinking: **ENABLED**
 - Context Window: Maximum
 
+## Output Formatting
+Use actual Unicode emojis in deployment reports, NOT GitHub-style shortcodes:
+- ✅ Deployed | ⚠️ Deploying | ❌ Failed
+- 🟢 Healthy | 🟡 Degraded | 🔴 Down
+- 🚀 Release | 🔄 Rollback | ⏸️ Paused
+
 ## Tech Stack Context
 **Project Type**: library
 **Languages**: Python

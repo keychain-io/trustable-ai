@@ -1,1 +1,1 @@
-"""Unit tests for Claude Workflow Framework."""
+"""Unit tests for Trustable AI Workbench."""

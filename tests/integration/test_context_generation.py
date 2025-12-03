@@ -13,7 +13,7 @@ from cli.main import cli
 
 @pytest.mark.integration
 class TestContextGenerate:
-    """Test suite for taid context generate command."""
+    """Test suite for trustable-ai context generate command."""
 
     def test_context_generate_dry_run(self):
         """Test context generation dry-run shows plan without creating files."""
@@ -61,7 +61,7 @@ class TestContextGenerate:
             assert Path("tests/CLAUDE.md").exists()
 
     def test_context_generate_skips_existing(self):
-        """Test context generation skips existing CLAUDE.md files."""
+        """Test context generation with --no-merge skips existing CLAUDE.md files."""
         runner = CliRunner()
 
         with runner.isolated_filesystem():
@@ -71,7 +71,8 @@ class TestContextGenerate:
             existing_content = "# Existing Content\nDo not overwrite"
             Path("CLAUDE.md").write_text(existing_content)
 
-            result = runner.invoke(cli, ['context', 'generate'])
+            # Use --no-merge to skip existing files (merge is now default)
+            result = runner.invoke(cli, ['context', 'generate', '--no-merge'])
 
             assert result.exit_code == 0
             assert 'exists' in result.output.lower()
@@ -96,7 +97,8 @@ class TestContextGenerate:
             # Verify file was overwritten
             content = Path("CLAUDE.md").read_text()
             assert "Old Content" not in content
-            assert "Project Structure" in content or "Overview" in content
+            # New format references README.md and contains context directive
+            assert "README.md" in content or "context" in content.lower()
 
     def test_context_generate_respects_depth(self):
         """Test context generation respects depth limit."""
@@ -127,7 +129,7 @@ class TestContextGenerate:
 
 @pytest.mark.integration
 class TestContextIndex:
-    """Test suite for taid context index command."""
+    """Test suite for trustable-ai context index command."""
 
     def test_context_index_creates_index(self):
         """Test context indexing creates index file."""
@@ -186,7 +188,7 @@ Integrates with OAuth providers.
 
 @pytest.mark.integration
 class TestContextLookup:
-    """Test suite for taid context lookup command."""
+    """Test suite for trustable-ai context lookup command."""
 
     def test_context_lookup_finds_relevant_files(self):
         """Test context lookup finds relevant files based on task."""
@@ -255,14 +257,15 @@ class TestHierarchicalContext:
             assert Path("tests/CLAUDE.md").exists(), "tests/CLAUDE.md should exist"
 
             # Verify content is appropriate for each level
+            # New format has YAML front matter and references README.md
             root_content = Path("CLAUDE.md").read_text()
-            assert "Project Structure" in root_content or "Overview" in root_content
+            assert "README.md" in root_content or "context" in root_content.lower()
 
             src_content = Path("src/CLAUDE.md").read_text()
-            assert "Source" in src_content or "source" in src_content.lower()
+            assert "src" in src_content.lower() or "source" in src_content.lower() or "README.md" in src_content
 
             tests_content = Path("tests/CLAUDE.md").read_text()
-            assert "Test" in tests_content or "test" in tests_content.lower()
+            assert "test" in tests_content.lower() or "README.md" in tests_content
 
     def test_context_index_after_generation(self):
         """Test that context index works with generated CLAUDE.md files."""

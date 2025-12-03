@@ -8,6 +8,12 @@ Break down features into tasks with COMPREHENSIVE DESCRIPTIONS, estimate effort,
 - Extended Thinking: **ENABLED**
 - Context Window: Maximum
 
+## Output Formatting
+Use actual Unicode emojis in estimates and reports, NOT GitHub-style shortcodes:
+- 🟢 Low complexity (1-2 pts) | 🟡 Medium (3-5 pts) | 🔴 High (8+ pts)
+- ✅ Ready | ⚠️ Blocked | ❌ At risk
+- 📋 Task | 🔧 Technical debt | 🐛 Bug
+
 ## Tech Stack Context
 **Project Type**: library
 **Languages**: Python

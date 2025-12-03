@@ -29,9 +29,9 @@ pip install -e ".[dev,azure]"
 
 ```bash
 # Check CLI is available
-taid --version
+trustable-ai --version
 
-# Should output: taid, version 1.0.0
+# Should output: trustable-ai, version 1.0.0
 ```
 
 ## Initial Setup
@@ -45,7 +45,7 @@ cd /path/to/your/project
 ### Step 4: Initialize Framework
 
 ```bash
-taid init
+trustable-ai init
 ```
 
 You'll be prompted for:
@@ -73,7 +73,7 @@ If using Azure DevOps:
 
 ```bash
 # Configure connection
-taid configure azure-devops
+trustable-ai configure azure-devops
 
 # Test connection (requires Azure CLI)
 az login
@@ -83,31 +83,31 @@ az devops configure --defaults organization=https://dev.azure.com/your-org proje
 Or use file-based tracking (no external dependencies):
 
 ```bash
-taid configure file-based
+trustable-ai configure file-based
 ```
 
 ### Step 6: Enable Agents
 
 ```bash
 # List available agents
-taid agent list
+trustable-ai agent list
 
 # Enable the agents you want
-taid agent enable business-analyst
-taid agent enable senior-engineer
-taid agent enable scrum-master
-taid agent enable project-architect
-taid agent enable security-specialist
+trustable-ai agent enable business-analyst
+trustable-ai agent enable senior-engineer
+trustable-ai agent enable scrum-master
+trustable-ai agent enable project-architect
+trustable-ai agent enable security-specialist
 
 # See which agents are enabled
-taid agent list --enabled-only
+trustable-ai agent list --enabled-only
 ```
 
 ### Step 7: Render Agents
 
 ```bash
 # Render all enabled agents
-taid agent render-all
+trustable-ai agent render-all
 
 # This creates:
 # .claude/agents/business-analyst.md
@@ -123,14 +123,14 @@ taid agent render-all
 vi .claude/config.yaml
 
 # Configure quality standards
-taid configure quality-standards
+trustable-ai configure quality-standards
 ```
 
 ### Step 9: Validate Setup
 
 ```bash
 # Run validation
-taid validate
+trustable-ai validate
 
 # Should show:
 # ✓ Configuration file exists
@@ -147,13 +147,13 @@ taid validate
 
 ```bash
 # List available workflows
-taid workflow list
+trustable-ai workflow list
 
 # Render a specific workflow
-taid workflow render sprint-planning -o .claude/commands/sprint-planning.md
+trustable-ai workflow render sprint-planning -o .claude/commands/sprint-planning.md
 
 # Or render all workflows
-taid workflow render-all
+trustable-ai workflow render-all
 ```
 
 ### Customize for Your Project
@@ -221,7 +221,7 @@ workflow_config:
 ### 1. Render Sprint Planning Workflow
 
 ```bash
-taid workflow render sprint-planning -o .claude/commands/sprint-planning.md
+trustable-ai workflow render sprint-planning -o .claude/commands/sprint-planning.md
 ```
 
 ### 2. Review the Workflow
@@ -262,32 +262,32 @@ The workflow will:
 
 ```bash
 # When you update configuration
-taid agent render-all
+trustable-ai agent render-all
 
 # When you enable a new agent
-taid agent enable qa-engineer
-taid agent render qa-engineer -o .claude/agents/qa-engineer.md
+trustable-ai agent enable qa-engineer
+trustable-ai agent render qa-engineer -o .claude/agents/qa-engineer.md
 ```
 
 ### Rendering Workflows
 
 ```bash
 # When you update configuration
-taid workflow render-all
+trustable-ai workflow render-all
 
 # When you add custom fields or change work item types
-taid workflow render sprint-planning -o .claude/commands/sprint-planning.md
+trustable-ai workflow render sprint-planning -o .claude/commands/sprint-planning.md
 ```
 
 ### Validation
 
 ```bash
 # Before running workflows
-taid validate
+trustable-ai validate
 
 # Check specific items
-taid agent list --enabled-only
-taid workflow list
+trustable-ai agent list --enabled-only
+trustable-ai workflow list
 ```
 
 ## Troubleshooting
@@ -298,7 +298,7 @@ taid workflow list
 ❌ Error: Configuration file not found
 ```
 
-**Solution**: Run `taid init` to initialize the framework.
+**Solution**: Run `trustable-ai init` to initialize the framework.
 
 ### Agent Not Found
 
@@ -306,7 +306,7 @@ taid workflow list
 ❌ Agent 'unknown-agent' not found
 ```
 
-**Solution**: Run `taid agent list` to see available agents.
+**Solution**: Run `trustable-ai agent list` to see available agents.
 
 ### Azure DevOps Connection Failed
 
@@ -317,7 +317,7 @@ taid workflow list
 **Solution**:
 1. Run `az login` to authenticate
 2. Run `az devops configure` to set defaults
-3. Test with `taid configure azure-devops`
+3. Test with `trustable-ai configure azure-devops`
 
 ### Work Item Type Mismatch
 
@@ -353,8 +353,8 @@ work_item_types:
 - **Documentation**: See `docs/` directory
 - **Configuration**: See `.claude/config.yaml`
 - **Examples**: See `examples/` directory
-- **Validation**: Run `taid validate`
-- **Health Check**: Run `taid doctor`
+- **Validation**: Run `trustable-ai validate`
+- **Health Check**: Run `trustable-ai doctor`
 
 ## Summary
 

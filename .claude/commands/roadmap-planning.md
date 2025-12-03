@@ -1,0 +1,569 @@
+# Product Roadmap Planning Workflow
+
+**Project**: Trusted AI Development Workbench
+**Workflow**: Product Roadmap Planning
+**Purpose**: Transform business strategy into Epics that define what we're building
+
+## Output Formatting Requirements
+
+**IMPORTANT**: Use actual Unicode emojis in reports, NOT GitHub-style shortcodes:
+- :dart: Strategic goal | :trophy: Key result | :compass: Initiative
+- :calendar: Quarterly | :date: Monthly | :soon: Near-term
+- :moneybag: Revenue | :busts_in_silhouette: Users | :chart_with_upwards_trend: Growth
+
+---
+
+## Where This Fits
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SOFTWARE LIFECYCLE - UPSTREAM WORKFLOWS                                    │
+│                                                                             │
+│  ══════════════════                                                         │
+│  YOU ARE HERE: /roadmap-planning                                            │
+│  ══════════════════                                                         │
+│      │                                                                      │
+│      │  Input: Business strategy, OKRs, market research                    │
+│      │  Output: Epics in file-based                      │
+│      ▼                                                                      │
+│  /epic-breakdown                                                            │
+│      │  Decomposes Epics into Features                                     │
+│      ▼                                                                      │
+│  /backlog-grooming                                                          │
+│      │  Refines Features, assigns business value                           │
+│      ▼                                                                      │
+│  /sprint-planning                                                           │
+│      │  Selects Features for sprint, creates Tasks                         │
+│      ▼                                                                      │
+│  /feature-implementation                                                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Prerequisites
+
+Before running this workflow, you need:
+
+1. **Business Context Documents** (at least one):
+   - Company OKRs (Objectives and Key Results)
+   - Product vision statement
+   - Market research or competitive analysis
+   - Customer feedback summary
+   - Revenue/growth targets
+
+2. **Stakeholder Availability**:
+   - Product Owner or business stakeholder for approval gate
+   - Access to strategic planning documents
+
+3. **Work Tracking Configured**:
+   ```python
+   import sys
+   sys.path.insert(0, ".claude/skills")
+   from work_tracking import get_adapter
+
+   adapter = get_adapter()
+   print(f":clipboard: Work Tracking: {adapter.platform}")
+   ```
+
+---
+
+## Workflow Initialization
+
+```python
+from workflow_state import WorkflowState
+from workflow_profiler import WorkflowProfiler
+from pathlib import Path
+from datetime import datetime
+
+# Initialize state
+planning_period = input("Planning period (e.g., 'Q1 2025', 'H1 2025'): ")
+workflow_id = f"roadmap-{planning_period.replace(' ', '-').lower()}"
+state = WorkflowState("roadmap-planning", workflow_id)
+profiler = WorkflowProfiler(f"roadmap-planning-{planning_period}")
+
+# Check for existing roadmap
+if state.state["status"] == "completed":
+    print(f":warning: Roadmap planning already completed for {planning_period}")
+    state.print_summary()
+    if input("Start fresh? (yes/no): ").lower() != "yes":
+        exit()
+    state.reset()
+```
+
+---
+
+## Phase 1: Strategic Context Gathering
+
+### Step 1.1: Collect Business Inputs
+
+**User Action Required**: Provide the strategic context for this planning period.
+
+```python
+print(":page_facing_up: Please provide strategic context documents.")
+print("Options:")
+print("  1. Paste OKRs directly")
+print("  2. Provide path to strategy document")
+print("  3. Describe business goals verbally")
+print()
+
+input_method = input("Choose input method (1/2/3): ")
+
+if input_method == "1":
+    print("Paste your OKRs (end with blank line):")
+    okr_lines = []
+    while True:
+        line = input()
+        if line == "":
+            break
+        okr_lines.append(line)
+    strategic_context = "\n".join(okr_lines)
+
+elif input_method == "2":
+    doc_path = Path(input("Path to strategy document: "))
+    if doc_path.exists():
+        strategic_context = doc_path.read_text()
+    else:
+        print(f":red_circle: File not found: {doc_path}")
+        exit()
+
+else:
+    print("Describe your business goals for this period (end with blank line):")
+    goal_lines = []
+    while True:
+        line = input()
+        if line == "":
+            break
+        goal_lines.append(line)
+    strategic_context = "\n".join(goal_lines)
+
+state.set_metadata("strategic_context", strategic_context)
+state.set_metadata("planning_period", planning_period)
+```
+
+### Step 1.2: Market Context (Optional)
+
+```python
+include_market = input("Include market/competitive analysis? (yes/no): ").lower() == "yes"
+
+if include_market:
+    print("Provide market context (competitors, trends, opportunities):")
+    market_lines = []
+    while True:
+        line = input()
+        if line == "":
+            break
+        market_lines.append(line)
+    market_context = "\n".join(market_lines)
+    state.set_metadata("market_context", market_context)
+else:
+    market_context = ""
+```
+
+---
+
+## Phase 2: Strategic Analysis
+
+### Step 2.1: Business Analyst - Strategic Decomposition
+
+**Agent**: Business Analyst
+**Model**: claude-sonnet-4.5
+
+1. **Read agent definition:** `.claude/agents/business-analyst.md`
+
+2. **Task:** "Analyze the strategic context and identify major initiatives (Epics):
+
+   **Planning Period**: {planning_period}
+
+   **Strategic Context**:
+   {strategic_context}
+
+
+   **Project Context**:
+   - Project: Trusted AI Development Workbench
+   - Type: library
+   - Tech Stack: **Project Type**: library
+**Languages**: Python
+**Platforms**: Docker
+
+   **Required Analysis**:
+   1. Extract key business objectives from the strategic context
+   2. Identify 3-7 major initiatives (Epics) that support these objectives
+   3. For each Epic, provide:
+      - Clear title (action-oriented, e.g., 'Enable Self-Service Onboarding')
+      - Business justification (why this matters)
+      - Success metrics (how we'll measure success)
+      - Target customer segment
+      - Estimated business value (High/Medium/Low)
+      - Strategic alignment (which OKR/goal it supports)
+      - Dependencies on other Epics
+      - Rough timeline (this quarter, next quarter, future)
+
+   4. Prioritize Epics by business value and strategic alignment
+   5. Identify any gaps (strategic goals without supporting initiatives)
+
+   **Output Format**:
+   ```json
+   {
+     'objectives': [
+       {'id': 'O1', 'description': '...', 'key_results': ['KR1', 'KR2']}
+     ],
+     'epics': [
+       {
+         'title': 'Epic title',
+         'business_justification': 'Why this matters...',
+         'success_metrics': ['Metric 1', 'Metric 2'],
+         'customer_segment': 'Target users',
+         'business_value': 'High|Medium|Low',
+         'strategic_alignment': 'O1, O2',
+         'dependencies': ['Other Epic title'],
+         'timeline': 'Q1 2025',
+         'priority': 1
+       }
+     ],
+     'gaps': ['Strategic goal without initiative']
+   }
+   ```"
+
+3. **Spawn agent** using Task tool with model `claude-sonnet-4.5`
+
+4. **Checkpoint:** Save strategic analysis to state
+
+### Step 2.2: Project Architect - Technical Feasibility
+
+**Agent**: Project Architect
+**Model**: claude-opus-4
+
+1. **Read agent definition:** `.claude/agents/project-architect.md`
+
+2. **Task:** "Review the proposed Epics for technical feasibility:
+
+   **Proposed Epics**:
+   {epics_from_step_2_1}
+
+   **Current Architecture Context**:
+   - Project: Trusted AI Development Workbench
+   - Tech Stack: **Project Type**: library
+**Languages**: Python
+**Platforms**: Docker
+
+   **Required Analysis**:
+   1. For each Epic, assess:
+      - Technical feasibility (Can we build this?)
+      - Architecture impact (Does this require significant changes?)
+      - Technical risks (What could go wrong?)
+      - Infrastructure needs (New services, scaling, etc.)
+      - Technical dependencies (What must exist first?)
+      - Rough technical complexity (T-shirt size: S/M/L/XL)
+
+   2. Identify technical prerequisites that should be Epics themselves
+   3. Flag any Epics that are technically infeasible or need redesign
+   4. Recommend technical spikes needed before commitment
+
+   **Output Format**:
+   ```json
+   {
+     'epic_assessments': [
+       {
+         'epic_title': '...',
+         'feasibility': 'Feasible|Needs Spike|Infeasible',
+         'architecture_impact': 'None|Minor|Major|Breaking',
+         'technical_risks': ['Risk 1', 'Risk 2'],
+         'infrastructure_needs': ['Need 1'],
+         'technical_dependencies': ['Dependency 1'],
+         'complexity': 'S|M|L|XL',
+         'recommendation': 'Proceed|Spike First|Redesign'
+       }
+     ],
+     'technical_epics_needed': [
+       {'title': 'Technical enabler epic', 'reason': 'Why needed'}
+     ],
+     'spikes_recommended': [
+       {'title': 'Spike title', 'question': 'What we need to learn'}
+     ]
+   }
+   ```"
+
+3. **Spawn agent** using Task tool with model `claude-opus-4`
+
+4. **Checkpoint:** Save technical assessment to state
+
+---
+
+## Phase 3: Human Review & Approval
+
+### Step 3.1: Present Roadmap for Approval
+
+```python
+print("\n" + "=" * 80)
+print(":clipboard: ROADMAP REVIEW - HUMAN APPROVAL REQUIRED")
+print("=" * 80)
+
+print(f"\nPlanning Period: {planning_period}")
+print(f"Total Epics Proposed: {len(epics)}")
+
+print("\n:dart: STRATEGIC OBJECTIVES:")
+for obj in objectives:
+    print(f"  {obj['id']}: {obj['description']}")
+
+print("\n:trophy: PROPOSED EPICS (Priority Order):")
+for i, epic in enumerate(sorted(epics, key=lambda x: x['priority']), 1):
+    feasibility = epic_assessments.get(epic['title'], {}).get('feasibility', 'Unknown')
+    complexity = epic_assessments.get(epic['title'], {}).get('complexity', '?')
+    print(f"\n  {i}. {epic['title']}")
+    print(f"     Business Value: {epic['business_value']} | Complexity: {complexity}")
+    print(f"     Timeline: {epic['timeline']} | Feasibility: {feasibility}")
+    print(f"     Aligns with: {epic['strategic_alignment']}")
+
+if technical_epics_needed:
+    print("\n:wrench: TECHNICAL ENABLERS NEEDED:")
+    for tech_epic in technical_epics_needed:
+        print(f"  - {tech_epic['title']}: {tech_epic['reason']}")
+
+if spikes_recommended:
+    print("\n:mag: SPIKES RECOMMENDED:")
+    for spike in spikes_recommended:
+        print(f"  - {spike['title']}: {spike['question']}")
+
+if gaps:
+    print("\n:warning: STRATEGIC GAPS (Goals without initiatives):")
+    for gap in gaps:
+        print(f"  - {gap}")
+
+print("\n" + "=" * 80)
+```
+
+### Step 3.2: Collect Approval Decisions
+
+```python
+print("\nReview each Epic and decide:")
+print("  [a] Approve - Create Epic in file-based")
+print("  [d] Defer - Not this planning period")
+print("  [r] Reject - Not aligned with strategy")
+print("  [m] Modify - Needs changes (provide feedback)")
+
+approved_epics = []
+deferred_epics = []
+rejected_epics = []
+
+for epic in epics:
+    print(f"\n:arrow_right: {epic['title']}")
+    decision = input("  Decision (a/d/r/m): ").lower()
+
+    if decision == 'a':
+        approved_epics.append(epic)
+    elif decision == 'd':
+        deferred_epics.append(epic)
+    elif decision == 'r':
+        rejected_epics.append(epic)
+    elif decision == 'm':
+        feedback = input("  Modification needed: ")
+        epic['modification_feedback'] = feedback
+        # Re-queue for modification (could loop back to BA)
+        approved_epics.append(epic)  # Approve with modifications noted
+
+# Also approve technical enablers
+for tech_epic in technical_epics_needed:
+    print(f"\n:wrench: Technical Enabler: {tech_epic['title']}")
+    if input("  Approve? (yes/no): ").lower() == 'yes':
+        approved_epics.append({
+            'title': tech_epic['title'],
+            'business_justification': tech_epic['reason'],
+            'business_value': 'High',  # Technical enablers are high value
+            'timeline': 'Prerequisite',
+            'is_technical_enabler': True
+        })
+
+state.set_metadata("approved_epics", approved_epics)
+state.set_metadata("deferred_epics", deferred_epics)
+```
+
+---
+
+## Phase 4: Epic Creation
+
+### Step 4.1: Create Epics in Work Tracking System
+
+```python
+print("\n:rocket: Creating Epics in file-based...")
+
+created_epics = []
+failed_epics = []
+
+for epic in approved_epics:
+    try:
+        # Build comprehensive description
+        description = f"""## Business Justification
+{epic.get('business_justification', 'See strategic planning documents.')}
+
+## Success Metrics
+{chr(10).join(f"- {m}" for m in epic.get('success_metrics', ['TBD']))}
+
+## Customer Segment
+{epic.get('customer_segment', 'All users')}
+
+## Strategic Alignment
+{epic.get('strategic_alignment', 'See OKRs')}
+
+## Timeline
+{epic.get('timeline', planning_period)}
+
+## Dependencies
+{chr(10).join(f"- {d}" for d in epic.get('dependencies', [])) or 'None identified'}
+
+---
+*Created by /roadmap-planning workflow on {datetime.now().strftime('%Y-%m-%d')}*
+*Planning Period: {planning_period}*
+"""
+
+        # Create Epic
+        result = adapter.create_work_item(
+            work_item_type="Epic",
+            title=epic['title'],
+            description=description,
+            fields={
+                'System.Tags': '; '.join([
+                    f"roadmap-{planning_period.replace(' ', '-').lower()}",
+                    'strategic',
+                    epic.get('timeline', '').replace(' ', '-').lower()
+                ])
+            },
+            verify=True
+        )
+
+        epic_id = result['id']
+        created_epics.append({'id': epic_id, 'title': epic['title']})
+        state.record_work_item_created(epic_id, epic)
+        print(f"  :white_check_mark: Created Epic {epic_id}: {epic['title']}")
+
+    except Exception as e:
+        failed_epics.append({'epic': epic, 'error': str(e)})
+        print(f"  :red_circle: Failed to create: {epic['title']}: {e}")
+        state.record_error(str(e), {'epic': epic})
+```
+
+### Step 4.2: Create Dependency Links
+
+```python
+# Link Epics that depend on each other
+print("\n:link: Creating Epic dependencies...")
+
+for epic in approved_epics:
+    if epic.get('dependencies'):
+        epic_id = next((e['id'] for e in created_epics if e['title'] == epic['title']), None)
+        if not epic_id:
+            continue
+
+        for dep_title in epic['dependencies']:
+            dep_id = next((e['id'] for e in created_epics if e['title'] == dep_title), None)
+            if dep_id:
+                try:
+                    adapter.link_work_items(
+                        source_id=epic_id,
+                        target_id=dep_id,
+                        link_type="Predecessor"  # or "Depends On"
+                    )
+                    print(f"  :white_check_mark: Linked: {epic['title']} depends on {dep_title}")
+                except Exception as e:
+                    print(f"  :warning: Could not link: {e}")
+```
+
+---
+
+## Phase 5: Workflow Completion
+
+### Step 5.1: Generate Roadmap Summary
+
+```python
+# Save roadmap document
+roadmap_dir = Path("docs/roadmaps")
+roadmap_dir.mkdir(parents=True, exist_ok=True)
+
+roadmap_file = roadmap_dir / f"roadmap-{planning_period.replace(' ', '-').lower()}.md"
+roadmap_content = f"""# Product Roadmap: {planning_period}
+
+*Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}*
+*Workflow: /roadmap-planning*
+
+## Strategic Objectives
+
+{chr(10).join(f"### {obj['id']}: {obj['description']}" + chr(10) + chr(10).join(f"- {kr}" for kr in obj.get('key_results', [])) for obj in objectives)}
+
+## Approved Epics
+
+| Epic | Business Value | Timeline | Work Item |
+|------|---------------|----------|-----------|
+{chr(10).join(f"| {e['title']} | {e.get('business_value', '-')} | {e.get('timeline', '-')} | WI-{next((c['id'] for c in created_epics if c['title'] == e['title']), 'N/A')} |" for e in approved_epics)}
+
+## Deferred Epics
+
+{chr(10).join(f"- {e['title']}" for e in deferred_epics) or 'None'}
+
+## Technical Enablers
+
+{chr(10).join(f"- {e['title']}: {e.get('business_justification', '')}" for e in approved_epics if e.get('is_technical_enabler')) or 'None'}
+
+## Next Steps
+
+1. Run `/epic-breakdown` for each approved Epic to create Features
+2. Run `/backlog-grooming` to refine Features
+3. Run `/sprint-planning` to plan first sprint
+
+## Metrics
+
+- Total Epics Proposed: {len(epics)}
+- Approved: {len(approved_epics)}
+- Deferred: {len(deferred_epics)}
+- Rejected: {len(rejected_epics)}
+"""
+
+roadmap_file.write_text(roadmap_content)
+print(f"\n:page_facing_up: Roadmap saved to: {roadmap_file}")
+```
+
+### Step 5.2: Complete Workflow
+
+```python
+state.complete_workflow()
+profiler.save_report()
+
+print("\n" + "=" * 80)
+print(":white_check_mark: ROADMAP PLANNING COMPLETE")
+print("=" * 80)
+state.print_summary()
+profiler.print_summary()
+
+print(f"\nCreated {len(created_epics)} Epics for {planning_period}")
+print("\n:arrow_right: Next: Run /epic-breakdown for each Epic to create Features")
+```
+
+---
+
+## Configuration
+
+**Agents Used:**
+- Business Analyst (strategic decomposition)- Project Architect (technical feasibility)
+**Work Item Types:**
+- Epic: Epic
+
+**Quality Standards:**
+- Each Epic must have business justification
+- Each Epic must have success metrics
+- Each Epic must align with stated objectives
+
+---
+
+## Success Criteria
+
+- :white_check_mark: All strategic objectives have supporting Epics
+- :white_check_mark: Each Epic has clear business justification
+- :white_check_mark: Technical feasibility assessed for all Epics
+- :white_check_mark: Human approval obtained before creation
+- :white_check_mark: Epics created in file-based
+- :white_check_mark: Dependencies linked
+- :white_check_mark: Roadmap document generated
+
+---
+
+*Generated by Trustable AI Workbench for Trusted AI Development Workbench*

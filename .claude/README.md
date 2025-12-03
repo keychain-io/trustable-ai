@@ -14,11 +14,11 @@ This directory contains AI-assisted workflow automation configuration for **Trus
 ## Quick Commands
 
 ```bash
-taid agent list         # List available agents
-taid agent render-all   # Render agents to .claude/agents/
-taid workflow list      # List available workflows
-taid workflow render-all # Render workflows to .claude/commands/
-taid validate           # Validate configuration
+trustable-ai agent list         # List available agents
+trustable-ai agent render-all   # Render agents to .claude/agents/
+trustable-ai workflow list      # List available workflows
+trustable-ai workflow render-all # Render workflows to .claude/commands/
+trustable-ai validate           # Validate configuration
 ```
 
 ## Configuration

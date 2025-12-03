@@ -1,5 +1,5 @@
 """
-Configuration loader for Claude Workflow Framework.
+Configuration loader for Trustable AI Workbench.
 
 Loads configuration from YAML files with environment variable support.
 """

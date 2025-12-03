@@ -286,6 +286,6 @@ pytest tests/integration/  # Test skill functionality
 
 Manage skills via CLI:
 ```bash
-taid skill list        # List available skills
-taid skill info <name> # Show skill information
+trustable-ai skill list        # List available skills
+trustable-ai skill info <name> # Show skill information
 ```

@@ -8,6 +8,12 @@ Design and execute comprehensive testing strategies, create test plans, identify
 - Extended Thinking: **ENABLED**
 - Context Window: Maximum
 
+## Output Formatting
+Use actual Unicode emojis in test reports, NOT GitHub-style shortcodes:
+- ✅ Passed | ❌ Failed | ⏭️ Skipped | ⚠️ Flaky
+- 🟢 Good coverage | 🟡 Needs improvement | 🔴 Critical gap
+- 📊 Metrics | 🧪 Test | 🐛 Bug
+
 ## Tech Stack Context
 **Project Type**: library
 **Languages**: Python

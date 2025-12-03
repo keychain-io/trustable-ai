@@ -241,6 +241,11 @@ class AgentRegistry:
             "release-manager": "release",
             "performance-engineer": "performance",
             "ux-designer": "ux",
+            # Adversarial verification agents
+            "adversarial-tester": "security",  # Thorough, needs to find bugs
+            "falsifiability-prover": "qa",     # Verification focused
+            "spec-driven-tester": "qa",        # Test generation from spec
+            "test-arbitrator": "architect",    # Resolves code/test/spec conflicts
         }
 
         # Get model category for this agent

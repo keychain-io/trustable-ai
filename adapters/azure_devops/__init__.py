@@ -1,5 +1,5 @@
 """
-Azure DevOps adapters for Claude Workflow Framework.
+Azure DevOps adapters for Trustable AI Workbench.
 
 Provides type mapping, field mapping, and Azure CLI integration.
 """

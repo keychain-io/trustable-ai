@@ -1,1 +1,1 @@
-"""Integration tests for Claude Workflow Framework CLI."""
+"""Integration tests for Trustable AI Workbench CLI."""

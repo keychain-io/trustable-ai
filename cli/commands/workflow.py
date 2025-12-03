@@ -32,7 +32,7 @@ def list_workflows():
 
     except FileNotFoundError as e:
         click.echo(f"❌ Error: {e}")
-        click.echo("Run 'taid init' to initialize the framework.")
+        click.echo("Run 'trustable-ai init' to initialize the framework.")
 
 
 @workflow_command.command(name="render")
@@ -100,7 +100,7 @@ def run_workflow(workflow_name: str, dry_run: bool):
     Run a workflow (NOT YET IMPLEMENTED - use 'render' instead).
 
     Automatic workflow execution is planned for a future release.
-    Currently, use 'taid workflow render' to generate workflow instructions
+    Currently, use 'trustable-ai workflow render' to generate workflow instructions
     that you can provide to Claude Code manually.
     """
     click.echo(f"\n🚀 Running workflow: {workflow_name}")
@@ -121,7 +121,7 @@ def run_workflow(workflow_name: str, dry_run: bool):
     else:
         click.echo("\n⚠️  Workflow execution engine is not yet implemented.")
         click.echo("\n📝 To use this workflow:")
-        click.echo(f"   1. Render it: taid workflow render {workflow_name} --show")
+        click.echo(f"   1. Render it: trustable-ai workflow render {workflow_name} --show")
         click.echo("   2. Copy the instructions")
         click.echo("   3. Provide them to Claude Code\n")
         click.echo("Automatic execution will be available in a future release.\n")

@@ -8,6 +8,12 @@ Coordinate releases, manage version control, ensure release quality, and facilit
 - Extended Thinking: **ENABLED**
 - Context Window: Maximum
 
+## Output Formatting
+Use actual Unicode emojis in release reports, NOT GitHub-style shortcodes:
+- ✅ Released | ⚠️ Pending | ❌ Failed | 🔄 Rolling back
+- 🟢 Go | 🟡 Caution | 🔴 No-go
+- 🚀 Production | 🧪 Staging | 🔧 Dev
+
 ## Tech Stack Context
 **Project Type**: library
 **Languages**: Python

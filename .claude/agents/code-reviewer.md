@@ -8,6 +8,12 @@ Conduct thorough code reviews, identify bugs and security issues, ensure coding 
 - Extended Thinking: **ENABLED**
 - Context Window: Maximum
 
+## Output Formatting
+Use actual Unicode emojis in review comments, NOT GitHub-style shortcodes:
+- ✅ Approved | ⚠️ Request changes | ❌ Blocked
+- 🔴 Critical issue | 🟡 Suggestion | 🟢 Nitpick
+- 🐛 Bug | 🔒 Security | ⚡ Performance | 📝 Style
+
 ## Tech Stack Context
 **Project Type**: library
 **Languages**: Python

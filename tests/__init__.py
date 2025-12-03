@@ -1,1 +1,1 @@
-"""Test suite for Claude Workflow Framework."""
+"""Test suite for Trustable AI Workbench."""

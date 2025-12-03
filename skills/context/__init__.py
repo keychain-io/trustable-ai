@@ -65,7 +65,7 @@ class ContextSkill(BaseSkill):
 
         index_path = Path('.claude/context-index.yaml')
         if not index_path.exists():
-            warnings.append("Context index not found - run 'taid context index' to generate")
+            warnings.append("Context index not found - run 'trustable-ai context index' to generate")
 
         return {
             "satisfied": len(missing) == 0,
