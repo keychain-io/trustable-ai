@@ -1,21 +1,71 @@
 ---
 context:
-  keywords: [test, testing, pytest, coverage, fixture, mock, unit, integration]
-  task_types: [testing, quality-assurance]
+  purpose: "Ensures framework reliability by assuming failure and testing for it systematically"
+  problem_solved: "Untested frameworks fail unpredictably in production. Without comprehensive testing organized by risk level, critical failures escape to users. Test categories (unit, integration, Azure) enable fast feedback during development while catching integration issues before deployment."
+  keywords: [test, testing, pytest, coverage, fixture, tests, reliability, quality, validation]
+  task_types: [testing, quality-assurance, debugging, validation]
   priority: medium
-  max_tokens: 800
+  max_tokens: 600
   children:
-    - path: tests/unit/CLAUDE.md
-      when: [unit, fast]
     - path: tests/integration/CLAUDE.md
-      when: [integration, cli, e2e]
-  dependencies: []
+      when: [module, feature]
+    - path: tests/unit/CLAUDE.md
+      when: [module, feature]
+  dependencies: [core, config, agents, workflows, adapters]
 ---
-# tests
+# Tests
 
 ## Purpose
 
-Comprehensive test suite for TAID framework. Includes unit tests for individual components and integration tests for end-to-end workflows. Uses pytest with markers for test categorization.
+Embodies **Design Principle #1: Assume Failure** from VISION.md by systematically testing for all the ways the framework can fail.
+
+The framework is designed to catch AI failures (skipped work, hallucinated completion, context overload). **But the framework itself can fail**:
+- State manager fails to persist checkpoints → lost workflow progress
+- Configuration validation misses invalid values → workflows crash mid-execution
+- Agent rendering fails with wrong templates → agents unavailable
+- Azure DevOps adapter uses wrong field names → work items corrupted
+
+**Without comprehensive testing**, these framework failures escape to users. Users experience the very unreliability the framework is meant to prevent.
+
+**With comprehensive testing**, framework failures are caught during development. Quality standards (80% coverage minimum) enforce reliability discipline.
+
+## Test Strategy: Risk-Based Testing
+
+Tests are organized by failure risk and execution speed:
+
+### Unit Tests (tests/unit/)
+**Risk**: Individual component logic failures
+**Speed**: Fast (<1s each, ~50 tests run in 2-3 seconds)
+**Coverage**: Pure functions, validation, mappers, state management
+
+**Example Failures Caught**:
+- Field mapper returns wrong Azure DevOps field name → work item fields not set
+- Config loader accepts invalid enum value → runtime crash
+- State manager overwrites checkpoint → progress lost
+
+### Integration Tests (tests/integration/)
+**Risk**: Component integration failures, system dependencies
+**Speed**: Moderate (1-5s each, ~20 tests run in 30 seconds)
+**Coverage**: CLI commands, file I/O, template rendering, end-to-end workflows
+
+**Example Failures Caught**:
+- CLI init creates malformed config.yaml → workflows can't start
+- Agent render fails when template has syntax error → agents unavailable
+- Workflow state file becomes corrupted → resume fails
+
+### Azure DevOps Tests (tests/integration/ with @pytest.mark.azure)
+**Risk**: External platform integration failures
+**Speed**: Slow (5-30s each, requires Azure DevOps connection)
+**Coverage**: Work item CRUD, sprint operations, field mappings
+
+**Example Failures Caught**:
+- Wrong iteration path format → work items don't appear in taskboard
+- Custom field mapping incorrect → data loss
+- Authentication expired → operations fail silently
+
+## Test Organization by Failure Type
+
+Tests map to specific failure modes the framework must prevent:
 
 ## Key Components
 
@@ -274,7 +324,84 @@ Test data located in `tests/fixtures/`:
 
 - **Arrange-Act-Assert**: Use AAA pattern in tests
 - **One Assert Per Test**: Focus tests on single behaviors
-- **Descriptive Names**: Test names should explain what's being tested
+- **Descriptive Names**: Test names should explain what's being tested and what failure is being prevented
 - **Fast Units**: Unit tests should complete in <1s
 - **Isolated**: Tests should not depend on each other
 - **Deterministic**: Tests should produce same results every time
+
+## Design Principle: Assume Failure
+
+Tests embody **Assume Failure** principle (VISION.md Design Principle #1):
+
+**Assume framework components will fail:**
+- State manager will corrupt checkpoints
+- Config validation will miss invalid values
+- Agent templates will have syntax errors
+- Azure DevOps adapter will use wrong field names
+- CLI commands will encounter missing dependencies
+
+**Tests systematically verify these failures are caught:**
+
+```python
+# Test: State manager handles corrupted checkpoint
+def test_load_corrupted_checkpoint():
+    """Framework must not crash when checkpoint file corrupted."""
+    with open(checkpoint_file, 'w') as f:
+        f.write("{ invalid json !!")
+
+    # Should raise clear error, not crash with JSON parse error
+    with pytest.raises(CheckpointCorruptedError):
+        WorkflowState.load(checkpoint_file)
+
+# Test: Config validation catches invalid enum
+def test_invalid_project_type():
+    """Framework must reject invalid project types."""
+    config = {"project": {"type": "invalid-type"}}
+
+    # Should raise validation error, not proceed with invalid config
+    with pytest.raises(ValidationError, match="Invalid project type"):
+        load_config(config)
+```
+
+## Coverage as Reliability Metric
+
+**Minimum 80% coverage** (enforced by quality_standards in config.yaml):
+- Not arbitrary - 80% coverage catches ~90% of bugs in well-designed code
+- Critical modules (core/, config/) target >90% coverage
+- Integration tests add coverage that unit tests miss
+
+**Coverage Reports Show Risk**:
+- Red (uncovered): Code paths that could fail without detection
+- Green (covered): Code paths with failure protection
+
+**Coverage ≠ Quality** (tests can be bad), but **low coverage = high risk** (untested code fails unpredictably).
+
+## Real Failure Scenarios Prevented by Tests
+
+### Scenario 1: State Manager Checkpoint Overwrite
+**Test**: `tests/unit/test_state_manager.py::test_checkpoint_preserves_previous_data`
+
+**Without test**: State manager bug overwrites previous checkpoint data when saving new step. Sprint planning reaches Step 4, saves checkpoint, loses Step 1-3 data. Resume fails: "Step 1 data missing".
+
+**With test**: Test verifies each checkpoint preserves previous data. Bug caught in CI, fixed before release.
+
+### Scenario 2: Config Validation Misses Invalid Coverage Threshold
+**Test**: `tests/unit/test_configuration.py::test_coverage_threshold_validation`
+
+**Without test**: Validation accepts `test_coverage_min: 105` (>100). Workflows run with invalid config, crash when checking coverage.
+
+**With test**: Test ensures validation rejects values >100. Invalid config caught at `trustable-ai validate`, never reaches workflows.
+
+### Scenario 3: Azure DevOps Adapter Uses Wrong Iteration Path
+**Test**: `tests/integration/test_azure_adapter.py::test_team_iteration_path`
+
+**Without test**: Adapter uses project iteration path format instead of team format. Work items created but don't appear in taskboard. Mystery debugging.
+
+**With test**: Test verifies adapter uses correct team iteration path format. Integration test catches issue before users encounter it.
+
+## Related
+
+- **VISION.md**: Design Principle #1 (Assume Failure), Quality Standards
+- **config/CLAUDE.md**: QualityStandards configuration (test_coverage_min)
+- **pytest.ini**: Test configuration and markers
+- **conftest.py**: Shared test fixtures

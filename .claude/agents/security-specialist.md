@@ -15,8 +15,9 @@ Use actual Unicode emojis in security reports, NOT GitHub-style shortcodes:
 - 🔒 Secure | 🔓 Insecure | 🛡️ Protected
 
 ## Tech Stack Context
-**Project Type**: library
+**Project Type**: cli-tool
 **Languages**: Python
+**Frameworks**: pytest, pytest
 **Platforms**: Docker
 
 ## Responsibilities

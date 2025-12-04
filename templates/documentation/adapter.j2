@@ -1,0 +1,110 @@
+{# Template for Platform Adapter CLAUDE.md Documentation #}
+{# Variables:
+   - adapter_name: Name of the adapter (e.g., "azure_devops")
+   - display_name: Human-readable name (e.g., "Azure DevOps")
+   - platform_name: Platform being integrated
+   - problem_statement: What problem does this adapter solve?
+   - solution_approach: How does it implement the integration?
+   - keywords: Context loading keywords
+   - operations: Supported operations
+   - authentication: How authentication works
+   - field_mappings: How generic fields map to platform fields
+#}
+---
+context:
+  purpose: {{ problem_statement | truncate(100) }}
+  problem_solved: "{{ problem_statement }}"
+  keywords: {{ keywords | tojson }}
+  task_types: [integration, {{ adapter_name }}, work-tracking]
+  priority: medium
+  max_tokens: 600
+  children: []
+  dependencies: [core, config]
+---
+# {{ display_name }} Adapter
+
+## Purpose
+
+Implements **External Source of Truth** principle (VISION.md Pillar #2) by integrating with {{ platform_name }} as the authoritative system for work item state.
+
+{{ problem_statement }}
+
+{{ solution_approach }}
+
+Without this adapter, workflows would have no way to verify that claimed work actually happened - they'd have to trust AI assertions. This adapter enables verification by querying {{ platform_name }} directly.
+
+## Key Components
+
+{% for component in components %}
+- **{{ component.file }}**: {{ component.description }}
+{% endfor %}
+
+## Supported Operations
+
+{% for operation in operations %}
+### {{ operation.name }}
+
+{{ operation.description }}
+
+**Function**: `{{ operation.function }}`
+{% if operation.example %}
+**Example:**
+```python
+{{ operation.example }}
+```
+{% endif %}
+
+{% endfor %}
+
+## Authentication
+
+{{ authentication_description }}
+
+{% if authentication_steps %}
+**Setup:**
+{% for step in authentication_steps %}
+{{ loop.index }}. {{ step }}
+{% endfor %}
+{% endif %}
+
+## Field Mappings
+
+{{ platform_name }} uses platform-specific field names. This adapter maps generic framework fields to platform fields:
+
+{% for mapping in field_mappings %}
+- **{{ mapping.generic }}** → `{{ mapping.platform }}`: {{ mapping.description }}
+{% endfor %}
+
+These mappings are configurable in `.claude/config.yaml` under `work_tracking.custom_fields`.
+
+## Important Notes
+
+{% if important_notes %}
+{% for note in important_notes %}
+- {{ note }}
+{% endfor %}
+{% else %}
+- This adapter is the **source of truth** for work item verification
+- Workflows query this adapter, not internal state, to verify completion
+- Authentication must be configured before workflows can run
+- Field mappings can be customized per project in config.yaml
+{% endif %}
+
+## Platform-Specific Guidance
+
+{% if platform_guidance %}
+{{ platform_guidance }}
+{% else %}
+See full platform documentation for advanced configuration and troubleshooting.
+{% endif %}
+
+## Related
+
+- **adapters/**: Adapter interface and base classes
+- **VISION.md**: External Source of Truth (Design Principle #2)
+- **config/schema.py**: WorkTrackingConfig validation
+{% if related_adapters %}
+{% for adapter in related_adapters %}
+- **{{ adapter.path }}**: {{ adapter.description }}
+{% endfor %}
+{% endif %}

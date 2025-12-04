@@ -1,0 +1,214 @@
+{
+  "estimates": [
+    {
+      "title": "Problem-Focused Core Module Documentation",
+      "story_points": 3,
+      "confidence": "High",
+      "assumptions": [
+        "Core modules (state_manager, profiler, context_loader) are well-defined with 300-460 lines each",
+        "Documentation focuses on problem statements and how each module solves them",
+        "Existing code is stable and requires only documentation, no refactoring",
+        "Using existing CLAUDE.md front matter schema for metadata"
+      ],
+      "risks": [
+        "Code may have undocumented internal complexity",
+        "Need for code examples to illustrate problem-solving approaches"
+      ],
+      "needs_breakdown": false,
+      "category": "Feature",
+      "reasoning": "~2-3 hours estimated work. Core modules are already implemented and relatively stable. Task requires writing problem-focused explanations, architecture diagrams for how each module solves specific problems (state checkpointing, performance profiling, hierarchical context loading). Low complexity because existing implementation serves as reference. Risk: low technical debt means documentation is straightforward."
+    },
+    {
+      "title": "Problem-Focused Agent Module Documentation",
+      "story_points": 3,
+      "confidence": "High",
+      "assumptions": [
+        "12 agent templates exist and are stable",
+        "Documentation describes what problem each agent solves",
+        "Examples from rendered agent templates available",
+        "Agent registry (registry.py) provides implementation overview"
+      ],
+      "risks": [
+        "Agents are complex with template logic and context injection",
+        "May need to document interaction patterns between agents",
+        "Customization examples could add scope"
+      ],
+      "needs_breakdown": false,
+      "category": "Feature",
+      "reasoning": "~2-3 hours estimated work. Agents are well-organized in templates/ directory. Documentation task focuses on: what problem each of 12 agents solves (e.g., business-analyst analyzes requirements, qa-engineer ensures quality). Moderate complexity due to template rendering logic. Task is well-scoped: one doc per agent describing its purpose, inputs/outputs, and example usage. No code changes needed, only documentation writing."
+    },
+    {
+      "title": "Problem-Focused Workflow Module Documentation",
+      "story_points": 5,
+      "confidence": "High",
+      "assumptions": [
+        "7 workflow templates are implemented and tested",
+        "Workflows use agent orchestration and state management",
+        "State persistence mechanism (workflow-state/) exists",
+        "Workflow registry provides template loading/rendering capability"
+      ],
+      "risks": [
+        "Workflows span multiple agents and have complex orchestration",
+        "State management adds conceptual complexity to documentation",
+        "Inter-workflow dependencies and re-entrancy concepts need clear explanation",
+        "Checkpoint/resume patterns require detailed examples"
+      ],
+      "needs_breakdown": false,
+      "category": "Feature",
+      "reasoning": "~4-6 hours estimated work. Medium complexity due to workflow orchestration. Each of 7 workflows (sprint-planning, sprint-execution, backlog-grooming, etc.) needs documentation explaining: (1) problem it solves, (2) agent sequence/orchestration, (3) state checkpoints, (4) how to use from Claude Code (slash commands). Key challenge: explaining state management and re-entrancy clearly. This requires 4-6 hours because workflows involve multiple actors and complex state flows."
+    },
+    {
+      "title": "Problem-Focused Configuration Documentation",
+      "story_points": 5,
+      "confidence": "Medium",
+      "assumptions": [
+        "Configuration schema in config/schema.py covers all major sections",
+        "6+ Pydantic models (ProjectConfig, WorkTrackingConfig, QualityStandards, etc.)",
+        "Real example config.yaml exists in codebase or test fixtures",
+        "Platform adapters introduce complexity (Azure DevOps, Jira, GitHub, file-based)"
+      ],
+      "risks": [
+        "Configuration has many nested sections requiring clear documentation",
+        "Platform adapter differences need explanation (field mapping, type mapping)",
+        "Custom field configuration is complex and error-prone for users",
+        "Multiple credential sources and providers increase documentation burden",
+        "Validation rules and constraints need detailed explanation"
+      ],
+      "needs_breakdown": false,
+      "category": "Feature",
+      "reasoning": "~4-6 hours estimated work. Medium complexity due to configuration scope. Task requires documenting: (1) project section, (2) work_tracking with platform-specific field/type mappings, (3) quality_standards thresholds, (4) agent_config and models, (5) workflow_config, (6) deployment_config. Each section needs problem statement + examples. Risk: Azure DevOps custom fields are complex. Includes creating visual diagrams for platform abstraction layer and field mapping examples."
+    },
+    {
+      "title": "Problem-Focused Adapter Module Documentation",
+      "story_points": 3,
+      "confidence": "High",
+      "assumptions": [
+        "2 adapters exist: Azure DevOps (1,866 LOC) and file-based",
+        "Adapters implement consistent interface (CRUD operations)",
+        "Field and type mappers are stable and well-tested",
+        "Azure DevOps adapter is the primary complex adapter"
+      ],
+      "risks": [
+        "Azure DevOps CLI wrapper has 977 LOC - significant complexity",
+        "Bulk operations may have undocumented edge cases",
+        "Field mapper complexity due to custom field support"
+      ],
+      "needs_breakdown": false,
+      "category": "Feature",
+      "reasoning": "~3-4 hours estimated work. Small-to-medium complexity. Task describes: (1) what problem each adapter solves (platform integration), (2) adapter interface/contract, (3) field/type mapping concepts, (4) examples for each platform. Includes architecture diagram showing how adapters abstract platform differences. Azure DevOps adapter is complex internally but documentation focuses on user-facing interface, not implementation details. Clear scope: 2-3 adapters x 1.5 hours each."
+    },
+    {
+      "title": "Agent Context Requirements Specification",
+      "story_points": 8,
+      "confidence": "Medium",
+      "assumptions": [
+        "Need to formalize what context each of 12 agents expects/requires",
+        "Context loading system exists but requirements aren't formally documented",
+        "AgentRegistry._build_context() method shows current context structure",
+        "Some agents require task-specific context (keywords, project type)",
+        "Integration with context_loader.py for keyword-based loading"
+      ],
+      "risks": [
+        "Each agent may have unique context requirements not yet documented",
+        "Context pruning/optimization may introduce additional requirements",
+        "Token budget constraints may vary by agent/task combination",
+        "May discover gaps between what agents need and what context loader provides",
+        "Backwards compatibility with existing agents during specification"
+      ],
+      "needs_breakdown": false,
+      "category": "Enabler",
+      "reasoning": "~10-15 hours estimated work. Large, design-heavy task. Requires: (1) analyzing each agent template to identify context variables used, (2) creating specification document with schema, (3) defining context metadata (keywords, task_types, priority levels), (4) documenting context loading strategy (hierarchical, keyword-based, token-budgeted), (5) creating context examples and patterns. Complexity: agents have different context needs (architect needs tech stack details, qa-engineer needs quality standards). Risk: may uncover context loading inefficiencies requiring redesign. This is prerequisite for features 6-7."
+    },
+    {
+      "title": "Context Verification Workflow",
+      "story_points": 13,
+      "confidence": "Low",
+      "assumptions": [
+        "Workflow must validate loaded context against agent requirements",
+        "Requires integration with existing context loaders (context_loader.py, optimized_loader.py)",
+        "Need to verify context completeness, relevance, and token budgets",
+        "Should provide feedback on missing or excessive context",
+        "May require new state checkpoints and error handling"
+      ],
+      "risks": [
+        "Context loading is complex with keyword matching, hierarchical loading, and optimization",
+        "Verification logic may be computationally expensive for large contexts",
+        "Edge cases: incomplete context, conflicting requirements across agents",
+        "Token budget calculations may be inaccurate initially",
+        "Testing context workflows requires mocking complex scenarios",
+        "May need to enhance context_loader.py APIs for verification use"
+      ],
+      "needs_breakdown": true,
+      "category": "Feature",
+      "reasoning": "~12-18 hours estimated work. Large, complex task. Requires building workflow that: (1) loads context based on agent requirements, (2) validates against specification from feature 6, (3) checks token budgets, (4) identifies missing context, (5) reports optimization suggestions, (6) integrates with state management for checkpointing. Complexity: context loading involves hierarchical CLAUDE.md traversal, keyword matching, and token counting - all need verification. Risk: LOW CONFIDENCE because context requirements specification (feature 6) doesn't exist yet - this may require 5-8 additional hours if requirements are discovered during implementation. This task needs breakdown into: (a) context validation API, (b) requirement checking, (c) workflow orchestration, (d) testing and edge cases."
+    },
+    {
+      "title": "CLAUDE.md Front Matter Schema Formalization",
+      "story_points": 5,
+      "confidence": "High",
+      "assumptions": [
+        "Front matter schema partially exists in codebase (keywords, task_types, priority, max_tokens, children, dependencies)",
+        "Need to formalize into JSON Schema or Pydantic model",
+        "Examples exist in CLAUDE.md files across codebase",
+        "No major implementation changes needed, only specification + validation"
+      ],
+      "risks": [
+        "May need to add new schema fields based on context loading needs",
+        "Backwards compatibility with existing CLAUDE.md files",
+        "Validation rules may be ambiguous or overlapping"
+      ],
+      "needs_breakdown": false,
+      "category": "Enabler",
+      "reasoning": "~4-6 hours estimated work. Medium complexity. Task: (1) create JSON Schema or Pydantic model for front matter, (2) document all fields and constraints, (3) create validation function, (4) add examples for common patterns, (5) create migration guide for existing CLAUDE.md files. Prerequisite for features 6-7 because context requirements spec needs formal schema. Relatively well-scoped because current informal schema exists - just needs formalization and validation."
+    },
+    {
+      "title": "Documentation Generation Templates",
+      "story_points": 3,
+      "confidence": "High",
+      "assumptions": [
+        "Jinja2 templates already used for agents/workflows",
+        "Can reuse same template infrastructure",
+        "Documentation templates for modules should follow consistent structure",
+        "Existing CLAUDE.md files provide reference format"
+      ],
+      "risks": [
+        "May need custom filters for code formatting and cross-references",
+        "Front matter generation from specification may be complex"
+      ],
+      "needs_breakdown": false,
+      "category": "Enabler",
+      "reasoning": "~2-3 hours estimated work. Small complexity. Build Jinja2 templates for generating: (1) module documentation with problem statement, architecture, API, examples, (2) agent documentation with requirements and usage, (3) workflow documentation with orchestration diagrams and state flow. Reuses existing AgentRegistry/WorkflowRegistry pattern. Quick task because infrastructure already exists - just applying it to documentation generation."
+    },
+    {
+      "title": "Context Loading Test Suite",
+      "story_points": 5,
+      "confidence": "Medium",
+      "assumptions": [
+        "Existing test structure in tests/unit/ and tests/integration/",
+        "context_loader.py partially tested already",
+        "Need comprehensive coverage for hierarchical loading, keyword matching, token budgeting",
+        "Integration tests may require mocking Azure DevOps"
+      ],
+      "risks": [
+        "Context loading has many edge cases (missing CLAUDE.md, circular dependencies)",
+        "Token counting accuracy difficult to test",
+        "Keyword matching may have false positives/negatives requiring careful test cases",
+        "Performance tests may be needed for large directory trees"
+      ],
+      "needs_breakdown": false,
+      "category": "Enabler",
+      "reasoning": "~4-6 hours estimated work. Medium complexity. Requires: (1) unit tests for context_loader functions (load_hierarchical_context, get_context_for_task), (2) integration tests with real CLAUDE.md files, (3) tests for token budget constraints, (4) edge case tests (missing files, circular refs, incomplete specs), (5) performance tests for large directory trees. Prerequisite for features 4, 6, 7 to ensure context loading works correctly. Moderate complexity because context loading involves file I/O, string matching, and token counting - all need thorough testing."
+    }
+  ],
+  "summary": {
+    "total_story_points": 47,
+    "features_points": 26,
+    "enablers_points": 21,
+    "recommended_sprints": 2,
+    "sprint_capacity_assumption": 25,
+    "needs_breakdown": [
+      "Context Verification Workflow (currently 13 points, recommend breaking into 3-4 smaller tasks)"
+    ],
+    "notes": "Total of 47 story points across 7 features and 3 technical enablers. Recommended to split into 2 sprints with 25 pt capacity each (leaving buffer for unknowns). CRITICAL DEPENDENCIES: Features 6-7 depend on Enabler 1 (schema formalization). Features 1-5 can proceed in parallel with Enablers 2-3. Feature 7 (Context Verification Workflow) should be broken down further due to complexity and unknowns - recommend 4 smaller tasks: (1) Context Validation API (3 pts), (2) Requirement Checking Logic (3 pts), (3) Workflow Orchestration (5 pts), (4) Testing & Documentation (3 pts). This would improve confidence and enable earlier delivery of value. Sprint 1 recommendation: Features 1-3, Enablers 1-2 (26 pts). Sprint 2 recommendation: Features 4-5, Feature 6, Enabler 3, Context Verification Workflow breakdown (21+ pts). Risk mitigation: Start Context Requirements Specification (Feature 6) early as it's critical path for multiple features. Agent context requirements may be discovered incrementally through documentation process."
+  }
+}

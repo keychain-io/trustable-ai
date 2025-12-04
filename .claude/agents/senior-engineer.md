@@ -15,8 +15,9 @@ Use actual Unicode emojis in estimates and reports, NOT GitHub-style shortcodes:
 - 📋 Task | 🔧 Technical debt | 🐛 Bug
 
 ## Tech Stack Context
-**Project Type**: library
+**Project Type**: cli-tool
 **Languages**: Python
+**Frameworks**: pytest, pytest
 **Platforms**: Docker
 
 ## Responsibilities

@@ -15,8 +15,9 @@ Use actual Unicode emojis in architecture docs, NOT GitHub-style shortcodes:
 - 🏗️ Architecture | 📐 Design | 🔌 Integration
 
 ## Tech Stack Context
-**Project Type**: library
+**Project Type**: cli-tool
 **Languages**: Python
+**Frameworks**: pytest, pytest
 **Platforms**: Docker
 
 ## Responsibilities

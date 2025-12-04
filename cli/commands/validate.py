@@ -10,8 +10,15 @@ from agents import AgentRegistry
 
 @click.command(name="validate")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
-def validate_command(verbose: bool):
+@click.option("--docs", is_flag=True, help="Validate CLAUDE.md documentation files")
+def validate_command(verbose: bool, docs: bool):
     """Validate framework configuration and setup."""
+
+    # If --docs flag, validate documentation and exit
+    if docs:
+        from cli.commands.validate_docs import validate_documentation
+        exit_code = validate_documentation()
+        raise SystemExit(exit_code)
 
     click.echo("\n🔍 Validating Trustable AI setup\n")
 
@@ -169,8 +176,26 @@ def validate_command(verbose: bool):
 
     if not errors:
         click.echo("\n✅ Validation successful!\n")
-        click.echo("You can now:")
-        click.echo("  • Render agents: trustable-ai agent render-all")
-        click.echo("  • Render workflows: trustable-ai workflow render-all\n")
+
+        # Check if agents/workflows are already rendered
+        agents_dir = Path.cwd() / ".claude" / "agents"
+        commands_dir = Path.cwd() / ".claude" / "commands"
+
+        agents_rendered = agents_dir.exists() and any(agents_dir.glob("*.md"))
+        workflows_rendered = commands_dir.exists() and any(commands_dir.glob("*.md"))
+
+        if agents_rendered and workflows_rendered:
+            click.echo("Agents and workflows are already rendered. You're ready to use Claude Code!\n")
+            click.echo("Available commands:")
+            click.echo("  • trustable-ai status         - Show project status")
+            click.echo("  • trustable-ai agent list     - List available agents")
+            click.echo("  • trustable-ai workflow list  - List available workflows\n")
+        else:
+            click.echo("Next steps:")
+            if not agents_rendered:
+                click.echo("  • Render agents: trustable-ai agent render-all")
+            if not workflows_rendered:
+                click.echo("  • Render workflows: trustable-ai workflow render-all")
+            click.echo("")
     else:
         click.echo("\n❌ Validation failed. Please fix the errors above.\n")

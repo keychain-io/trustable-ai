@@ -908,230 +908,112 @@ def _generate_front_matter(dir_info: dict, analysis: dict) -> str:
 
 
 def _generate_readme_content(dir_info: dict, analysis: dict) -> str:
-    """Generate README.md content for a directory (human-readable documentation)."""
+    """Generate README.md content for a directory (human-readable documentation).
+
+    README.md is the primary documentation file - what humans see in GitHub/Azure DevOps.
+    It should contain real, useful content - never TODOs or placeholder text.
+    """
     relative_path = dir_info["relative_path"]
     dir_type = dir_info["type"]
-
-    # Templates for different directory types
-    templates = {
-        "root": '''# {project_name}
-
-## Overview
-
-{purpose}
-
-## Project Structure
-
-{structure}
-
-## Key Directories
-
-{key_dirs}
-
-## Getting Started
-
-```bash
-# Install dependencies
-# TODO: Add installation commands
-
-# Run the project
-# TODO: Add run commands
-```
-
-## Development Guidelines
-
-- Follow existing code patterns and conventions
-- Write tests for new functionality
-- Update documentation when making changes
-- Run linting and tests before committing
-
-## Contributing
-
-1. Create a feature branch from `main`
-2. Make your changes with clear commit messages
-3. Write/update tests as needed
-4. Submit a pull request for review
-
-## Additional Resources
-
-- TODO: Add links to documentation, wiki, or related resources
-''',
-
-        "source": '''# {dir_name}
-
-## Purpose
-
-This directory contains the main source code for the project.
-
-## Structure
-
-{structure}
-
-## Key Components
-
-- TODO: Document key modules and their responsibilities
-- TODO: Explain the architecture and design patterns used
-
-## Development Conventions
-
-- Follow the existing code style and naming conventions
-- Add docstrings/comments for complex logic
-- Keep modules focused and single-purpose
-- Write unit tests for new functionality
-''',
-
-        "tests": '''# {dir_name}
-
-## Purpose
-
-This directory contains the test suite for the project.
-
-## Test Structure
-
-{structure}
-
-## Running Tests
-
-```bash
-# Run all tests
-pytest                    # Python
-npm test                  # Node.js
-go test ./...             # Go
-
-# Run specific test file
-pytest tests/test_specific.py
-npm test -- --grep "test name"
-
-# Run with coverage
-pytest --cov=src
-npm run test:coverage
-```
-
-## Writing Tests
-
-- Follow existing test patterns and naming conventions
-- Name test files with `test_` prefix (Python) or `.test.` suffix (JS)
-- Use fixtures and mocks for common setup
-- Aim for meaningful test coverage (not just line coverage)
-- Test edge cases and error conditions
-''',
-
-        "api": '''# {dir_name}
-
-## Purpose
-
-This directory contains API definitions and endpoints.
-
-## Structure
-
-{structure}
-
-## API Guidelines
-
-- Follow RESTful conventions for endpoint design
-- Use consistent naming (kebab-case for URLs)
-- Document all endpoints with OpenAPI/Swagger
-- Include request/response examples in documentation
-- Handle errors consistently with proper HTTP status codes
-- Validate all input data at API boundaries
-''',
-
-        "infrastructure": '''# {dir_name}
-
-## Purpose
-
-This directory contains infrastructure as code and deployment configurations.
-
-## Structure
-
-{structure}
-
-## Infrastructure Guidelines
-
-- Document all resources and their purposes
-- Use variables for environment-specific values
-- Follow security best practices (least privilege, secrets management)
-- Test changes in non-production environments first
-- Keep configurations modular and reusable
-''',
-
-        "default": '''# {dir_name}
-
-## Purpose
-
-{purpose}
-
-## Structure
-
-{structure}
-
-## Guidelines
-
-- TODO: Add specific guidelines for this directory
-- TODO: Document the key components and their responsibilities
-'''
-    }
-
-    # Select template
-    template = templates.get(dir_type, templates["default"])
-
-    # Generate structure listing
     dir_path = Path(dir_info["path"])
-    structure_lines = []
+
+    # Get directory name
+    dir_name = Path(relative_path).name if relative_path != "." else Path(analysis["root"]).name
+
+    # Analyze directory contents to generate meaningful documentation
+    files = []
+    subdirs = []
     for item in sorted(dir_path.iterdir()):
         if item.name.startswith(".") and item.name != ".claude":
             continue
-        if item.name in {"node_modules", "venv", "__pycache__", "dist", "build"}:
+        if item.name in {"node_modules", "venv", "__pycache__", "dist", "build", ".git"}:
             continue
-        prefix = "+" if item.is_dir() else "-"
-        structure_lines.append(f"{prefix} {item.name}")
+        if item.is_dir():
+            subdirs.append(item.name)
+        elif item.is_file():
+            files.append(item.name)
 
-    structure = "\n".join(structure_lines[:20]) if structure_lines else "- (empty)"
-    if len(structure_lines) > 20:
-        structure += f"\n... and {len(structure_lines) - 20} more items"
+    # Detect key files and their purposes
+    key_components = []
+    for f in files:
+        if f.endswith(".py"):
+            # Try to infer purpose from filename
+            base = f.replace(".py", "").replace("_", " ").title()
+            if f == "__init__.py":
+                continue
+            elif f.startswith("test_"):
+                key_components.append(f"**{f}**: Tests for {base.replace('Test ', '')}")
+            else:
+                key_components.append(f"**{f}**: {base} implementation")
+        elif f.endswith((".js", ".ts", ".tsx")):
+            base = f.split(".")[0].replace("_", " ").replace("-", " ").title()
+            key_components.append(f"**{f}**: {base} module")
+        elif f in ["package.json", "pyproject.toml", "setup.py", "Cargo.toml", "go.mod"]:
+            key_components.append(f"**{f}**: Package configuration")
+        elif f in ["Dockerfile", "docker-compose.yml"]:
+            key_components.append(f"**{f}**: Container configuration")
+        elif f.endswith((".yaml", ".yml", ".json", ".toml")) and "config" in f.lower():
+            key_components.append(f"**{f}**: Configuration file")
 
-    # Generate key directories list
-    key_dirs = ""
-    if dir_type == "root":
-        key_dir_lines = []
-        for d in analysis["directories"][1:8]:  # Skip root, show next 7
-            key_dir_lines.append(f"- **{d['relative_path']}/** - {d['type']}")
-        key_dirs = "\n".join(key_dir_lines) if key_dir_lines else "- (none identified)"
+    # Generate structure listing
+    structure_lines = []
+    for d in subdirs[:10]:
+        structure_lines.append(f"- **{d}/** - Subdirectory")
+    for f in files[:15]:
+        if f not in ["__init__.py", ".gitignore"]:
+            structure_lines.append(f"- {f}")
 
-    # Get directory name
-    dir_name = Path(relative_path).name if relative_path != "." else "Project Root"
+    structure = "\n".join(structure_lines) if structure_lines else "*(empty)*"
 
-    # Purpose based on type
+    # Purpose descriptions based on directory type
     purposes = {
-        "root": "This is the project root directory.",
-        "source": "Contains the main source code for the project.",
-        "tests": "Contains the test suite for the project.",
-        "api": "Contains API definitions and endpoints.",
-        "documentation": "Contains project documentation.",
+        "root": f"{dir_name} project root directory.",
+        "source": "Contains the main source code implementation.",
+        "tests": "Contains the test suite for quality assurance.",
+        "api": "Contains API definitions, endpoints, and request handlers.",
+        "documentation": "Contains project documentation and guides.",
         "infrastructure": "Contains infrastructure as code and deployment configurations.",
-        "configuration": "Contains configuration files for the project.",
+        "configuration": "Contains configuration files and settings.",
         "scripts": "Contains utility and automation scripts.",
         "services": "Contains service implementations and business logic.",
-        "components": "Contains UI or functional components.",
+        "components": "Contains reusable UI or functional components.",
         "utilities": "Contains utility functions and helper modules.",
-        "models": "Contains data models and entities.",
+        "models": "Contains data models and entity definitions.",
         "schemas": "Contains data schemas and validation definitions.",
-        "module": "Contains an application module or feature.",
+        "core": "Contains core framework functionality and base implementations.",
+        "claude_config": "Contains Claude Code configuration and workflow state.",
+        "module": f"Contains the {dir_name} module implementation.",
     }
-    purpose = purposes.get(dir_type, f"Contains {dir_type} code and related files.")
+    purpose = purposes.get(dir_type, f"Contains {dir_name} related code and resources.")
 
-    # Format template
-    return template.format(
-        project_name=Path(analysis["root"]).name,
-        dir_name=dir_name,
-        structure=structure,
-        key_dirs=key_dirs,
-        purpose=purpose,
-    )
+    # Build the README content
+    content = f"# {dir_name}\n\n"
+    content += f"## Purpose\n\n{purpose}\n\n"
+
+    if key_components:
+        content += "## Key Components\n\n"
+        for comp in key_components[:10]:
+            content += f"- {comp}\n"
+        content += "\n"
+
+    if subdirs:
+        content += "## Subdirectories\n\n"
+        for d in subdirs[:10]:
+            content += f"- **{d}/**\n"
+        content += "\n"
+
+    content += "## Structure\n\n"
+    content += f"```\n{structure}\n```\n"
+
+    return content
 
 
 def _generate_claude_md_content(dir_info: dict, analysis: dict) -> str:
-    """Generate CLAUDE.md content for a directory (Claude Code directives)."""
+    """Generate CLAUDE.md content for a directory (Claude Code directives only).
+
+    CLAUDE.md should be lean - just front matter and a brief pointer to README.md.
+    All real documentation belongs in README.md where humans expect to find it.
+    """
     relative_path = dir_info["relative_path"]
     dir_type = dir_info["type"]
 
@@ -1141,70 +1023,14 @@ def _generate_claude_md_content(dir_info: dict, analysis: dict) -> str:
     # Get directory name
     dir_name = Path(relative_path).name if relative_path != "." else Path(analysis["root"]).name
 
-    # Generate Claude-specific content that references README.md
+    # CLAUDE.md should be minimal - just directives for Claude
+    # Real documentation goes in README.md
     claude_content = f'''# {dir_name}
 
-This file provides Claude Code with context and directives for this directory.
-For human-readable documentation, see [README.md](README.md).
+## Purpose
 
-## Context for Claude
+See [README.md](README.md) for full documentation.
 
 '''
-
-    # Add context hints based on directory type
-    context_hints = {
-        "root": '''This is the project root. When working here:
-- Check README.md for project setup and conventions
-- Review CLAUDE.md files in subdirectories for component-specific context
-- Follow the development guidelines in README.md
-''',
-        "source": '''This directory contains source code. When working here:
-- Follow existing code patterns and style conventions
-- Ensure new code has appropriate test coverage
-- Keep modules focused and single-purpose
-- Add docstrings for public APIs
-''',
-        "tests": '''This directory contains tests. When working here:
-- Follow existing test patterns and naming conventions
-- Use fixtures for common test setup
-- Test both happy paths and edge cases
-- Keep tests isolated and independent
-''',
-        "api": '''This directory contains API code. When working here:
-- Follow RESTful conventions
-- Validate all input at API boundaries
-- Return consistent error responses
-- Document endpoints with OpenAPI annotations
-''',
-        "infrastructure": '''This directory contains infrastructure code. When working here:
-- Make minimal, targeted changes
-- Document all resources being modified
-- Consider security implications
-- Test in non-production first
-''',
-        "configuration": '''This directory contains configuration. When working here:
-- Use environment variables for secrets
-- Document all configuration options
-- Maintain backwards compatibility when possible
-''',
-    }
-
-    claude_content += context_hints.get(dir_type, '''When working in this directory:
-- Review existing code patterns before making changes
-- Follow the project's coding conventions
-- Update tests and documentation as needed
-''')
-
-    # Add key file references if available
-    dir_path = Path(dir_info["path"])
-    key_files = []
-    for item in dir_path.iterdir():
-        if item.is_file() and item.name.lower() in ["readme.md", "changelog.md", "contributing.md", "setup.py", "pyproject.toml", "package.json", "cargo.toml", "go.mod"]:
-            key_files.append(item.name)
-
-    if key_files:
-        claude_content += "\n## Key Files\n\n"
-        for f in key_files:
-            claude_content += f"- [{f}]({f})\n"
 
     return front_matter + claude_content

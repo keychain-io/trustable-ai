@@ -1,0 +1,114 @@
+{# Template for CLI Command Module CLAUDE.md Documentation #}
+{# Variables:
+   - command_name: Name of the CLI command (e.g., "init", "validate")
+   - display_name: Human-readable name
+   - problem_statement: What problem does this command solve?
+   - solution_approach: How does it solve the problem?
+   - keywords: Context loading keywords
+   - subcommands: List of subcommands if applicable
+   - usage_examples: Common usage examples
+#}
+---
+context:
+  purpose: {{ problem_statement | truncate(100) }}
+  problem_solved: "{{ problem_statement }}"
+  keywords: {{ keywords | tojson }}
+  task_types: [cli, {{ command_name }}, tooling]
+  priority: low
+  max_tokens: 400
+  children: []
+  dependencies: [core, config]
+---
+# {{ display_name }} Command
+
+## Purpose
+
+{{ problem_statement }}
+
+{{ solution_approach }}
+
+CLI commands provide human-friendly interfaces to framework operations, with validation and helpful error messages.
+
+## Command Structure
+
+```bash
+trustable-ai {{ command_name }} [OPTIONS] [ARGS]
+```
+
+{% if subcommands %}
+### Subcommands
+
+{% for subcommand in subcommands %}
+#### `{{ command_name }} {{ subcommand.name }}`
+
+{{ subcommand.description }}
+
+**Usage:**
+```bash
+trustable-ai {{ command_name }} {{ subcommand.name }} {{ subcommand.args | default('') }}
+```
+
+{% if subcommand.options %}
+**Options:**
+{% for option in subcommand.options %}
+- `{{ option.flag }}`: {{ option.description }}
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+{% endif %}
+
+## Usage Examples
+
+{% for example in usage_examples %}
+### {{ example.title }}
+
+{{ example.description }}
+
+```bash
+{{ example.command }}
+```
+
+{% if example.output %}
+**Output:**
+```
+{{ example.output }}
+```
+{% endif %}
+
+{% endfor %}
+
+## Error Handling
+
+{% if error_cases %}
+Common error cases and solutions:
+
+{% for error in error_cases %}
+- **{{ error.message }}**: {{ error.solution }}
+{% endfor %}
+{% else %}
+The command validates inputs and provides actionable error messages. Use `--help` flag for detailed usage information.
+{% endif %}
+
+## Important Notes
+
+{% if important_notes %}
+{% for note in important_notes %}
+- {{ note }}
+{% endfor %}
+{% else %}
+- All CLI commands validate configuration before execution
+- Use `--help` flag to see all available options
+- Exit codes: 0 = success, non-zero = failure
+- Output is designed to be both human-readable and script-parseable
+{% endif %}
+
+## Related
+
+- **cli/commands/{{ command_name }}.py**: Command implementation
+- **cli/main.py**: CLI entry point
+{% if related_commands %}
+{% for command in related_commands %}
+- **{{ command.name }}**: {{ command.description }}
+{% endfor %}
+{% endif %}

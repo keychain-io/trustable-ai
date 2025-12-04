@@ -1,6 +1,6 @@
 # Update Context Files
 
-Automatically update the hierarchical CLAUDE.md and README.md documentation structure for Trusted AI Development Workbench.
+Automatically update the hierarchical CLAUDE.md and README.md documentation structure for trusted-ai-development-workbench.
 
 ## What This Does
 
@@ -159,9 +159,10 @@ context:
 
 ## Configuration
 
-- **Project**: Trusted AI Development Workbench
-- **Type**: library
+- **Project**: trusted-ai-development-workbench
+- **Type**: cli-tool
 - **Languages**: Python
+- **Frameworks**: pytest, pytest
 
 ## Success Checklist
 

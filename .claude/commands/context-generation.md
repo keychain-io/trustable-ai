@@ -1,6 +1,6 @@
 # Context Generation Workflow
 
-Generate hierarchical CLAUDE.md documentation structure with directed context loading for Trusted AI Development Workbench.
+Generate hierarchical CLAUDE.md documentation structure with directed context loading for trusted-ai-development-workbench.
 
 ## Purpose
 
@@ -197,9 +197,10 @@ project/
 
 ## Configuration
 
-- **Project**: Trusted AI Development Workbench
-- **Type**: library
+- **Project**: trusted-ai-development-workbench
+- **Type**: cli-tool
 - **Languages**: Python
+- **Frameworks**: pytest, pytest
 
 ## Success Criteria
 

@@ -1,0 +1,89 @@
+{# Template for Agent CLAUDE.md Documentation #}
+{# Variables:
+   - agent_name: Name of the agent (e.g., "business-analyst")
+   - display_name: Human-readable name (e.g., "Business Analyst")
+   - problem_statement: What problem does this agent solve?
+   - solution_approach: How does it solve the problem?
+   - keywords: Context loading keywords
+   - task_types: Types of tasks this agent handles
+   - capabilities: List of agent capabilities
+   - workflow_integration: How this agent fits into workflows
+   - usage_example: Example of calling the agent
+#}
+---
+context:
+  purpose: {{ problem_statement | truncate(100) }}
+  problem_solved: "{{ problem_statement }}"
+  keywords: {{ keywords | tojson }}
+  task_types: {{ task_types | tojson }}
+  priority: medium
+  max_tokens: 600
+  children: []
+  dependencies: [core, config]
+---
+# {{ display_name }} Agent
+
+## Purpose
+
+{{ problem_statement }}
+
+{{ solution_approach }}
+
+This agent operates in a **fresh context window**, preventing context overload and ensuring focused execution (VISION.md Pillar #3: Agent Specialization).
+
+## Capabilities
+
+{% for capability in capabilities %}
+- **{{ capability.name }}**: {{ capability.description }}
+{% endfor %}
+
+## Workflow Integration
+
+{{ workflow_integration | default("This agent is invoked via slash command in Claude Code workflows, receiving only the context needed for its specific role.") }}
+
+**Fresh Context Pattern:**
+- Main workflow spawns this agent via Task tool
+- Agent receives: {{ context_inputs | join(', ') }}
+- Agent returns: {{ outputs | join(', ') }}
+- Agent context is discarded after completion (no memory pollution)
+
+## Usage
+
+{{ usage_example }}
+
+## Input Requirements
+
+{% for input in input_requirements %}
+- **{{ input.name }}** ({{ input.type }}): {{ input.description }}
+{% endfor %}
+
+## Output Format
+
+{% if output_format %}
+{{ output_format }}
+{% else %}
+Returns structured JSON with results that downstream workflow steps or agents can consume.
+{% endif %}
+
+## Important Notes
+
+{% if important_notes %}
+{% for note in important_notes %}
+- {{ note }}
+{% endfor %}
+{% else %}
+- Agent operates in fresh context (no conversation history from main workflow)
+- All required inputs must be provided in the initial task prompt
+- Output is returned once - agent cannot be queried for clarification
+- State is not persisted - agent is stateless between invocations
+{% endif %}
+
+## Related
+
+- **agents/registry.py**: Agent template rendering system
+- **VISION.md**: Agent Specialization (Pillar #3)
+{% if related_agents %}
+{% for agent in related_agents %}
+- **{{ agent.name }}**: {{ agent.description }}
+{% endfor %}
+{% endif %}

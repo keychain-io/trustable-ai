@@ -1,17 +1,27 @@
 ---
 context:
-  keywords: [claude, runtime, state, profiling, commands, agents, config, workflow-state]
-  task_types: [any]
+  purpose: "Stores Claude Code configuration and runtime state, preventing workflow setup errors and state loss"
+  problem_solved: "Without centralized runtime storage, workflows lose state on crashes, agents/workflows aren't available without manual rendering, and profiling/learnings data is scattered. This directory provides single location for all framework runtime artifacts, enabling recovery and analysis."
+  keywords: [claude, runtime, workflow, agent, config, state, profiling, learnings]
+  task_types: [workflow, agent-development, configuration]
   priority: medium
-  max_tokens: 400
+  max_tokens: 600
   children: []
   dependencies: []
 ---
-# .claude
+# .claude Directory
 
 ## Purpose
 
-Contains Claude Code configuration and runtime state for the Trustable AI framework. This directory is the operational center for AI-assisted workflows, storing configuration, rendered agents/workflows, execution state, and analytics.
+Solves **runtime state management** and **workflow configuration errors** by centralizing all Claude Code operational artifacts in one location.
+
+Without a dedicated runtime directory:
+- Workflow state scattered across project → hard to find/resume after crashes
+- Rendered agents/workflows mixed with templates → confusion about what's deployed
+- Profiling data and learnings lost → no performance optimization or knowledge capture
+- Configuration in multiple locations → unclear which config is active
+
+**.claude/** provides the operational center for all AI-assisted workflows, enabling state recovery, performance analysis, and knowledge retention.
 
 ## Key Components
 

@@ -1,15 +1,18 @@
 project:
-  name: Trusted AI Development Workbench
-  type: library
+  name: trusted-ai-development-workbench
+  type: cli-tool
   tech_stack:
     languages:
     - Python
+    frameworks:
+    - pytest
+    - pytest
     platforms:
     - Docker
   source_directory: src
   test_directory: tests
 work_tracking:
-  platform: file-based
+  platform: azure-devops
   organization: https://dev.azure.com/keychainio/
   project: Trusted AI Development Workbench
   credentials_source: cli

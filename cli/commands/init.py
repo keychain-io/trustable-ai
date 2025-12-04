@@ -45,18 +45,119 @@ def _get_existing_value(config: Optional[FrameworkConfig], path: str, default: A
         return default
 
 
+def _detect_project_settings(root: Path) -> Dict[str, Any]:
+    """Auto-detect project settings from repository structure."""
+    settings = {
+        "name": root.name,
+        "type": "api",  # default
+        "tech_stack": {
+            "languages": [],
+            "frameworks": [],
+            "platforms": [],
+            "databases": [],
+        }
+    }
+
+    # Detect languages and project type
+    if (root / "pyproject.toml").exists() or (root / "setup.py").exists():
+        settings["tech_stack"]["languages"].append("Python")
+        # Try to detect Python frameworks
+        for req_file in ["requirements.txt", "pyproject.toml", "setup.py"]:
+            req_path = root / req_file
+            if req_path.exists():
+                try:
+                    content = req_path.read_text().lower()
+                    if "fastapi" in content:
+                        settings["tech_stack"]["frameworks"].append("FastAPI")
+                        settings["type"] = "api"
+                    if "flask" in content:
+                        settings["tech_stack"]["frameworks"].append("Flask")
+                        settings["type"] = "api"
+                    if "django" in content:
+                        settings["tech_stack"]["frameworks"].append("Django")
+                        settings["type"] = "web-application"
+                    if "click" in content:
+                        settings["type"] = "cli-tool"
+                    if "pytest" in content:
+                        settings["tech_stack"]["frameworks"].append("pytest")
+                except Exception:
+                    pass
+
+    if (root / "package.json").exists():
+        settings["tech_stack"]["languages"].append("JavaScript")
+        try:
+            import json
+            pkg = json.loads((root / "package.json").read_text())
+            deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
+            if "typescript" in deps:
+                settings["tech_stack"]["languages"].append("TypeScript")
+            if "react" in deps or "@types/react" in deps:
+                settings["tech_stack"]["frameworks"].append("React")
+                settings["type"] = "web-application"
+            if "vue" in deps:
+                settings["tech_stack"]["frameworks"].append("Vue")
+                settings["type"] = "web-application"
+            if "express" in deps:
+                settings["tech_stack"]["frameworks"].append("Express")
+                settings["type"] = "api"
+            if "next" in deps:
+                settings["tech_stack"]["frameworks"].append("Next.js")
+                settings["type"] = "web-application"
+        except Exception:
+            pass
+
+    if (root / "go.mod").exists():
+        settings["tech_stack"]["languages"].append("Go")
+        settings["type"] = "api"
+
+    if (root / "Cargo.toml").exists():
+        settings["tech_stack"]["languages"].append("Rust")
+        settings["type"] = "cli-tool"
+
+    if (root / "pom.xml").exists() or (root / "build.gradle").exists():
+        settings["tech_stack"]["languages"].append("Java")
+        settings["type"] = "api"
+
+    # Detect platforms
+    if (root / "Dockerfile").exists() or (root / "docker-compose.yml").exists():
+        settings["tech_stack"]["platforms"].append("Docker")
+    if (root / "terraform").is_dir() or list(root.glob("*.tf")):
+        settings["tech_stack"]["platforms"].append("Terraform")
+    if (root / ".github" / "workflows").is_dir():
+        settings["tech_stack"]["platforms"].append("GitHub Actions")
+    if (root / "azure-pipelines.yml").exists():
+        settings["tech_stack"]["platforms"].append("Azure DevOps")
+
+    # Detect project type from directory structure
+    if (root / "src" / "lib").is_dir() or (root / "lib").is_dir():
+        settings["type"] = "library"
+    if (root / "cli").is_dir() or (root / "cmd").is_dir():
+        settings["type"] = "cli-tool"
+
+    # Default to Python if nothing detected
+    if not settings["tech_stack"]["languages"]:
+        settings["tech_stack"]["languages"] = ["Python"]
+
+    return settings
+
+
 @click.command(name="init")
 @click.option("--interactive/--no-interactive", default=True, help="Interactive mode")
 @click.option("--config-path", type=click.Path(), default=None, help="Custom config path")
+@click.option("--auto-detect/--no-auto-detect", default=False, help="Auto-detect project settings from repository")
 def init_command(
     interactive: bool,
     config_path: Optional[str],
+    auto_detect: bool,
 ):
     """
     Initialize Trustable AI in your project.
 
     This command is re-entrant: running it again will load existing values as defaults,
     allowing you to update individual settings without re-entering everything.
+
+    Use --auto-detect to automatically detect project settings from the repository
+    structure (languages, frameworks, platforms).
     """
     # Determine config path
     if config_path:
@@ -67,86 +168,136 @@ def init_command(
     # Load existing config if present
     existing_config = _load_existing_config(config_file)
 
+    # Auto-detect settings (always run to provide smart defaults)
+    detected_settings = _detect_project_settings(Path.cwd())
+
     if existing_config:
         click.echo("\n🔄 Updating Trustable AI configuration")
         click.echo("   (Press Enter to keep existing values)\n")
     else:
         click.echo("\n🚀 Initializing Trustable AI\n")
 
-    # Get project name
-    existing_name = _get_existing_value(existing_config, "project.name", "My Project")
-    if interactive:
+    # If auto-detect flag and not interactive, use detected settings directly
+    if auto_detect and not interactive:
+        project_name = detected_settings["name"]
+        project_type = detected_settings["type"]
+        tech_stack = detected_settings["tech_stack"]
+    elif interactive:
+        # Show auto-detection results
+        click.echo("📡 Auto-detected project settings:")
+        click.echo(f"   Name: {detected_settings['name']}")
+        click.echo(f"   Type: {detected_settings['type']}")
+        click.echo(f"   Languages: {', '.join(detected_settings['tech_stack']['languages']) or 'none detected'}")
+        click.echo(f"   Frameworks: {', '.join(detected_settings['tech_stack']['frameworks']) or 'none detected'}")
+        click.echo(f"   Platforms: {', '.join(detected_settings['tech_stack']['platforms']) or 'none detected'}")
+
+        if existing_config:
+            click.echo("\n   Current config values will be shown as defaults.")
+            click.echo("   Detected values shown above for reference.\n")
+        else:
+            click.echo("")
+            if not click.confirm("Use detected settings as defaults?", default=True):
+                detected_settings = None
+
+        # Get project name
+        click.echo("\n📋 Project name")
+        click.echo("   Used for display in logs, documentation, and work item references.\n")
+        existing_name = _get_existing_value(existing_config, "project.name", None)
+        default_name = existing_name or (detected_settings["name"] if detected_settings else "My Project")
         project_name = click.prompt(
-            "Project name (for display/documentation)",
-            default=existing_name
+            "Project name",
+            default=default_name
         )
-    else:
-        project_name = existing_name
 
-    # Get project type
-    project_types = [
-        "web-application", "api", "mobile-app", "desktop-app",
-        "infrastructure", "library", "cli-tool", "microservice"
-    ]
-    existing_type = _get_existing_value(existing_config, "project.type", "api")
+        # Get project type with explanation
+        project_types = [
+            "web-application", "api", "mobile-app", "desktop-app",
+            "infrastructure", "library", "cli-tool", "microservice"
+        ]
+        existing_type = _get_existing_value(existing_config, "project.type", None)
+        default_type = existing_type or (detected_settings["type"] if detected_settings else "api")
 
-    if interactive:
-        click.echo(f"\nProject types: {', '.join(project_types)}")
+        click.echo("\n📦 Project type")
+        click.echo("   Affects which agent prompts and best practices are emphasized:\n")
+        click.echo("   web-application  - Frontend focus, UI/UX, browser compatibility")
+        click.echo("   api              - REST/GraphQL patterns, auth, request validation")
+        click.echo("   library          - API design, docs, backwards compatibility, packaging")
+        click.echo("   cli-tool         - Argument parsing, user feedback, cross-platform")
+        click.echo("   microservice     - Service boundaries, messaging, resilience patterns")
+        click.echo("   infrastructure   - IaC patterns, security, cost optimization")
+        click.echo("   mobile-app       - Mobile platform guidelines (iOS/Android)")
+        click.echo("   desktop-app      - Desktop platform guidelines (Electron, etc.)\n")
+
         project_type = click.prompt(
             "Project type",
-            default=existing_type,
+            default=default_type,
             type=click.Choice(project_types, case_sensitive=False)
         )
-    else:
-        project_type = existing_type
 
-    # Gather tech stack information
-    tech_stack = {}
+        # Gather tech stack information with explanations
+        tech_stack = {}
 
-    if interactive:
-        click.echo("\n📦 Technology Stack")
+        click.echo("\n🔧 Technology Stack")
+        click.echo("   These settings help agents provide language/framework-specific advice.")
+        click.echo("   Leave empty if unsure - you can update config.yaml later.\n")
 
         # Languages
-        existing_langs = _get_existing_value(existing_config, "project.tech_stack.languages", ["Python"])
+        existing_langs = _get_existing_value(existing_config, "project.tech_stack.languages", None)
+        default_langs = existing_langs or (detected_settings["tech_stack"]["languages"] if detected_settings else ["Python"])
         languages_input = click.prompt(
             "Programming languages (comma-separated)",
-            default=", ".join(existing_langs) if existing_langs else "Python"
+            default=", ".join(default_langs) if default_langs else ""
         )
         tech_stack["languages"] = [lang.strip() for lang in languages_input.split(",") if lang.strip()]
 
         # Frameworks
-        existing_frameworks = _get_existing_value(existing_config, "project.tech_stack.frameworks", [])
+        existing_frameworks = _get_existing_value(existing_config, "project.tech_stack.frameworks", None)
+        default_frameworks = existing_frameworks or (detected_settings["tech_stack"]["frameworks"] if detected_settings else [])
+        click.echo("\n   Frameworks (e.g., FastAPI, Django, React, Express, Spring Boot)")
+        click.echo("   Helps agents suggest framework-specific patterns and avoid anti-patterns.\n")
         frameworks_input = click.prompt(
-            "Frameworks (comma-separated)",
-            default=", ".join(existing_frameworks) if existing_frameworks else ""
+            "Frameworks (comma-separated, or leave empty)",
+            default=", ".join(default_frameworks) if default_frameworks else ""
         )
         if frameworks_input.strip():
             tech_stack["frameworks"] = [fw.strip() for fw in frameworks_input.split(",") if fw.strip()]
 
         # Platforms
-        existing_platforms = _get_existing_value(existing_config, "project.tech_stack.platforms", ["Docker"])
+        existing_platforms = _get_existing_value(existing_config, "project.tech_stack.platforms", None)
+        default_platforms = existing_platforms or (detected_settings["tech_stack"]["platforms"] if detected_settings else [])
+        click.echo("\n   Platforms (e.g., Docker, AWS, Azure, GCP, Kubernetes)")
+        click.echo("   Deployment targets - helps with infrastructure and DevOps guidance.\n")
         platforms_input = click.prompt(
-            "Platforms (comma-separated, e.g., Azure, AWS, Docker)",
-            default=", ".join(existing_platforms) if existing_platforms else "Docker"
+            "Platforms (comma-separated, or leave empty)",
+            default=", ".join(default_platforms) if default_platforms else ""
         )
         if platforms_input.strip():
             tech_stack["platforms"] = [p.strip() for p in platforms_input.split(",") if p.strip()]
 
         # Databases
-        existing_dbs = _get_existing_value(existing_config, "project.tech_stack.databases", [])
+        existing_dbs = _get_existing_value(existing_config, "project.tech_stack.databases", None)
+        default_dbs = existing_dbs or (detected_settings["tech_stack"]["databases"] if detected_settings else [])
+        click.echo("\n   Databases (e.g., PostgreSQL, MongoDB, Redis, Elasticsearch)\n")
         databases_input = click.prompt(
-            "Databases (comma-separated)",
-            default=", ".join(existing_dbs) if existing_dbs else ""
+            "Databases (comma-separated, or leave empty)",
+            default=", ".join(default_dbs) if default_dbs else ""
         )
         if databases_input.strip():
             tech_stack["databases"] = [db.strip() for db in databases_input.split(",") if db.strip()]
     else:
-        # Non-interactive: use existing or defaults
+        # Non-interactive without auto-detect: use existing or defaults
+        project_name = _get_existing_value(existing_config, "project.name", "My Project")
+        project_type = _get_existing_value(existing_config, "project.type", "api")
         tech_stack = _get_existing_value(existing_config, "project.tech_stack", {"languages": ["Python"]})
 
     # Work tracking platform
     if interactive:
         click.echo("\n🔧 Work Tracking Platform")
+        click.echo("Work tracking integrates agents with your task management system:")
+        click.echo("  - azure-devops: Full integration with Azure Boards (requires az login)")
+        click.echo("  - jira: Jira Cloud/Server integration (coming soon)")
+        click.echo("  - github-projects: GitHub Projects integration (coming soon)")
+        click.echo("  - file-based: Local markdown files in .claude/work-items/ (no setup required)\n")
 
         existing_platform = _get_existing_value(existing_config, "work_tracking.platform", "file-based")
         platform = click.prompt(
@@ -315,15 +466,33 @@ def init_command(
 
         # Ask about context generation
         if click.confirm("\nGenerate hierarchical context files (README.md + CLAUDE.md)?", default=not existing_config):
-            from cli.commands.context import _analyze_repository, _generate_claude_md_content, _generate_readme_content
+            from cli.commands.context import (
+                _analyze_repository, _generate_claude_md_content, _generate_readme_content,
+                _generate_front_matter, _merge_claude_md_content
+            )
 
             click.echo("\n📝 Generating context file hierarchy (README.md + CLAUDE.md)...")
 
             root_path = Path.cwd()
             analysis = _analyze_repository(root_path, max_depth=3)
 
+            # Check if there are existing CLAUDE.md files
+            existing_claude_files = [
+                d for d in analysis["directories"]
+                if (root_path / d["relative_path"] / "CLAUDE.md").exists()
+            ]
+
+            merge_existing = False
+            if existing_claude_files:
+                click.echo(f"\n   Found {len(existing_claude_files)} existing CLAUDE.md file(s).")
+                click.echo("   Options:")
+                click.echo("     - Merge: Update front matter while preserving your custom content")
+                click.echo("     - Skip: Leave existing files unchanged")
+                merge_existing = click.confirm("   Merge existing CLAUDE.md files?", default=True)
+
             created_readme = 0
             created_claude = 0
+            merged_claude = 0
             skipped = 0
 
             for dir_info in analysis["directories"]:
@@ -342,10 +511,28 @@ def init_command(
                     except Exception as e:
                         click.echo(f"   ✗ {dir_info['relative_path']}/README.md: {e}")
 
-                # Generate CLAUDE.md
+                # Generate or merge CLAUDE.md
                 if claude_path.exists():
-                    click.echo(f"   ⏭ {dir_info['relative_path']}/CLAUDE.md (exists)")
-                    skipped += 1
+                    if merge_existing:
+                        # Merge: update front matter, preserve content
+                        try:
+                            existing_content = claude_path.read_text(encoding="utf-8")
+                            new_front_matter = _generate_front_matter(dir_info, analysis)
+                            merged_content = _merge_claude_md_content(existing_content, new_front_matter)
+
+                            if merged_content and merged_content.strip():
+                                claude_path.write_text(merged_content)
+                                click.echo(f"   🔄 {dir_info['relative_path']}/CLAUDE.md (merged)")
+                                merged_claude += 1
+                            else:
+                                click.echo(f"   ⚠ {dir_info['relative_path']}/CLAUDE.md (merge failed)")
+                                skipped += 1
+                        except Exception as e:
+                            click.echo(f"   ✗ {dir_info['relative_path']}/CLAUDE.md (merge error: {e})")
+                            skipped += 1
+                    else:
+                        click.echo(f"   ⏭ {dir_info['relative_path']}/CLAUDE.md (exists)")
+                        skipped += 1
                     continue
 
                 try:
@@ -363,7 +550,11 @@ def init_command(
                 except Exception as e:
                     click.echo(f"   ✗ {dir_info['relative_path']}/CLAUDE.md: {e}")
 
-            click.echo(f"\n   Created {created_readme} README.md, {created_claude} CLAUDE.md files, skipped {skipped} existing")
+            summary_parts = [f"Created {created_readme} README.md, {created_claude} CLAUDE.md"]
+            if merged_claude > 0:
+                summary_parts.append(f"merged {merged_claude}")
+            summary_parts.append(f"skipped {skipped}")
+            click.echo(f"\n   {', '.join(summary_parts)}")
 
             # Build context index
             click.echo("\n📝 Building context index...")

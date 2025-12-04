@@ -1,0 +1,77 @@
+{# Template for Core Module CLAUDE.md Documentation #}
+{# Variables:
+   - module_name: Name of the module (e.g., "state_manager")
+   - display_name: Human-readable name (e.g., "State Manager")
+   - vision_problems: List of VISION.md problems this solves
+   - problem_statement: What problem does this solve?
+   - solution_approach: How does it solve the problem?
+   - keywords: Context loading keywords
+   - task_types: Types of tasks this helps with
+   - components: Key components/classes
+   - usage_example: Code example
+#}
+---
+context:
+  purpose: {{ problem_statement | truncate(100) }}
+  problem_solved: "{{ problem_statement }}"
+  keywords: {{ keywords | tojson }}
+  task_types: {{ task_types | tojson }}
+  priority: high
+  max_tokens: 800
+  children: []
+  dependencies: []
+---
+# {{ display_name }}
+
+## Purpose
+
+Solves **{{ vision_problems | join(', ') }}** from VISION.md.
+
+{{ problem_statement }}
+
+{{ solution_approach }}
+
+## Key Components
+
+{% for component in components %}
+- **{{ component.name }}**: {{ component.description }}
+{% endfor %}
+
+## Architecture
+
+{{ architecture_description | default("This module is part of the core framework layer, providing foundational capabilities that other modules depend on.") }}
+
+{% if integrations %}
+### Integrations
+{% for integration in integrations %}
+- **{{ integration.module }}**: {{ integration.description }}
+{% endfor %}
+{% endif %}
+
+## Usage
+
+```python
+{{ usage_example }}
+```
+
+## Important Notes
+
+{% if important_notes %}
+{% for note in important_notes %}
+- {{ note }}
+{% endfor %}
+{% else %}
+- This is a core module - changes here impact all dependent modules
+- State persistence enabled - check `.claude/workflow-state/` for runtime state
+- Token budget: 800 tokens (high priority for context loading)
+{% endif %}
+
+## Related
+
+- **VISION.md**: Framework problem statement and design principles
+- **CLAUDE.md**: Project-level documentation
+{% if related_modules %}
+{% for module in related_modules %}
+- **{{ module.path }}**: {{ module.description }}
+{% endfor %}
+{% endif %}

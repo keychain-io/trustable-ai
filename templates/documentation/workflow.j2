@@ -1,0 +1,101 @@
+{# Template for Workflow CLAUDE.md Documentation #}
+{# Variables:
+   - workflow_name: Name of the workflow (e.g., "sprint-planning")
+   - display_name: Human-readable name (e.g., "Sprint Planning")
+   - problem_statement: What problem does this workflow solve?
+   - solution_approach: How does it solve the problem?
+   - keywords: Context loading keywords
+   - phases: Workflow phases with steps
+   - agents_used: Agents this workflow orchestrates
+   - verification_points: Where verification happens
+#}
+---
+context:
+  purpose: {{ problem_statement | truncate(100) }}
+  problem_solved: "{{ problem_statement }}"
+  keywords: {{ keywords | tojson }}
+  task_types: [workflow, {{ workflow_name }}]
+  priority: medium
+  max_tokens: 600
+  children: []
+  dependencies: [core, agents, config]
+---
+# {{ display_name }} Workflow
+
+## Purpose
+
+{{ problem_statement }}
+
+{{ solution_approach }}
+
+This workflow implements **Verifiable Workflows** (VISION.md Pillar #2) with checkpoints and **State Persistence** (VISION.md Pillar #4) for resumability.
+
+## Workflow Phases
+
+{% for phase in phases %}
+### {{ phase.name }}
+
+{{ phase.description }}
+
+**Steps:**
+{% for step in phase.steps %}
+{{ loop.index }}. **{{ step.name }}**: {{ step.description }}
+   {% if step.verification %}- Verification: {{ step.verification }}{% endif %}
+   {% if step.checkpoint %}- Checkpoint: State saved to `.claude/workflow-state/`{% endif %}
+{% endfor %}
+
+{% endfor %}
+
+## Agent Orchestration
+
+This workflow orchestrates the following agents via fresh context windows:
+
+{% for agent in agents_used %}
+- **{{ agent.name }}** ({{ agent.command }}): {{ agent.purpose }}
+  - Input: {{ agent.input }}
+  - Output: {{ agent.output }}
+{% endfor %}
+
+## Verification Points
+
+{% for verification in verification_points %}
+- **{{ verification.step }}**: {{ verification.description }}
+{% endfor %}
+
+## State Management
+
+**Checkpoint Files**: `.claude/workflow-state/{{ workflow_name }}-{id}.json`
+
+**State Includes:**
+{% for state_item in state_items %}
+- {{ state_item }}
+{% endfor %}
+
+**Resume Capability**: If workflow is interrupted, use `/workflow-resume` to continue from last checkpoint.
+
+## Usage
+
+{{ usage_example | default("Run this workflow via slash command: `/" + workflow_name + "`") }}
+
+## Important Notes
+
+{% if important_notes %}
+{% for note in important_notes %}
+- {{ note }}
+{% endfor %}
+{% else %}
+- Workflow state persists after each phase for recovery
+- Human approval gates prevent unverified work from proceeding
+- Each agent operates in fresh context to avoid overload
+- Verification points check external source of truth (work tracking system)
+{% endif %}
+
+## Related
+
+- **workflows/templates/{{ workflow_name }}.j2**: Workflow template source
+- **VISION.md**: Verifiable Workflows (Pillar #2), State Persistence (Pillar #4)
+{% if related_workflows %}
+{% for workflow in related_workflows %}
+- **{{ workflow.name }}**: {{ workflow.description }}
+{% endfor %}
+{% endif %}

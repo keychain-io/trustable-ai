@@ -15,8 +15,9 @@ Use actual Unicode emojis in review comments, NOT GitHub-style shortcodes:
 - 🐛 Bug | 🔒 Security | ⚡ Performance | 📝 Style
 
 ## Tech Stack Context
-**Project Type**: library
+**Project Type**: cli-tool
 **Languages**: Python
+**Frameworks**: pytest, pytest
 **Platforms**: Docker
 
 ## Responsibilities

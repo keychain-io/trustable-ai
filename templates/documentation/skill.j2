@@ -1,0 +1,94 @@
+{# Template for Skill CLAUDE.md Documentation #}
+{# Variables:
+   - skill_name: Name of the skill (e.g., "azure_devops")
+   - display_name: Human-readable name
+   - problem_statement: What problem does this skill solve?
+   - solution_approach: How does it provide the solution?
+   - keywords: Context loading keywords
+   - capabilities: What the skill can do
+   - usage_patterns: Common usage patterns
+#}
+---
+context:
+  purpose: {{ problem_statement | truncate(100) }}
+  problem_solved: "{{ problem_statement }}"
+  keywords: {{ keywords | tojson }}
+  task_types: [implementation, integration, {{ skill_name }}]
+  priority: medium
+  max_tokens: 600
+  children: []
+  dependencies: [core]
+---
+# {{ display_name }} Skill
+
+## Purpose
+
+{{ problem_statement }}
+
+{{ solution_approach }}
+
+Skills provide reusable, battle-tested operations that workflows and agents can leverage without re-implementing common patterns.
+
+## Capabilities
+
+{% for capability in capabilities %}
+### {{ capability.name }}
+
+{{ capability.description }}
+
+{% if capability.methods %}
+**Methods:**
+{% for method in capability.methods %}
+- `{{ method.signature }}`: {{ method.description }}
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+
+## Usage Patterns
+
+{% for pattern in usage_patterns %}
+### {{ pattern.name }}
+
+{{ pattern.description }}
+
+```python
+{{ pattern.example }}
+```
+
+{% endfor %}
+
+## Verification Support
+
+{% if verification_patterns %}
+This skill implements verification patterns for reliable operations:
+
+{% for pattern in verification_patterns %}
+- **{{ pattern.operation }}**: {{ pattern.verification }}
+{% endfor %}
+{% else %}
+All skill operations return verification data that workflows can check to ensure claimed operations actually succeeded.
+{% endif %}
+
+## Important Notes
+
+{% if important_notes %}
+{% for note in important_notes %}
+- {{ note }}
+{% endfor %}
+{% else %}
+- Skills are stateless - each operation is independent
+- All operations return structured results with success/failure indicators
+- Skills handle error cases and return actionable error messages
+- Use skill methods instead of reimplementing operations in workflows
+{% endif %}
+
+## Related
+
+- **skills/**: Skill registry and base classes
+- **workflows/**: Workflows that use this skill
+{% if related_skills %}
+{% for skill in related_skills %}
+- **{{ skill.path }}**: {{ skill.description }}
+{% endfor %}
+{% endif %}

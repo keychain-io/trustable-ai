@@ -1,43 +1,49 @@
 ---
 context:
-  keywords: [trustable-ai, framework, project, overview]
+  purpose: "AI-assisted software development framework that makes AI agent failures visible and recoverable through structured SDLC processes"
+  problem_solved: "AI agents fail to reliably complete software development tasks - claiming completion without doing work, skipping verification, losing progress on crashes. Without structured workflows, explicit intent capture, and external verification, AI-assisted development is unreliable and untrustworthy."
+  keywords: [project, overview, framework, trustable-ai, reliability, verification, sdlc]
   task_types: [any]
   priority: high
   max_tokens: 1500
   children:
-    - path: agents/CLAUDE.md
-      when: [agent, analyst, architect, engineer, scrum, qa, devops, security]
-    - path: workflows/CLAUDE.md
-      when: [workflow, sprint, planning, execution, standup, retrospective, backlog]
-    - path: adapters/azure_devops/CLAUDE.md
-      when: [azure, devops, work-item, wiql, iteration, sprint]
-    - path: core/CLAUDE.md
-      when: [state, profiler, context, loader, checkpoint, resume]
-    - path: config/CLAUDE.md
-      when: [config, configuration, schema, yaml, settings]
-    - path: cli/CLAUDE.md
-      when: [cli, command, trustable-ai, init, validate, doctor]
-    - path: skills/CLAUDE.md
-      when: [skill, capability, plugin]
-    - path: tests/CLAUDE.md
-      when: [test, testing, pytest, coverage, fixture]
     - path: .claude/CLAUDE.md
-      when: [claude, runtime, state, profiling, commands]
+      when: [claude, runtime, workflow]
+    - path: agents/CLAUDE.md
+      when: [module, feature]
+    - path: cli/CLAUDE.md
+      when: [module, feature]
+    - path: config/CLAUDE.md
+      when: [config, configuration, settings]
+    - path: core/CLAUDE.md
+      when: [core, foundation, base]
+    - path: docs/CLAUDE.md
+      when: [docs, documentation, guide]
+    - path: skills/CLAUDE.md
+      when: [module, feature]
+    - path: tests/CLAUDE.md
+      when: [test, testing, pytest]
+    - path: workflows/CLAUDE.md
+      when: [module, feature]
+  dependencies: []
 ---
-# CLAUDE.md
+# Trustable AI Development Workbench
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Overview
+
+Trustable AI is an AI-assisted software lifecycle framework that **solves the fundamental unreliability of AI coding agents** (VISION.md). AI agents routinely fail software development tasks by claiming completion without doing work, skipping verification steps, and losing progress when sessions crash.
+
+**This framework doesn't make AI smarter - it makes AI failures visible and recoverable** through structured SDLC processes that catch errors early.
 
 ## Project Overview
 
 Trustable AI is an AI-assisted software lifecycle framework featuring multi-agent orchestration, state management, and work tracking integration. It enables reliable software development with Claude Code through specialized agents, re-entrant workflows, and hierarchical context management.
 
-**Current State (v1.1.0):**
+**Current State (v1.2.0):**
 - ✅ Configuration system with Pydantic validation
 - ✅ Agent template rendering with project context injection (12 agents)
 - ✅ Workflow template rendering (7 workflows)
-- ✅ Azure DevOps adapter for work item operations
-- ✅ File-based task tracking adapter
+- ✅ Work tracking platform adapters (Azure DevOps, file-based, extensible to Jira/GitHub)
 - ✅ CLI (`trustable-ai`) for initialization, configuration, and management
 - ✅ State management with re-entrancy support
 - ✅ Profiling and analytics
@@ -59,8 +65,10 @@ Trustable AI is an AI-assisted software lifecycle framework featuring multi-agen
 # Install for development
 pip install -e ".[dev]"
 
-# Install with Azure DevOps support
-pip install -e ".[azure]"
+# Install with specific work tracking platform support
+pip install -e ".[azure]"      # Azure DevOps
+pip install -e ".[jira]"        # Jira (planned)
+pip install -e ".[github]"      # GitHub Issues (planned)
 ```
 
 ### Testing
@@ -71,7 +79,7 @@ pytest
 # Run specific test categories
 pytest -m unit              # Unit tests only
 pytest -m integration       # Integration tests
-pytest -m azure             # Azure DevOps tests
+pytest -m azure             # Tests requiring Azure DevOps
 pytest -m cli               # CLI command tests
 
 # Run tests without coverage reporting
@@ -104,8 +112,11 @@ black . && ruff . && mypy .
 # Initialize framework in a project
 trustable-ai init
 
-# Configure Azure DevOps
-trustable-ai configure azure-devops
+# Configure work tracking platform
+trustable-ai configure azure-devops    # For Azure DevOps
+trustable-ai configure file-based       # For file-based tracking
+trustable-ai configure jira             # For Jira (planned)
+trustable-ai configure github           # For GitHub Issues (planned)
 
 # Configure file-based tracking
 trustable-ai configure file-based
@@ -228,20 +239,26 @@ trustable-ai doctor
 
 ### Platform Adapters
 
-**Azure DevOps** (`adapters/azure_devops/`)
-- Complete integration with Azure DevOps work items
-- Components:
-  - `cli_wrapper.py`: Wraps Azure CLI for work item operations
-  - `field_mapper.py`: Maps generic fields to Azure DevOps fields
-  - `type_mapper.py`: Maps generic work item types to Azure DevOps types
-  - `bulk_operations.py`: Efficient bulk work item operations
-- Uses Azure CLI credentials (requires `az login`)
-- Supports custom fields via configuration
+**Work Tracking Integration** (`adapters/`)
 
-**Extensibility:**
-- Create adapters for Jira, GitHub Projects by implementing same interface
-- Place in `adapters/<platform>/` directory
-- Implement work item CRUD, query, sprint management
+The framework uses pluggable adapters for work tracking platforms:
+
+- **Azure DevOps** (`adapters/azure_devops/`) - Complete implementation
+- **File-based** (built-in) - Zero-dependency local tracking
+- **Jira** (planned) - Extensible design ready for implementation
+- **GitHub Issues** (planned) - Extensible design ready for implementation
+
+**Adapter Architecture:**
+- Generic interface: All adapters implement same work item CRUD operations
+- Field mapping: Generic fields → platform-specific fields
+- Type mapping: Generic work item types → platform-specific types
+- Custom fields: Configurable per-project in `.claude/config.yaml`
+
+**Adding New Platforms:**
+1. Create `adapters/<platform>/` directory
+2. Implement adapter interface (work item CRUD, query, sprint management)
+3. Add field/type mappers for platform
+4. Add tests in `tests/integration/`
 
 ## Configuration File Structure
 
@@ -258,13 +275,13 @@ project:
     databases: ["PostgreSQL"]
 
 work_tracking:
-  platform: "azure-devops"
-  organization: "https://dev.azure.com/yourorg"
+  platform: "azure-devops"  # or "file-based", "jira", "github"
+  organization: "https://dev.azure.com/yourorg"  # Platform-specific
   project: "Your Project"
-  credentials_source: "cli"  # or "env:VAR_NAME"
+  credentials_source: "cli"  # Platform-specific: "cli", "env:VAR_NAME", etc.
 
   work_item_types:
-    epic: "Epic"
+    epic: "Epic"              # Platform-specific type names
     feature: "Feature"
     task: "Task"
     bug: "Bug"
@@ -370,10 +387,11 @@ agent_config:
 
 ## Important Notes
 
-- **Credentials:** Azure DevOps adapter uses Azure CLI credentials. Ensure `az login` is completed before running workflows.
-- **Organization URL Format:** The organization URL must be the full Azure DevOps URL (e.g., `https://dev.azure.com/yourorg`), not just the organization name.
+- **Work Tracking Platforms:** Framework supports multiple platforms (Azure DevOps, file-based, extensible to Jira/GitHub)
+  - Azure DevOps: Uses Azure CLI credentials (`az login` required)
+  - File-based: Zero dependencies, local YAML files
+  - Platform-specific configuration in `.claude/config.yaml`
 - **State Persistence:** Workflow state is persisted to disk. Clean up old state files periodically with `trustable-ai state cleanup`.
 - **Token Budgets:** Context loaders respect token budgets. Adjust `max_tokens` parameter based on workflow needs.
 - **Template Customization:** After `trustable-ai init`, templates are copied to project's `.claude/` directory for customization.
 - **Agent Models:** Different agents can use different Claude models (Opus for architecture, Sonnet for engineering).
-- **File-Based Tracking:** Use `trustable-ai configure file-based` for zero-dependency task management.

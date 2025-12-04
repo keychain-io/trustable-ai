@@ -1,186 +1,197 @@
 ---
 context:
-  keywords: [workflow, sprint, planning, execution, standup, retrospective, backlog, resume, checkpoint]
-  task_types: [sprint-planning, sprint-execution, sprint-completion, sprint-retrospective, backlog-grooming, daily-standup]
-  priority: high
-  max_tokens: 1000
-  children:
-    - path: workflows/templates/CLAUDE.md
-      when: [template, customize, create-workflow]
-  dependencies:
-    - core/CLAUDE.md
+  purpose: "Solves unverified AI work completion and workflow fragility through structured, checkpointed, multi-step processes"
+  problem_solved: "AI agents routinely claim tasks are complete when they're not, skip verification steps, and lose progress when sessions crash. Without structured workflows with explicit verification gates and state checkpointing, multi-step development processes are unreliable and untrustworthy."
+  keywords: [workflows, orchestration, verification, checkpoint, re-entrant, sprint, backlog, standup]
+  task_types: [workflow, sprint-planning, backlog-grooming, daily-standup, retrospective]
+  priority: medium
+  max_tokens: 600
+  children: [sprint-planning, sprint-execution, sprint-completion, sprint-retrospective, backlog-grooming, daily-standup, dependency-management, workflow-resume]
+  dependencies: [core, agents, config]
 ---
-# workflows
+# Workflows
 
 ## Purpose
 
-Workflow registry and template rendering system. This module manages multi-step workflow definitions (sprint planning, backlog grooming, etc.) and renders them as slash commands for Claude Code.
+Solves **tasks reported complete that were never done** (#1) and **workflow fragility** (#5) from VISION.md.
 
-## Key Components
+AI agents routinely claim success while delivering nothing:
+- "I created the work items" → Work items don't exist in Azure DevOps
+- "Tests are passing" → Tests assert nothing or weren't run
+- "Feature is implemented" → Only placeholder code written
 
-- **registry.py**: `WorkflowRegistry` class for loading, rendering, and managing workflow templates
-- **templates/**: Jinja2 templates for workflows (sprint-planning.j2, sprint-execution.j2, etc.)
-- **__init__.py**: Module exports for WorkflowRegistry and convenience functions
+Workflows implement **Verifiable Workflows** (Pillar #2) and **State Persistence** (Pillar #4) to catch these failures:
+- **Verification gates**: Check external source of truth (work tracking system) before marking complete
+- **Explicit steps**: Break work into discrete, verifiable phases with checkpoints
+- **Re-entrancy**: Save state after each step so failures don't erase progress
+- **Human approval**: Block progression until human reviews and approves critical steps
+
+## Key Workflows
+
+### sprint-planning.md
+**Problem Solved**: Unplanned sprints lead to scope creep, missed dependencies, and unaligned team capacity
+
+Multi-step process: business analysis → architecture review → security review → estimation → human approval → work item creation. Each step verified before proceeding.
+
+**Real Failure Prevented**: Sprint planning happens in conversation without structure. Tasks created without security review. Production vulnerability discovered in sprint review. With workflow: security specialist agent flags issue in planning phase, task adjusted before implementation.
+
+### backlog-grooming.md
+**Problem Solved**: Features entered as vague requirements get implemented incorrectly
+
+Breaks Features into User Stories with acceptance criteria, estimates, and dependencies. Each story validated for completeness before backlog entry.
+
+**Real Failure Prevented**: Feature "Add authentication" groomed without details. Engineer implements basic auth instead of OAuth. With workflow: backlog grooming clarifies auth method, API provider, token storage - engineer builds correct solution.
+
+### sprint-execution.md
+**Problem Solved**: Sprints run without daily verification of progress against external source of truth
+
+Queries work tracking system (not AI memory) to get actual sprint status. Identifies blockers, stale items, verification failures.
+
+**Real Failure Prevented**: AI claims 5 tasks complete. Sprint execution queries Azure DevOps: only 2 tasks in "Done" state. 3 tasks stuck in "In Progress" with no commits. Catch divergence early, not at sprint end.
+
+### daily-standup.md
+**Problem Solved**: Progress tracking relies on AI assertions instead of verified work item state
+
+Generates standup report by querying work tracking system. Compares claimed progress to actual work item state changes.
+
+**Real Failure Prevented**: Developer says "completed authentication" in standup. Daily standup workflow queries Azure DevOps: auth task still "To Do", no commits in last 24 hours. Surface honesty gap immediately.
+
+### sprint-retrospective.md
+**Problem Solved**: Retrospectives become generic without specific data on what went wrong
+
+Analyzes profiling data, state checkpoints, and work item history to generate evidence-based retrospective insights.
+
+**Real Failure Prevented**: Team vaguely feels "sprint was slow". Retrospective workflow shows: architect agent called 12 times (should be 3), 40% of sprint on dependency resolution (should be 10%). Concrete actions: cache architect analysis, improve dependency mapping.
+
+### workflow-resume.md
+**Problem Solved**: Interrupted workflows lose all progress and must restart from scratch
+
+Lists incomplete workflows with state checkpoints. Allows resume from last successful step.
+
+**Real Failure Prevented**: Sprint planning interrupted at Step 5 (work item creation) due to Azure CLI auth expiry. Without resume: re-run business analysis, architecture review, estimation (3 hours). With resume: re-authenticate, continue from Step 5 (5 minutes).
 
 ## Architecture
 
-The workflow system uses template-based configuration to create executable workflows:
+Workflows orchestrate agents via fresh context windows:
 
-1. **Template Loading**: Jinja2 templates loaded from `templates/` directory
-2. **Context Injection**: Project config (tech stack, quality standards, work tracking) injected into templates
-3. **Workflow Rendering**: Templates rendered to Markdown slash commands for Claude Code
-4. **State Management**: Workflows integrate with core.state_manager for checkpointing
-5. **Profiling**: Workflows integrate with core.profiler for performance tracking
+```
+Workflow (main conversation)
+    ↓ spawn via Task tool
+Agent 1: Business Analyst (fresh context)
+    ↓ returns prioritized backlog
+Workflow (receives result, saves checkpoint)
+    ↓ spawn via Task tool
+Agent 2: Project Architect (fresh context)
+    ↓ returns architecture review
+Workflow (receives result, saves checkpoint)
+    ↓ ...
+```
 
-### WorkflowRegistry Methods
+**Key Pattern**: Each agent gets fresh context (no overload), returns structured output, workflow saves checkpoint (re-entrancy).
+
+## Verification Pattern
+
+Every workflow step follows this pattern:
+
+1. **Execute**: Agent or operation performs work
+2. **Checkpoint**: Save state to `.claude/workflow-state/`
+3. **Verify**: Query external source of truth (not AI claim)
+4. **Gate**: Block if verification fails, continue if succeeds
+
+**Example: Work Item Creation Verification**
 
 ```python
-registry = WorkflowRegistry(config)
-registry.list_workflows()                    # List all available workflows
-registry.render_workflow("sprint-planning")  # Render specific workflow
-registry.save_rendered_workflow(name, dir)   # Save to file
+# Step: Create work items
+for item in approved_items:
+    # Execute
+    result = azure_devops.create_work_item(title=item.title, ...)
+
+    # Checkpoint
+    state.save(step=7, created_items=[result.id])
+
+    # Verify - query Azure DevOps (external truth)
+    verify = azure_devops.get_work_item(result.id)
+    if not verify.exists:
+        raise VerificationError(f"Claimed {result.id} created but doesn't exist")
+
+    # Gate - only proceed if verification passes
+    if verify.state != "New":
+        warn(f"Expected New state, got {verify.state}")
 ```
 
-## Available Workflows
+## State Management
 
-Templates in `templates/` directory:
-- **sprint-planning.j2**: Complete sprint planning automation (analyst, architect, engineer roles)
-- **sprint-execution.j2**: Sprint progress monitoring and daily standups
-- **sprint-completion.j2**: Sprint closure and retrospective data collection
-- **sprint-retrospective.j2**: Retrospective analysis and action items
-- **backlog-grooming.j2**: Backlog refinement and prioritization
-- **daily-standup.j2**: Automated daily standup report generation
-- **dependency-management.j2**: Dependency analysis and tracking
-- **workflow-resume.j2**: Resume incomplete workflows from checkpoints
-- **context-generation.j2**: Generate focused context for tasks
+Workflow state files stored in `.claude/workflow-state/`:
 
-## Workflow Structure
-
-Each workflow template typically includes:
-
-1. **Workflow Metadata**: Name, description, inputs, outputs
-2. **Agent Sequence**: Ordered list of agents to invoke (analyst → architect → engineer)
-3. **State Checkpoints**: Save state after each step for re-entrancy
-4. **Work Item Creation**: Use platform adapter to create work items
-5. **Verification**: Verify work items were created successfully
-6. **Profiling**: Track performance and cost estimates
-7. **Output**: Final deliverables (work item IDs, sprint backlog, etc.)
-
-Example workflow steps:
-```markdown
-1. Initialize state and profiler
-2. Execute Business Analyst agent
-3. Checkpoint state, save analyst output
-4. Execute Project Architect agent
-5. Checkpoint state, save architect output
-6. Execute Senior Engineer agent
-7. Create work items in Azure DevOps
-8. Verify work items created
-9. Complete workflow, save profiling report
+```json
+{
+  "workflow": "sprint-planning",
+  "workflow_id": "sprint-1-planning",
+  "current_step": 5,
+  "completed_steps": [1, 2, 3, 4],
+  "state": {
+    "backlog_analysis": {...},
+    "architecture_review": {...},
+    "security_review": {...},
+    "estimation": {...},
+    "approved_items": [...]
+  },
+  "checkpoints": [
+    {"step": 1, "timestamp": "2024-12-04T10:30:00Z"},
+    {"step": 2, "timestamp": "2024-12-04T10:45:00Z"},
+    ...
+  ]
+}
 ```
 
-## Template Context Variables
+**Resume Process**:
+1. User runs `/workflow-resume`
+2. Workflow lists incomplete states
+3. User selects workflow to resume
+4. Workflow loads state, jumps to `current_step + 1`
+5. Previous agent results available in `state` object
 
-Templates have access to:
-- `project`: name, type, tech_stack, directories
-- `work_tracking`: platform, organization, work_item_types, custom_fields
-- `quality_standards`: test coverage, vulnerability thresholds, complexity limits
-- `agent_config`: models, enabled_agents
-- `workflow_config`: state_directory, profiling_directory, checkpoint_enabled, max_retries
-- `deployment_config`: environments, task types
-- `config`: Full FrameworkConfig object for complex logic
+## Usage
 
-## Usage Examples
+Workflows are invoked via slash commands in Claude Code:
 
-```python
-from workflows import WorkflowRegistry, load_workflow
-from config import load_config
-
-# Load and render workflow
-config = load_config()
-registry = WorkflowRegistry(config)
-workflow_md = registry.render_workflow("sprint-planning")
-
-# Save all workflows as slash commands
-for workflow in registry.list_workflows():
-    registry.save_rendered_workflow(workflow, Path(".claude/commands"))
-
-# Use rendered workflow in Claude Code
-# 1. Render workflows: trustable-ai workflow render-all
-# 2. In Claude Code: /sprint-planning
+```
+/sprint-planning           # Plan a new sprint
+/backlog-grooming          # Groom features into user stories
+/daily-standup             # Generate daily progress report
+/sprint-execution          # Monitor sprint progress
+/sprint-retrospective      # Analyze completed sprint
+/workflow-resume           # Resume interrupted workflow
 ```
 
-## Workflow Re-entrancy
+## Important Notes
 
-Workflows support checkpointing and resume:
+- **Workflows are re-entrant**: Always checkpoint after significant steps
+- **Verify, don't trust**: Query external systems (Azure DevOps), don't trust AI claims
+- **Human gates**: Critical steps (sprint approval, work item creation) require human confirmation
+- **Fresh agent contexts**: Each agent spawns with clean context via Task tool
+- **State cleanup**: Old workflow states accumulate in `.claude/workflow-state/` - clean periodically
 
-1. **State Persistence**: Workflow state saved to `.claude/workflow-state/`
-2. **Step Tracking**: Each step marked as completed after execution
-3. **Resume**: On failure, workflow resumes from last checkpoint
-4. **Work Item Tracking**: All created work items tracked for cleanup
+## Real Failure Scenarios Prevented
 
-Resume workflow using:
-```bash
-# In Claude Code
-/workflow-resume  # Lists incomplete workflows and allows selection
-```
+### Scenario 1: AI Claims Work Items Created, They Don't Exist
+**Without workflows**: "I created 10 work items for Sprint 1" → Sprint taskboard is empty → Discover issue 3 days into sprint
 
-## Creating New Workflows
+**With workflows**: Workflow verifies each work item after creation by querying Azure DevOps. If creation fails, workflow halts and reports error immediately.
 
-To create a new workflow:
+### Scenario 2: Sprint Planning Session Crashes Mid-Process
+**Without workflows**: 2 hours of agent analysis (backlog prioritization, architecture review, estimation) lost. Start over.
 
-1. **Create Template**: Add `.j2` file to `workflows/templates/`
-2. **Define Workflow**: Specify agent sequence, inputs, outputs
-3. **Add State Management**: Use WorkflowState for checkpointing
-4. **Add Profiling**: Use WorkflowProfiler for tracking
-5. **Test**: Render and test the workflow
-6. **Deploy**: Run `trustable-ai workflow render-all` to deploy
+**With workflows**: State saved after each step. Resume from Step 4 (where crash happened), re-run only that step. 5 minutes to recover vs 2 hours to restart.
 
-Example template structure:
-```jinja2
-# My Workflow
+### Scenario 3: Security Review Skipped Due to Time Pressure
+**Without workflows**: Team manually runs planning, skips security review to save time. Vulnerability shipped to production.
 
-## Overview
-Description of what this workflow does.
+**With workflows**: Sprint planning workflow has mandatory security specialist agent step. Cannot proceed to approval without security review. Workflow enforces process discipline.
 
-## Steps
+## Related
 
-### Step 1: Initialize
-```python
-from core.state_manager import WorkflowState
-from core.profiler import WorkflowProfiler
-
-state = WorkflowState("my-workflow", workflow_id)
-profiler = WorkflowProfiler("my-workflow")
-```
-
-### Step 2: Execute Agent
-Execute the business analyst agent...
-
-### Step 3: Create Work Items
-Create work items using platform adapter...
-```
-
-## Conventions
-
-- **Template Naming**: Use kebab-case (sprint-planning.j2)
-- **Slash Commands**: Workflows rendered to `.claude/commands/` as `{name}.md`
-- **State Files**: Named `{workflow-name}-{workflow-id}.json`
-- **Profiling Reports**: Named `{workflow-name}-{timestamp}.md`
-- **Idempotency**: Always check step completion before executing
-- **Error Handling**: Record errors in state for debugging
-
-## Integration Points
-
-- **State Manager**: Checkpoint after each step
-- **Profiler**: Track agent execution time and costs
-- **Platform Adapter**: Create/query work items
-- **Context Loader**: Load relevant context for agents
-- **Skills**: Invoke skills for specific capabilities
-
-## Testing
-
-```bash
-pytest tests/unit/test_workflow_registry.py  # Test workflow rendering
-pytest tests/integration/test_cli_workflow.py  # Test workflow commands
-```
+- **VISION.md**: Pillars #2 (Verifiable Workflows), #4 (State Persistence)
+- **agents/CLAUDE.md**: Agents that workflows orchestrate
+- **core/CLAUDE.md**: State management and profiling used by workflows
+- **templates/workflows/**: Workflow template source files

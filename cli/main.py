@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 @click.group()
-@click.version_option(version="1.1.0", prog_name="trustable-ai")
+@click.version_option(version="1.2.0", prog_name="trustable-ai")
 def cli():
     """
     Trustable AI - AI-assisted software lifecycle automation.

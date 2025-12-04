@@ -16,8 +16,9 @@ Use actual Unicode emojis in performance reports, NOT GitHub-style shortcodes:
 - ⚡ Performance | 💾 Memory | 🔄 Throughput
 
 ## Tech Stack Context
-**Project Type**: library
+**Project Type**: cli-tool
 **Languages**: Python
+**Frameworks**: pytest, pytest
 **Platforms**: Docker
 
 ## Responsibilities

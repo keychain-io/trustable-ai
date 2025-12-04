@@ -1,0 +1,80 @@
+{# Template for Configuration Module CLAUDE.md Documentation #}
+{# Variables:
+   - module_name: Name of the config module (e.g., "schema", "loader")
+   - display_name: Human-readable name
+   - problem_statement: What problem does this solve?
+   - solution_approach: How does it solve the problem?
+   - keywords: Context loading keywords
+   - configuration_models: Pydantic models or structures
+   - validation_rules: Validation rules enforced
+#}
+---
+context:
+  purpose: {{ problem_statement | truncate(100) }}
+  problem_solved: "{{ problem_statement }}"
+  keywords: {{ keywords | tojson }}
+  task_types: [configuration, initialization, validation]
+  priority: medium
+  max_tokens: 600
+  children: []
+  dependencies: [core]
+---
+# {{ display_name }}
+
+## Purpose
+
+Implements **Explicit Human Intent** (VISION.md Pillar #1) by capturing project-specific configuration before AI work begins.
+
+{{ problem_statement }}
+
+{{ solution_approach }}
+
+Without explicit configuration, AI agents would guess project requirements, tech stack, and quality standards - leading to misaligned implementations.
+
+## Configuration Models
+
+{% for model in configuration_models %}
+### {{ model.name }}
+
+{{ model.description }}
+
+**Fields:**
+{% for field in model.fields %}
+- **{{ field.name }}** ({{ field.type }}): {{ field.description }}
+  {% if field.required %}- Required{% else %}- Optional{% if field.default %}, default: `{{ field.default }}`{% endif %}{% endif %}
+{% endfor %}
+
+{% endfor %}
+
+## Validation Rules
+
+{% for rule in validation_rules %}
+- **{{ rule.field }}**: {{ rule.description }}
+{% endfor %}
+
+## Usage
+
+```yaml
+# .claude/config.yaml
+{{ usage_example }}
+```
+
+## Important Notes
+
+{% if important_notes %}
+{% for note in important_notes %}
+- {{ note }}
+{% endfor %}
+{% else %}
+- Configuration is loaded at workflow start - changes require re-render
+- Validation happens before any workflow execution
+- Invalid configuration blocks workflow execution (fail-fast principle)
+- Use `trustable-ai validate` to check configuration correctness
+{% endif %}
+
+## Related
+
+- **config/schema.py**: Pydantic validation models
+- **config/loader.py**: Configuration loading and validation
+- **VISION.md**: Explicit Human Intent (Pillar #1)
+- **.claude/config.yaml**: Project configuration file

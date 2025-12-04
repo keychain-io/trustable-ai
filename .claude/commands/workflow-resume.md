@@ -389,4 +389,4 @@ state_file.unlink()
 
 ### Work items were partially created
 The state file tracks all created work items in `created_work_items`.
-Review these before discarding state to avoid orphaned work items in file-based.
+Review these before discarding state to avoid orphaned work items in azure-devops.

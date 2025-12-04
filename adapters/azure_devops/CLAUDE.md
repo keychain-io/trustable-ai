@@ -1,302 +1,236 @@
 ---
 context:
-  keywords: [azure, devops, work-item, wiql, iteration, sprint, query, bulk, attachment, verification]
-  task_types: [sprint-planning, sprint-execution, work-item-management]
-  priority: high
-  max_tokens: 1200
-  children: []
-  dependencies: []
+  purpose: "Provides external source of truth for work item verification, preventing AI from claiming work complete that doesn't exist"
+  problem_solved: "AI agents routinely claim tasks complete when they're not - 'I created 10 work items' when none exist, 'Tests passing' when they weren't run. Without querying an external source of truth, there's no way to verify AI claims. This adapter makes Azure DevOps the authoritative system for work item state."
+  keywords: [azure-devops, adapter, work-tracking, verification, source-of-truth, integration, ado]
+  task_types: [integration, work-tracking, verification, implementation]
+  priority: medium
+  max_tokens: 600
+  children: [cli_wrapper, field_mapper, type_mapper, bulk_operations]
+  dependencies: [core, config]
 ---
-# azure_devops
+# Azure DevOps Adapter
 
 ## Purpose
 
-Azure DevOps platform adapter for TAID. Provides a comprehensive wrapper around Azure CLI for work item management, sprint operations, and DevOps workflows. Includes battle-tested patterns, verification support, and idempotent operations.
+Solves **no external source of truth for work item verification** by making Azure DevOps the authoritative system for work item state (VISION.md Design Principle #2).
+
+AI agents claim success while delivering nothing:
+- "I created 10 work items for Sprint 1" → Query Azure DevOps → 0 work items exist
+- "Task 1234 is complete" → Query Azure DevOps → Task 1234 still "To Do"
+- "Sprint has 5 features" → Query Azure DevOps → Sprint has 2 features, 3 missing
+
+**Without this adapter**, workflows have no way to verify AI claims. They'd have to trust AI assertions. That trust is misplaced - AI hallucinates completion routinely.
+
+**With this adapter**, workflows query Azure DevOps directly. Work item 1234 either exists or it doesn't. Task state is "Done" or it isn't. External verification catches lies immediately.
 
 ## Key Components
 
-- **cli_wrapper.py**: `AzureCLI` class wrapping Azure CLI commands with verification and error handling
-- **field_mapper.py**: Maps generic field names to Azure DevOps-specific field names
-- **type_mapper.py**: Maps generic work item types to Azure DevOps work item types
-- **bulk_operations.py**: Efficient bulk work item creation and updates
-- **__init__.py**: Module exports
+### cli_wrapper.py
+**Problem Solved**: Direct Azure CLI invocation is error-prone and platform-dependent
 
-## Architecture
+Wraps Azure CLI (`az boards`) commands with proper error handling, credential management, and response parsing.
 
-The adapter provides a platform-agnostic interface for work item management:
+**Real Failure Prevented**: Workflow calls `az boards work-item create` but Azure CLI not authenticated. Command fails silently, workflow continues thinking item created. With cli_wrapper: authentication checked first, clear error if credentials missing, workflow halts instead of proceeding with bad state.
 
-### AzureCLI Class
+### field_mapper.py
+**Problem Solved**: Azure DevOps uses platform-specific field names that differ from generic framework fields
 
-Main wrapper for Azure DevOps operations:
+Maps generic framework fields (like `story_points`) to Azure DevOps-specific fields (like `Microsoft.VSTS.Scheduling.StoryPoints`).
 
-**Work Item Operations**:
-- `create_work_item()`: Create work item with two-step iteration assignment
-- `update_work_item()`: Update work item fields
-- `get_work_item()`: Retrieve work item by ID
-- `query_work_items()`: Query using WIQL
-- `add_comment()`: Add comment to work item
-- `link_work_items()`: Link work items with relationships
-- `attach_file_to_work_item()`: Attach files using REST API
+**Real Failure Prevented**: Workflow tries to set `story_points: 5` on work item. Azure DevOps doesn't have `story_points` field, has `Microsoft.VSTS.Scheduling.StoryPoints`. Without mapper: field ignored silently, story points never set. With mapper: translates to correct field name, value set properly.
 
-**Sprint/Iteration Operations**:
-- `create_iteration()`: Create new sprint/iteration
-- `list_iterations()`: List all sprints
-- `update_iteration()`: Update sprint dates
-- `create_sprint_work_items_batch()`: Efficiently create multiple work items for a sprint
-- `query_sprint_work_items()`: Query all work items in a sprint
+### type_mapper.py
+**Problem Solved**: Azure DevOps work item types (Epic, Feature, Task) differ from generic types (epic, feature, story, task)
 
-**Pull Request Operations**:
-- `create_pull_request()`: Create PR with work item linking
-- `approve_pull_request()`: Approve PR
+Maps framework work item types to Azure DevOps types based on project configuration.
 
-**Pipeline Operations**:
-- `trigger_pipeline()`: Trigger pipeline run
-- `get_pipeline_run()`: Get pipeline status
+**Real Failure Prevented**: Workflow tries to create "User Story" type work item. Azure DevOps project doesn't have "User Story" type (only has Task). Without mapper: creation fails with cryptic error "type doesn't exist". With mapper: consults config, maps "story" → "Task", creation succeeds.
 
-**Verification Operations**:
-- `verify_work_item_created()`: Verify work item exists with expected title
-- `verify_work_item_updated()`: Verify fields updated correctly
-- `verify_attachment_exists()`: Check if file attached
+### bulk_operations.py
+**Problem Solved**: Creating many work items one-at-a-time is slow and prone to partial failures
 
-**Idempotent Operations**:
-- `create_work_item_idempotent()`: Create only if doesn't exist (checks by title in sprint)
+Provides batch operations for creating/updating multiple work items efficiently, with rollback on failure.
 
-## Key Learnings Implemented
+**Real Failure Prevented**: Workflow creates 20 work items sequentially. Item #15 fails due to network error. Items 1-14 created, 15-20 missing. Partial state, hard to recover. With bulk operations: create all 20 in batch, if any fail, rollback all (or retry), maintain consistency.
 
-Based on battle-tested Azure DevOps integration:
+## Verification Pattern
 
-### 1. Two-Step Work Item Creation
-**Learning**: The `--iteration` parameter in `az boards work-item create` is unreliable.
+This adapter enables the core verification pattern:
 
-**Solution**: Create work item first, then update with iteration path:
 ```python
-# Step 1: Create without iteration
-result = create_work_item(type, title, description)
+# Step 1: AI claims it did something
+claimed_id = "1234"
 
-# Step 2: Update with iteration
-update_work_item(work_item_id, fields={"System.IterationPath": iteration})
+# Step 2: Query external source of truth (Azure DevOps)
+work_item = azure_devops.get_work_item(claimed_id)
+
+# Step 3: Verify claim against reality
+if not work_item.exists:
+    raise VerificationError(f"AI claimed {claimed_id} created, but doesn't exist")
+
+if work_item.state != expected_state:
+    raise VerificationError(f"Expected state {expected_state}, got {work_item.state}")
+
+# Step 4: Only proceed if verification passes
+return work_item  # Verified to exist and be in correct state
 ```
 
-### 2. Iteration Path Formats
-**Learning**: Different operations use different iteration path formats.
+**Why This Matters**: Without external verification, workflow trusts AI. AI says "task complete" → workflow marks complete → discover during sprint review that task was never done. With external verification: workflow queries Azure DevOps → sees task not in "Done" state → catches failure immediately.
 
-**Formats**:
-- **Work Items**: `"ProjectName\\SprintName"` (simplified)
-- **WIQL Queries**: `"ProjectName\\\\SprintName"` (double backslash for escaping)
-- **Iteration Updates**: `"\\ProjectName\\Iteration\\SprintName"` (full path with leading backslash)
+## Supported Operations
 
-### 3. Case-Sensitive Field Names
-**Learning**: Azure DevOps field names are case-sensitive.
+### Work Item CRUD
 
-**Examples**:
-- `System.Title` (correct)
-- `system.title` (incorrect)
-- `Microsoft.VSTS.Scheduling.StoryPoints` (correct)
-
-### 4. Project Names with Spaces
-**Learning**: Project names with spaces must be quoted in CLI commands.
-
-**Solution**: CLI wrapper handles quoting automatically.
-
-### 5. File Attachments
-**Learning**: Azure CLI doesn't support file attachments directly.
-
-**Solution**: Use Azure DevOps REST API via `attach_file_to_work_item()`:
-1. Upload file to attachments endpoint
-2. Link attachment to work item via PATCH operation
-
-## Usage Examples
-
-### Basic Work Item Operations
+**Create Work Item:**
 ```python
-from adapters.azure_devops import create_work_item, update_work_item, query_work_items
+from adapters.azure_devops import AzureDevOpsAdapter
+
+adapter = AzureDevOpsAdapter(config)
 
 # Create work item
-work_item = create_work_item(
+result = adapter.create_work_item(
     work_item_type="Task",
     title="Implement feature X",
-    description="Details...",
-    iteration="MyProject\\Sprint 10",
-    fields={"Microsoft.VSTS.Scheduling.StoryPoints": 5}
+    description="Details here",
+    iteration_path="Project\\Sprint 1",
+    story_points=5
 )
-print(f"Created WI-{work_item['id']}")
 
-# Update work item
-update_work_item(
-    work_item_id=123,
+# Verify creation
+work_item = adapter.get_work_item(result.id)
+assert work_item.exists, "Work item creation failed"
+```
+
+**Query Work Items:**
+```python
+# Query work items in sprint
+items = adapter.query_work_items(
+    wiql="SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.IterationPath] = 'Project\\Sprint 1'"
+)
+
+# Verify expected count
+assert len(items) == expected_count, f"Expected {expected_count} items, found {len(items)}"
+```
+
+**Update Work Item:**
+```python
+# Update work item state
+adapter.update_work_item(
+    work_item_id=1234,
     state="Done",
-    fields={"System.AssignedTo": "user@example.com"}
+    completed_work=8
 )
 
-# Query work items
-wiql = """
-    SELECT [System.Id], [System.Title], [System.State]
-    FROM WorkItems
-    WHERE [System.IterationPath] = 'MyProject\\\\Sprint 10'
-"""
-results = query_work_items(wiql)
+# Verify update
+work_item = adapter.get_work_item(1234)
+assert work_item.state == "Done", "State update failed"
 ```
 
 ### Sprint Operations
+
+**List Sprints:**
 ```python
-from adapters.azure_devops import create_sprint, create_sprint_work_items
+# Get all sprints
+sprints = adapter.list_iterations(team="Team Name")
 
-# Create sprint
-sprint = create_sprint(
-    sprint_name="Sprint 10",
-    start_date="2025-11-07",
-    finish_date="2025-11-20"
-)
-
-# Create multiple work items for sprint
-work_items = [
-    {
-        "type": "Task",
-        "title": "Task 1",
-        "description": "Details...",
-        "fields": {"Microsoft.VSTS.Scheduling.StoryPoints": 3}
-    },
-    {
-        "type": "Bug",
-        "title": "Fix bug",
-        "description": "Bug details...",
-        "fields": {"Microsoft.VSTS.Scheduling.StoryPoints": 2}
-    }
-]
-results = create_sprint_work_items("Sprint 10", work_items)
+# Verify sprint exists
+sprint_1 = next((s for s in sprints if s.name == "Sprint 1"), None)
+assert sprint_1 is not None, "Sprint 1 doesn't exist"
 ```
 
-### Verification
+**Assign to Sprint:**
 ```python
-from adapters.azure_devops.cli_wrapper import AzureCLI
-
-azure = AzureCLI()
-
-# Create with verification
-result = azure.create_work_item(
-    work_item_type="Task",
-    title="Feature X",
-    iteration="MyProject\\Sprint 10",
-    verify=True
+# Assign work item to sprint (use TEAM iteration path, not project iteration path)
+adapter.update_work_item(
+    work_item_id=1234,
+    iteration_path="Project\\Sprint 1"  # Team path, not "Project\\Iteration\\Sprint 1"
 )
 
-if result["success"]:
-    print(f"Verified: WI-{result['result']['id']}")
-    print(f"Iteration: {result['verification']['iteration_verified']}")
-else:
-    print(f"Verification failed: {result['verification']}")
-
-# Verify specific fields
-verification = azure.verify_work_item_updated(
-    work_item_id=123,
-    expected_fields={
-        "System.State": "Done",
-        "System.IterationPath": "MyProject\\Sprint 10"
-    }
-)
-
-if verification["success"]:
-    print("All fields match!")
-else:
-    for field, data in verification["verification"]["fields_verified"].items():
-        if not data["matches"]:
-            print(f"{field}: expected {data['expected']}, got {data['actual']}")
+# Verify assignment
+work_item = adapter.get_work_item(1234)
+assert "Sprint 1" in work_item.iteration_path, "Sprint assignment failed"
 ```
 
-### Idempotent Operations
-```python
-from adapters.azure_devops.cli_wrapper import AzureCLI
+## Field Mappings
 
-azure = AzureCLI()
+Azure DevOps uses platform-specific field names. This adapter maps generic fields to Azure DevOps fields:
 
-# Create only if doesn't exist
-result = azure.create_work_item_idempotent(
-    title="Feature X",
-    work_item_type="Task",
-    description="Details...",
-    sprint_name="Sprint 10"
-)
+| Framework Field | Azure DevOps Field | Description |
+|-----------------|-------------------|-------------|
+| `story_points` | `Microsoft.VSTS.Scheduling.StoryPoints` | Story point estimate |
+| `priority` | `Microsoft.VSTS.Common.Priority` | Priority (1-4) |
+| `business_value` | `Microsoft.VSTS.Common.BusinessValue` | Business value score |
+| `risk` | `Microsoft.VSTS.Common.Risk` | Risk level |
+| `description` | `System.Description` | Work item description |
+| `state` | `System.State` | Work item state |
 
-if result["created"]:
-    print(f"Created new work item: WI-{result['id']}")
-else:
-    print(f"Work item already exists: WI-{result['id']}")
-```
+**Custom Fields**: Configure custom field mappings in `.claude/config.yaml`:
 
-### File Attachments
-```python
-from pathlib import Path
-from adapters.azure_devops.cli_wrapper import AzureCLI
-
-azure = AzureCLI()
-
-# Attach file to work item
-result = azure.attach_file_to_work_item(
-    work_item_id=123,
-    file_path=Path("docs/spec.md"),
-    comment="Technical specification"
-)
-
-if result["success"]:
-    print(f"Attached {result['file_name']} to WI-{result['work_item_id']}")
-```
-
-## Field Mapping
-
-Generic field names map to Azure DevOps fields:
-- `title` → `System.Title`
-- `description` → `System.Description`
-- `state` → `System.State`
-- `assigned_to` → `System.AssignedTo`
-- `iteration_path` → `System.IterationPath`
-- `area_path` → `System.AreaPath`
-- `story_points` → `Microsoft.VSTS.Scheduling.StoryPoints`
-
-Custom fields defined in `.claude/config.yaml`:
 ```yaml
 work_tracking:
   custom_fields:
-    business_value: "Custom.BusinessValue"
-    technical_risk: "Custom.TechnicalRisk"
+    technical_risk: "Custom.TechnicalRiskScore"
+    roi_estimate: "Custom.ROI"
 ```
-
-## Type Mapping
-
-Generic work item types map to Azure DevOps types:
-- `epic` → `Epic`
-- `feature` → `Feature`
-- `story` → `User Story`
-- `task` → `Task`
-- `bug` → `Bug`
-
-## Conventions
-
-- **Iteration Paths**: Use simplified format in create/update (`ProjectName\\SprintName`)
-- **WIQL Queries**: Use double backslash for escaping (`ProjectName\\\\SprintName`)
-- **Field Names**: Always use exact case (`System.Title`, not `system.title`)
-- **Verification**: Use `verify=True` for critical operations
-- **Idempotency**: Use `create_work_item_idempotent()` to avoid duplicates
-- **Error Handling**: All methods raise exceptions with helpful error messages
 
 ## Authentication
 
-Uses Azure CLI credentials:
+This adapter uses Azure CLI authentication:
+
 ```bash
-# Login to Azure
+# Login to Azure DevOps
 az login
 
-# Configure Azure DevOps
-az devops configure --defaults organization=https://dev.azure.com/myorg project=MyProject
+# Set default organization (optional)
+az devops configure --defaults organization=https://dev.azure.com/myorg project="My Project"
 ```
 
-Or set environment variable:
-```bash
-export AZURE_DEVOPS_EXT_PAT=your_personal_access_token
+**Credential Source**: Configured in `.claude/config.yaml`:
+
+```yaml
+work_tracking:
+  credentials_source: "cli"  # Use Azure CLI credentials
 ```
 
-## Testing
+**Verification**: Adapter checks authentication before operations:
 
-```bash
-pytest tests/unit/test_mappers.py  # Test field/type mapping
-pytest tests/integration/  # Test Azure DevOps operations (requires credentials)
+```python
+# Check auth status
+if not adapter.is_authenticated():
+    raise AuthenticationError("Azure CLI not authenticated. Run 'az login'")
 ```
+
+## Important Notes
+
+- **This adapter is the source of truth**: Workflows query this adapter, not internal state, to verify claims
+- **Team iteration paths**: Work items must be assigned to team iteration paths (e.g., `Project\Sprint 1`), not project iteration paths (e.g., `Project\Iteration\Sprint 1`). See `skills/azure_devops/README.md` for details.
+- **Authentication required**: Azure CLI must be authenticated (`az login`) before workflows run
+- **Field mappings configurable**: Custom fields can be mapped in config.yaml
+- **Batch operations preferred**: Use bulk operations for creating/updating multiple items (faster, more reliable)
+- **Error handling**: Adapter returns structured errors, not cryptic Azure CLI messages
+
+## Real Failure Scenarios Prevented
+
+### Scenario 1: AI Claims Work Items Created, They Don't Exist
+**Without adapter**: Workflow says "✅ Created 10 work items". Sprint taskboard empty. Discover issue 3 days into sprint, scramble to create actual work items.
+
+**With adapter**: After each claimed creation, adapter queries Azure DevOps. If work item doesn't exist, workflow halts with error: "Claimed work item 1234 created but Azure DevOps query returned not found". Fix immediately.
+
+### Scenario 2: Wrong Iteration Path Format Breaks Taskboard
+**Without adapter**: Work items assigned to `Project\Iteration\Sprint 1` (project iteration path). Items don't appear in taskboard. Mystery debugging for hours.
+
+**With adapter**: Documentation clearly states team iteration path required. Adapter provides `list_iterations(team=...)` to get correct format. Work items show up in taskboard.
+
+### Scenario 3: Custom Field Mapping Missing
+**Without adapter**: Workflow sets `business_value: 85` on work item. Azure DevOps doesn't have `business_value` field, has `Custom.BusinessValueScore`. Field ignored, business value lost.
+
+**With adapter**: field_mapper.py configured with mapping `business_value` → `Custom.BusinessValueScore`. Adapter translates field name, value set correctly in Azure DevOps.
+
+## Related
+
+- **VISION.md**: Design Principle #2 (External Source of Truth), Pillar #2 (Verifiable Workflows)
+- **skills/azure_devops/README.md**: Platform-specific guidance (iteration paths, authentication)
+- **config/CLAUDE.md**: WorkTrackingConfig for Azure DevOps settings
+- **workflows/CLAUDE.md**: Workflows that use this adapter for verification
+- **adapters/**: Adapter interface and base classes (for adding Jira, GitHub adapters)

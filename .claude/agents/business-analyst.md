@@ -48,9 +48,10 @@ Use actual Unicode emojis in reports and tables, NOT GitHub-style shortcodes:
 
 ## Example Invocation
 ```
-Context: Q2 Planning - Feature prioritization for Trusted AI Development Workbench
+Context: Q2 Planning - Feature prioritization for trusted-ai-development-workbench
 
-Using Extended Thinking, analyze the proposed features for library:
+Using Extended Thinking, analyze the proposed features for cli-tool:
+Technology stack: pytest, pytest
 
 For each feature:
 - Market demand analysis

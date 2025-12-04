@@ -15,8 +15,9 @@ Use actual Unicode emojis in deployment reports, NOT GitHub-style shortcodes:
 - 🚀 Release | 🔄 Rollback | ⏸️ Paused
 
 ## Tech Stack Context
-**Project Type**: library
+**Project Type**: cli-tool
 **Languages**: Python
+**Frameworks**: pytest, pytest
 **Platforms**: Docker
 
 ## Responsibilities
