@@ -12,13 +12,6 @@ license = "MIT"
 authors = [
     {name = "Trustable AI Contributors"}
 ]
-
-[project.urls]
-Homepage = "https://github.com/keychain-io/trustable-ai"
-Documentation = "https://github.com/keychain-io/trustable-ai/blob/main/README.md"
-Repository = "https://github.com/keychain-io/trustable-ai"
-Issues = "https://github.com/keychain-io/trustable-ai/issues"
-
 keywords = [
     "ai",
     "development",
@@ -59,6 +52,12 @@ dev = [
 azure = [
     "azure-cli-core>=2.50.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/keychain-io/trustable-ai"
+Documentation = "https://github.com/keychain-io/trustable-ai/blob/main/README.md"
+Repository = "https://github.com/keychain-io/trustable-ai"
+Issues = "https://github.com/keychain-io/trustable-ai/issues"
 
 [project.scripts]
 trustable-ai = "cli.main:cli"
