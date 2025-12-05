@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trustable-ai"
-version = "1.2.0"
+version = "1.2.2"
 description = "AI-assisted software lifecycle tools with multi-agent orchestration, state management, and work tracking integration"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -12,6 +12,13 @@ license = "MIT"
 authors = [
     {name = "Trustable AI Contributors"}
 ]
+
+[project.urls]
+Homepage = "https://github.com/keychain-io/trustable-ai"
+Documentation = "https://github.com/keychain-io/trustable-ai/blob/main/README.md"
+Repository = "https://github.com/keychain-io/trustable-ai"
+Issues = "https://github.com/keychain-io/trustable-ai/issues"
+
 keywords = [
     "ai",
     "development",

@@ -381,5 +381,6 @@ MIT License - see LICENSE file for details.
 ## Links
 
 - GitHub: https://github.com/keychain-io/trustable-ai
+- Documentation: https://github.com/keychain-io/trustable-ai/blob/main/README.md
 - Issues: https://github.com/keychain-io/trustable-ai/issues
 - PyPI: https://pypi.org/project/trustable-ai/
