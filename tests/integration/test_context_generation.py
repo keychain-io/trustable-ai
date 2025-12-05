@@ -308,6 +308,7 @@ class TestHierarchicalContext:
 
             # Run init with all prompts answered
             result = runner.invoke(cli, ['init'], input='\n'.join([
+                'y',                      # Use detected settings as defaults
                 'Test Project',           # Project name
                 'api',                    # Project type
                 'Python',                 # Languages

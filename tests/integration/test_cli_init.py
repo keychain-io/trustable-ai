@@ -24,6 +24,7 @@ class TestInitCommand:
             Path("src/app.py").write_text("# App")
 
             result = runner.invoke(cli, ['init'], input='\n'.join([
+                'y',                       # Use detected settings as defaults
                 'Test Project',           # Project name
                 'web-application',        # Project type
                 'Python,TypeScript',       # Languages
@@ -147,6 +148,7 @@ class TestInitReentrancy:
         with runner.isolated_filesystem():
             # First init with interactive settings
             result1 = runner.invoke(cli, ['init'], input='\n'.join([
+                'y',                       # Use detected settings as defaults
                 'Original Project',       # Project name
                 'api',                    # Project type
                 'Python',                 # Languages
@@ -224,6 +226,7 @@ class TestInitReentrancy:
         with runner.isolated_filesystem():
             # First init with all agents enabled
             result1 = runner.invoke(cli, ['init'], input='\n'.join([
+                'y',                       # Use detected settings as defaults
                 'Test Project',           # Project name
                 'api',                    # Project type
                 'Python',                 # Languages

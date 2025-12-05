@@ -46,7 +46,10 @@
       "Bash(done)",
       "Bash(az boards query:*)",
       "Bash(az boards iteration team list:*)",
-      "Bash(PYTHONPATH=. python3:*)"
+      "Bash(PYTHONPATH=. python3:*)",
+      "Bash(PYTHONPATH=src python3:*)",
+      "Bash(curl:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
