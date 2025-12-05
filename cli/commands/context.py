@@ -112,7 +112,7 @@ def build_index(output: str, root: str):
 
     # Save index
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding='utf-8') as f:
         yaml.dump(index, f, default_flow_style=False)
 
     click.echo(f"\n✓ Context index saved to {output_path}")
@@ -294,7 +294,7 @@ def load_context(task_description: str, output: str):
     result = "\n".join(combined)
 
     if output:
-        with open(output, "w") as f:
+        with open(output, "w", encoding='utf-8') as f:
             f.write(result)
         click.echo(f"✓ Context saved to {output}")
     else:
@@ -566,7 +566,7 @@ def generate_context(root: str, dry_run: bool, force: bool, no_merge: bool, dept
         else:
             readme_content = _generate_readme_content(dir_info, analysis)
             if readme_content and readme_content.strip():
-                readme_path.write_text(readme_content)
+                readme_path.write_text(readme_content, encoding='utf-8')
                 click.echo(f"  ✓ {dir_info['relative_path']}/README.md")
                 created_readme += 1
             else:
@@ -582,7 +582,7 @@ def generate_context(root: str, dry_run: bool, force: bool, no_merge: bool, dept
                     merged_content = _merge_claude_md_content(existing_content, new_front_matter)
 
                     if merged_content and merged_content.strip():
-                        claude_path.write_text(merged_content)
+                        claude_path.write_text(merged_content, encoding='utf-8')
                         click.echo(f"  🔄 {dir_info['relative_path']}/CLAUDE.md (merged)")
                         merged_claude += 1
                     else:
@@ -607,7 +607,7 @@ def generate_context(root: str, dry_run: bool, force: bool, no_merge: bool, dept
             continue
 
         # Write file
-        claude_path.write_text(content)
+        claude_path.write_text(content, encoding='utf-8')
         click.echo(f"  ✓ {dir_info['relative_path']}/CLAUDE.md")
         created_claude += 1
 

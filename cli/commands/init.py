@@ -505,7 +505,7 @@ def init_command(
                     try:
                         readme_content = _generate_readme_content(dir_info, analysis)
                         if readme_content and readme_content.strip():
-                            readme_path.write_text(readme_content)
+                            readme_path.write_text(readme_content, encoding='utf-8')
                             click.echo(f"   ✓ {dir_info['relative_path']}/README.md")
                             created_readme += 1
                     except Exception as e:
@@ -521,7 +521,7 @@ def init_command(
                             merged_content = _merge_claude_md_content(existing_content, new_front_matter)
 
                             if merged_content and merged_content.strip():
-                                claude_path.write_text(merged_content)
+                                claude_path.write_text(merged_content, encoding='utf-8')
                                 click.echo(f"   🔄 {dir_info['relative_path']}/CLAUDE.md (merged)")
                                 merged_claude += 1
                             else:
@@ -544,7 +544,7 @@ def init_command(
                         skipped += 1
                         continue
 
-                    claude_path.write_text(content)
+                    claude_path.write_text(content, encoding='utf-8')
                     click.echo(f"   ✓ {dir_info['relative_path']}/CLAUDE.md")
                     created_claude += 1
                 except Exception as e:
@@ -591,7 +591,7 @@ def init_command(
                     pass
 
             index_path = claude_dir / "context-index.yaml"
-            with open(index_path, "w") as f:
+            with open(index_path, "w", encoding='utf-8') as f:
                 yaml_lib.dump(index, f, default_flow_style=False)
 
             click.echo(f"   ✓ Indexed {len(index['context_files'])} context files")
@@ -626,7 +626,7 @@ profiling/*.json
 # Session logs
 *.log
 """
-        gitignore_file.write_text(content)
+        gitignore_file.write_text(content, encoding='utf-8')
 
 
 def _create_readme(claude_dir: Path, project_name: str) -> None:
@@ -665,4 +665,4 @@ Edit `config.yaml` to customize:
 - Quality standards
 - Agent models and settings
 """
-        readme_file.write_text(content)
+        readme_file.write_text(content, encoding='utf-8')
