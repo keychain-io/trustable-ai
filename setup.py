@@ -10,12 +10,12 @@ long_description = readme_path.read_text() if readme_path.exists() else ""
 
 setup(
     name="trustable-ai",
-    version="1.2.0",
+    version="1.2.1",
     author="Trustable AI Contributors",
     description="AI-assisted software lifecycle tools with multi-agent orchestration, state management, and work tracking integration",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/trustable-ai/trustable-ai",
+    url="https://github.com/keychain-io/trustable-ai",
     packages=find_packages(),
     package_data={
         "": ["*.j2", "*.yaml", "*.yml", "*.md"],

@@ -1,6 +1,6 @@
 # Trustable AI
 
-An AI-assisted software lifecycle framework featuring multi-agent orchestration, state management, and work tracking integration. Build real software projects reliably with Claude Code.
+An AI-assisted software lifecycle framework featuring multi-agent orchestration, state management, work tracking integration, and zero-trust tool integration. Build real software projects reliably with Claude Code.
 
 ## Overview
 
@@ -351,7 +351,7 @@ Trustable AI uses hierarchical CLAUDE.md files to provide maximal context with m
 
 ```bash
 # Clone repository
-git clone https://github.com/trustable-ai/trustable-ai
+git clone https://github.com/keychain-io/trustable-ai
 cd trustable-ai
 
 # Install for development
@@ -380,6 +380,6 @@ MIT License - see LICENSE file for details.
 
 ## Links
 
-- Documentation: https://trustable-ai.github.io
-- Issues: https://github.com/trustable-ai/trustable-ai/issues
+- GitHub: https://github.com/keychain-io/trustable-ai
+- Issues: https://github.com/keychain-io/trustable-ai/issues
 - PyPI: https://pypi.org/project/trustable-ai/
