@@ -343,14 +343,12 @@ def init_command(
     if existing_config:
         config.agent_config.enabled_agents = existing_config.agent_config.enabled_agents
 
-    # Create directory structure
+    # Create directory structure (runtime directories only)
     click.echo("\n📁 Creating directory structure...")
 
     claude_dir = config_file.parent
     directories = [
         claude_dir,
-        claude_dir / "agents",
-        claude_dir / "commands",
         claude_dir / "workflow-state",
         claude_dir / "profiling",
         claude_dir / "learnings",
@@ -435,35 +433,7 @@ def init_command(
         # Save updated config with selected agents
         save_config(config, config_file)
 
-        # Ask about rendering
-        if click.confirm("\nRender agents and workflows now?", default=True):
-            click.echo("\n📝 Rendering agent definitions...")
-            agents_dir = claude_dir / "agents"
-            for agent_name in config.agent_config.enabled_agents:
-                try:
-                    output_file = registry.save_rendered_agent(agent_name, agents_dir)
-                    click.echo(f"   ✓ {agent_name}")
-                except Exception as e:
-                    click.echo(f"   ✗ {agent_name}: {e}")
-
-            click.echo("\n📝 Rendering agent slash commands...")
-            commands_dir = claude_dir / "commands"
-            for agent_name in config.agent_config.enabled_agents:
-                try:
-                    output_file = registry.save_agent_slash_command(agent_name, commands_dir)
-                    click.echo(f"   ✓ /{agent_name}")
-                except Exception as e:
-                    click.echo(f"   ✗ /{agent_name}: {e}")
-
-            click.echo("\n📝 Rendering workflow slash commands...")
-            workflow_registry = WorkflowRegistry(config)
-            for workflow_name in workflow_registry.list_workflows():
-                try:
-                    output_file = workflow_registry.save_rendered_workflow(workflow_name, commands_dir)
-                    click.echo(f"   ✓ /{workflow_name}")
-                except Exception as e:
-                    click.echo(f"   ✗ /{workflow_name}: {e}")
-
+        # Skip agent/workflow rendering - users will run /context-generation in Claude Code instead
         # Ask about context generation
         if click.confirm("\nGenerate hierarchical context files (README.md + CLAUDE.md)?", default=not existing_config):
             from cli.commands.context import (
@@ -615,12 +585,28 @@ def init_command(
     click.echo(f"\n✅ Initialization {action}!\n")
 
     if not existing_config:
-        click.echo("Next steps:")
-        click.echo(f"  1. Review configuration: {config_file}")
-        click.echo(f"  2. Review and enhance CLAUDE.md files with project-specific details")
-        click.echo(f"  3. Configure work tracking: trustable-ai configure {platform}")
-        click.echo("  4. Validate setup: trustable-ai validate")
-        click.echo("  5. Start using workflows in Claude Code (e.g., /sprint-planning)\n")
+        click.echo("📋 Next steps:")
+        click.echo(f"")
+        click.echo(f"  1. Review and customize .claude/config.yaml for your project")
+        click.echo(f"")
+        click.echo(f"  2. Start Claude Code in this directory:")
+        click.echo(f"     $ claude-code")
+        click.echo(f"")
+        click.echo(f"  3. Run the context generation workflow:")
+        click.echo(f"     /context-generation")
+        click.echo(f"")
+        click.echo(f"     This will:")
+        click.echo(f"     - Analyze your project structure")
+        click.echo(f"     - Generate CLAUDE.md files tailored to your codebase")
+        click.echo(f"     - Create agent definitions in .claude/agents/")
+        click.echo(f"     - Create workflow commands in .claude/commands/")
+        click.echo(f"     - Merge with any existing CLAUDE.md files intelligently")
+        click.echo(f"")
+        click.echo(f"  4. Commit the generated files to git:")
+        click.echo(f"     $ git add .claude/")
+        click.echo(f"     $ git commit -m \"Add Trustable AI configuration and context\"")
+        click.echo(f"")
+        click.echo(f"For more information: https://docs.trustable.ai/getting-started\n")
     else:
         click.echo("Configuration updated. Run 'trustable-ai validate' to verify settings.\n")
 
