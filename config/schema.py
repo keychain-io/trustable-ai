@@ -183,14 +183,16 @@ class AgentConfig(BaseModel):
         description="Claude model selection for each agent type"
     )
 
-    # Enabled agents (default core team)
+    # Enabled agents (default core team - 7 consolidated agents)
     enabled_agents: List[str] = Field(
         default_factory=lambda: [
             "business-analyst",
-            "project-architect",
+            "architect",
             "senior-engineer",
-            "scrum-master",
+            "engineer",
+            "tester",
             "security-specialist",
+            "scrum-master",
         ],
         description="List of enabled agents"
     )
@@ -198,18 +200,20 @@ class AgentConfig(BaseModel):
     # All available agents for reference
     available_agents: List[str] = Field(
         default_factory=lambda: [
+            # Core agents (7)
             "business-analyst",
-            "project-architect",
+            "architect",
             "senior-engineer",
-            "scrum-master",
+            "engineer",
+            "tester",
             "security-specialist",
-            "qa-engineer",
-            "devops-engineer",
-            "ux-designer",
-            "technical-writer",
-            "code-reviewer",
+            "scrum-master",
+            # Specialist agents
             "release-manager",
-            "performance-engineer",
+            "code-reviewer",
+            "documentation-specialist",
+            "technical-writer",
+            "ux-designer",
         ],
         description="All available agent templates"
     )

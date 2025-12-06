@@ -227,25 +227,32 @@ class AgentRegistry:
         """
         # Map agent names to model categories
         agent_model_map = {
-            "project-architect": "architect",
-            "security-specialist": "security",
-            "senior-engineer": "engineer",
-            "software-developer": "engineer",
-            "devops-engineer": "devops",
-            "qa-engineer": "qa",
-            "qa-tester": "qa",
-            "scrum-master": "scrum-master",
+            # Core agents (7)
             "business-analyst": "analyst",
-            "technical-writer": "writer",
-            "code-reviewer": "reviewer",
+            "architect": "architect",
+            "senior-engineer": "engineer",
+            "engineer": "engineer",
+            "tester": "qa",
+            "security-specialist": "security",
+            "scrum-master": "scrum-master",
+
+            # Specialist agents (available but not in core)
             "release-manager": "release",
-            "performance-engineer": "performance",
+            "code-reviewer": "reviewer",
+            "documentation-specialist": "writer",
+            "technical-writer": "writer",
             "ux-designer": "ux",
-            # Adversarial verification agents
-            "adversarial-tester": "security",  # Thorough, needs to find bugs
-            "falsifiability-prover": "qa",     # Verification focused
-            "spec-driven-tester": "qa",        # Test generation from spec
-            "test-arbitrator": "architect",    # Resolves code/test/spec conflicts
+
+            # Deprecated agent names (for backward compatibility)
+            "project-architect": "architect",  # Deprecated: use "architect"
+            "software-developer": "engineer",  # Deprecated: use "engineer"
+            "devops-engineer": "engineer",     # Deprecated: use "engineer"
+            "performance-engineer": "engineer",  # Deprecated: use "engineer"
+            "qa-engineer": "qa",  # Deprecated: use "tester"
+            "adversarial-tester": "qa",  # Deprecated: use "tester"
+            "falsifiability-prover": "qa",  # Deprecated: use "tester"
+            "spec-driven-tester": "qa",  # Deprecated: use "tester"
+            "test-arbitrator": "qa",  # Deprecated: use "tester"
         }
 
         # Get model category for this agent
