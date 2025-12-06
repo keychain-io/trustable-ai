@@ -123,7 +123,62 @@ For each CLAUDE.md, ensure it contains:
 - Public interfaces and APIs
 - Test files for usage examples
 
-### Step 6: Test Directed Context Loading
+### Step 6: Verify Generated Context
+
+Verify that generated CLAUDE.md files are accurate and non-stale:
+
+**Automated Verification:**
+
+```bash
+# Verify all generated CLAUDE.md files
+trustable-ai context verify
+
+# Or verify specific directory
+trustable-ai context verify src/
+```
+
+**Manual Verification Checklist:**
+
+For each generated CLAUDE.md file, check:
+
+1. **Front Matter Accuracy**:
+   - Keywords match directory purpose (e.g., `src/` has `[source, code, implementation]`)
+   - Task types are appropriate (e.g., `tests/` has `[testing, quality-assurance]`)
+   - Priority is reasonable (high for src/core/, medium for utils/)
+   - Max tokens fit content size
+
+2. **Children Directives**:
+   - All subdirectories with CLAUDE.md are listed as children
+   - `when` keywords accurately trigger child loading
+   - No circular dependencies (A loads B, B loads A)
+
+3. **Content Quality**:
+   - Purpose section explains what problem the module solves (not just what it does)
+   - Key components list is accurate (no stale file references)
+   - Usage examples are up-to-date with current code
+   - Architecture description matches actual implementation
+
+4. **Staleness Check**:
+   ```bash
+   # Find CLAUDE.md files older than source code
+   find . -name "CLAUDE.md" -type f | while read f; do
+     dir=$(dirname "$f")
+     newest_source=$(find "$dir" -maxdepth 1 -name "*.py" -o -name "*.ts" -o -name "*.js" | xargs ls -t 2>/dev/null | head -1)
+     if [ -n "$newest_source" ] && [ "$newest_source" -nt "$f" ]; then
+       echo "⚠️  Stale: $f (older than $newest_source)"
+     fi
+   done
+   ```
+
+**Common Issues to Fix:**
+
+- **Empty CLAUDE.md files**: Remove or regenerate with proper content
+- **TODO placeholders**: Replace with actual analysis
+- **Copy-paste errors**: Keywords don't match directory (e.g., tests/ has `[api, endpoint]`)
+- **Missing children**: Subdirectories exist but not listed in parent's `children`
+- **Incorrect dependencies**: Dependency doesn't exist or creates circular reference
+
+### Step 7: Test Directed Context Loading
 
 Test the directed loader to verify context is loaded correctly:
 
@@ -146,7 +201,15 @@ trustable-ai context lookup "write unit tests for payment service"
 trustable-ai context lookup "plan sprint 10 work items"
 ```
 
-### Step 7: Build Context Index
+**Verification Output:**
+
+For each test, verify:
+- Files loaded match expected directories (e.g., "implement API" loads src/api/CLAUDE.md)
+- Token usage is within budget
+- No missing or broken children references
+- Priority ordering is correct (high priority loaded first)
+
+### Step 8: Build Context Index
 
 ```bash
 # Build the context index

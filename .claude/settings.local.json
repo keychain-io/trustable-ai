@@ -49,7 +49,11 @@
       "Bash(PYTHONPATH=. python3:*)",
       "Bash(PYTHONPATH=src python3:*)",
       "Bash(curl:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(for feature_id in 1032 1033 1034 1035 1036 1037 1038 1039 1040)",
+      "Bash(for id in 1033 1034 1036 1037 1039 1040)",
+      "Bash(do echo \"=== WI-$id ===\")"
     ],
     "deny": [],
     "ask": []

@@ -493,6 +493,144 @@ def _merge_claude_md_content(existing_content: str, new_front_matter: str) -> st
     return new_front_matter + existing_body
 
 
+@context.command("verify")
+@click.option("--root", "-r", type=click.Path(exists=True), default=".", help="Root directory to verify")
+@click.option("--fix", "-f", is_flag=True, help="Automatically fix common issues")
+def verify_context(root: str, fix: bool):
+    """
+    Verify generated CLAUDE.md files are accurate and non-stale.
+
+    Checks front matter syntax, validates children references, detects stale
+    content, and identifies common issues.
+
+    Examples:
+        trustable-ai context verify           # Verify all CLAUDE.md files
+        trustable-ai context verify -r src/   # Verify specific directory
+        trustable-ai context verify --fix     # Auto-fix common issues
+    """
+    root_path = Path(root).resolve()
+
+    click.echo(f"\n🔍 Verifying CLAUDE.md files in: {root_path}\n")
+
+    # Find all CLAUDE.md files
+    claude_files = list(root_path.rglob("CLAUDE.md"))
+
+    if not claude_files:
+        click.echo("❌ No CLAUDE.md files found.")
+        click.echo("Run 'trustable-ai context generate' first.")
+        return
+
+    click.echo(f"📋 Found {len(claude_files)} CLAUDE.md files to verify\n")
+
+    issues = []
+    warnings = []
+    passed = 0
+
+    for claude_file in claude_files:
+        relative = claude_file.relative_to(root_path)
+
+        try:
+            content = claude_file.read_text(encoding="utf-8")
+
+            # Check 1: Empty file
+            if not content or not content.strip():
+                issues.append(f"❌ {relative}: Empty file")
+                continue
+
+            # Check 2: Has front matter
+            if not content.startswith("---"):
+                warnings.append(f"⚠️  {relative}: Missing YAML front matter")
+                continue
+
+            # Check 3: Parse front matter
+            import re
+            match = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
+            if not match:
+                issues.append(f"❌ {relative}: Malformed front matter")
+                continue
+
+            front_matter_text = match.group(1)
+            try:
+                front_matter = yaml.safe_load(front_matter_text)
+            except yaml.YAMLError as e:
+                issues.append(f"❌ {relative}: Invalid YAML - {e}")
+                continue
+
+            # Check 4: Has context section
+            if "context" not in front_matter:
+                warnings.append(f"⚠️  {relative}: Missing 'context' section in front matter")
+                continue
+
+            ctx = front_matter["context"]
+
+            # Check 5: Has required fields
+            required = ["keywords", "task_types", "priority", "max_tokens"]
+            missing = [f for f in required if f not in ctx]
+            if missing:
+                issues.append(f"❌ {relative}: Missing required fields: {', '.join(missing)}")
+                continue
+
+            # Check 6: Validate children paths exist
+            children = ctx.get("children", [])
+            if children:
+                for child in children:
+                    # Handle both dict format (with 'path' and 'when') and string format
+                    if isinstance(child, dict):
+                        child_path_str = child.get("path", "")
+                    elif isinstance(child, str):
+                        child_path_str = child
+                    else:
+                        continue
+
+                    if child_path_str:
+                        child_path = root_path / child_path_str
+                        if not child_path.exists():
+                            warnings.append(f"⚠️  {relative}: Child not found: {child_path_str}")
+
+            # Check 7: Staleness (compare to source files)
+            dir_path = claude_file.parent
+            source_files = []
+            for ext in ["*.py", "*.js", "*.ts", "*.tsx", "*.go", "*.rs"]:
+                source_files.extend(dir_path.glob(ext))
+
+            if source_files:
+                newest_source = max(source_files, key=lambda p: p.stat().st_mtime)
+                if newest_source.stat().st_mtime > claude_file.stat().st_mtime:
+                    warnings.append(f"⚠️  {relative}: Stale (older than {newest_source.name})")
+
+            # All checks passed
+            passed += 1
+            click.echo(f"  ✓ {relative}")
+
+        except Exception as e:
+            issues.append(f"❌ {relative}: Verification error - {e}")
+
+    # Summary
+    click.echo(f"\n{'='*60}")
+    click.echo(f"Verification Summary")
+    click.echo(f"{'='*60}")
+    click.echo(f"  ✅ Passed: {passed}/{len(claude_files)}")
+    click.echo(f"  ⚠️  Warnings: {len(warnings)}")
+    click.echo(f"  ❌ Errors: {len(issues)}")
+
+    if warnings:
+        click.echo(f"\n⚠️  Warnings:\n")
+        for warning in warnings:
+            click.echo(f"  {warning}")
+
+    if issues:
+        click.echo(f"\n❌ Errors:\n")
+        for issue in issues:
+            click.echo(f"  {issue}")
+
+        if fix:
+            click.echo(f"\n🔧 Auto-fix is not yet implemented.")
+            click.echo("  Manually regenerate files with: trustable-ai context generate")
+
+    if not issues and not warnings:
+        click.echo(f"\n🎉 All CLAUDE.md files are valid!")
+
+
 @context.command("generate")
 @click.option("--root", "-r", type=click.Path(exists=True), default=".", help="Root directory to analyze")
 @click.option("--dry-run", is_flag=True, help="Show plan without creating files")
