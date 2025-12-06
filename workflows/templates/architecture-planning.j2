@@ -1,0 +1,491 @@
+# Architecture Planning Workflow
+
+**Project**: {{ project.name }}
+**Workflow**: Architecture Planning
+**Purpose**: Design technical architecture, validate technology choices, and document system design
+
+## Output Formatting Requirements
+
+**IMPORTANT**: Use actual Unicode emojis in reports, NOT GitHub-style shortcodes.
+
+---
+
+## Where This Fits
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SOFTWARE LIFECYCLE - ARCHITECTURE PHASE                                    │
+│                                                                             │
+│  /product-intake                                                            │
+│      │  Creates Epics and Features from requirements                       │
+│      ▼                                                                      │
+│  ══════════════════                                                         │
+│  YOU ARE HERE: /architecture-planning                                       │
+│  ══════════════════                                                         │
+│      │  Input: Feature requirements, tech constraints                      │
+│      │  Output: Architecture docs in docs/architecture/                    │
+│      ▼                                                                      │
+│  /backlog-grooming                                                          │
+│      │  Breaks Features into Tasks with architecture context               │
+│      ▼                                                                      │
+│  /sprint-planning                                                           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Prerequisites
+
+Before running this workflow, you need:
+
+1. **Feature Requirements**:
+   - Features from /product-intake or existing backlog
+   - Acceptance criteria defined
+   - Business context understood
+
+2. **Technical Context**:
+   - Current tech stack documented in .claude/config.yaml
+   - Existing architecture docs (if any) in docs/architecture/
+   - System constraints (performance, security, scalability)
+
+3. **Work Tracking Configured**:
+   ```python
+   import sys
+   sys.path.insert(0, ".claude/skills")
+   from work_tracking import get_adapter
+
+   adapter = get_adapter()
+   print(f"📋 Work Tracking: {adapter.platform}")
+   ```
+
+---
+
+## Workflow Initialization
+
+```python
+from pathlib import Path
+from datetime import datetime
+
+# Initialize
+initiative_name = input("Initiative name (e.g., 'user-authentication', 'api-v2'): ")
+workflow_id = f"arch-{initiative_name}"
+
+# Create architecture directory if it doesn't exist
+arch_dir = Path("docs/architecture")
+arch_dir.mkdir(parents=True, exist_ok=True)
+
+print(f"\n📁 Architecture documents will be saved to: {arch_dir}/")
+```
+
+---
+
+## Phase 1: Architecture Context Analysis
+
+### Step 1.1: Load Feature Requirements
+
+```python
+# Load features that need architecture design
+feature_ids = input("Feature IDs (comma-separated, e.g., '1001,1002,1003'): ")
+feature_list = [int(x.strip()) for x in feature_ids.split(',') if x.strip()]
+
+features = []
+for fid in feature_list:
+    try:
+        feature = adapter.get_work_item(fid)
+        features.append(feature)
+        print(f"  ✓ #{fid}: {feature.get('title', 'Untitled')}")
+    except Exception as e:
+        print(f"  ✗ #{fid}: {e}")
+
+if not features:
+    print("❌ No features loaded. Exiting.")
+    exit()
+
+print(f"\n📋 Loaded {len(features)} feature(s) for architecture planning")
+```
+
+### Step 1.2: Analyze Current Architecture
+
+```python
+# Scan existing architecture docs
+existing_docs = list(arch_dir.glob("*.md"))
+print(f"\n📚 Existing architecture documents: {len(existing_docs)}")
+for doc in existing_docs:
+    print(f"  - {doc.name}")
+
+# Load current tech stack from config
+print(f"\n🔧 Current tech stack:")
+print(f"  Languages: {{ project.tech_stack.languages | join(', ') }}")
+print(f"  Frameworks: {{ project.tech_stack.frameworks | default([]) | join(', ') }}")
+print(f"  Platforms: {{ project.tech_stack.platforms | default([]) | join(', ') }}")
+print(f"  Databases: {{ project.tech_stack.databases | default([]) | join(', ') }}")
+```
+
+---
+
+## Phase 2: Architecture Design
+
+### Step 2.1: Call Architect Agent
+
+**Call `/architect` with the following task:**
+
+```
+## YOUR TASK: Design Technical Architecture
+
+Design the technical architecture for the following features.
+
+### Features Requiring Architecture
+{for each feature:
+  - ID: {feature['id']}
+  - Title: {feature['title']}
+  - Description: {feature['description']}
+  - Acceptance Criteria: {feature['acceptance_criteria']}
+}
+
+### Current Tech Stack
+- Languages: {{ project.tech_stack.languages | join(', ') }}
+- Frameworks: {{ project.tech_stack.frameworks | default([]) | join(', ') }}
+- Platforms: {{ project.tech_stack.platforms | default([]) | join(', ') }}
+- Databases: {{ project.tech_stack.databases | default([]) | join(', ') }}
+
+### Existing Architecture
+{List existing architecture documents and their focus areas}
+
+### Architecture Deliverables Required
+
+1. **System Design Document** (save to docs/architecture/{initiative_name}-design.md)
+   - Component architecture diagram (mermaid format)
+   - Data models and schemas
+   - API contracts and interfaces
+   - Integration points with existing systems
+   - Component responsibilities and boundaries
+
+2. **Technology Decision Records** (save to docs/architecture/decisions/)
+   - For each significant technology choice:
+     * ADR-XXX: [Decision title]
+     * Context: Why this decision is needed
+     * Options considered
+     * Decision made and rationale
+     * Consequences (benefits and tradeoffs)
+
+3. **Technical Risk Assessment** (include in design doc)
+   - Identified technical risks (severity: Critical/High/Medium/Low)
+   - Risk mitigation strategies
+   - Dependencies on external systems
+   - Performance/scalability concerns
+   - Security considerations
+
+4. **Implementation Constraints** (include in design doc)
+   - Non-functional requirements (performance, availability, security)
+   - Compliance requirements
+   - Budget/cost constraints
+   - Timeline constraints
+
+### Quality Standards
+{% if quality_standards %}
+- Code Complexity: Maximum {{ quality_standards.code_complexity_max }}
+- Critical Vulnerabilities: {{ quality_standards.critical_vulnerabilities_max }} allowed
+- High Vulnerabilities: {{ quality_standards.high_vulnerabilities_max }} allowed
+{% endif %}
+
+### Output Format
+
+Return structured architecture design with:
+- System design document (markdown)
+- ADRs for major decisions (markdown)
+- Component diagram (mermaid)
+- Risk assessment summary
+- Recommended implementation sequence
+```
+
+**After the agent completes:**
+- Review architecture documents
+- Save to docs/architecture/ directory
+- Note key decisions and risks
+
+---
+
+## Phase 3: Technology Validation
+
+### Step 3.1: Validate Technology Choices
+
+For each technology choice in the architecture:
+
+**Validation Dimensions:**
+1. **Compatibility**: Works with existing tech stack?
+2. **Support Lifecycle**: Supported for 5+ years?
+3. **Team Expertise**: Team has or can acquire skills?
+4. **Performance**: Meets non-functional requirements?
+5. **Cost**: Within budget constraints?
+6. **Security**: Meets security standards?
+7. **Compliance**: Meets regulatory requirements?
+
+**For each technology, verify:**
+```bash
+# Example: Python package validation
+pip show <package-name>  # Check if installed
+pip index versions <package-name>  # Check available versions
+
+# Example: npm package validation
+npm info <package-name>  # Check package details
+npm outdated  # Check for outdated dependencies
+```
+
+**Document results:**
+- ✅ Validated: Technology meets all criteria
+- ⚠️  Concerns: Technology has minor issues (document mitigations)
+- ❌ Rejected: Technology fails critical criteria (choose alternative)
+
+---
+
+## Phase 4: Security Review
+
+### Step 4.1: Call Security Specialist
+
+**Call `/security-specialist` with the following task:**
+
+```
+## YOUR TASK: Architecture Security Review
+
+Review the proposed architecture for security vulnerabilities and compliance issues.
+
+### Architecture Documents
+{Include architecture design doc and ADRs}
+
+### Features Being Architected
+{List features with security-sensitive aspects highlighted}
+
+### Security Analysis Required
+
+1. **Threat Modeling**
+   - Identify attack surfaces in proposed architecture
+   - Data flow security (authentication, authorization, encryption)
+   - External integration security (API keys, OAuth, etc.)
+   - OWASP Top 10 vulnerability assessment
+
+2. **Data Protection**
+   - Sensitive data identification
+   - Data encryption (in transit and at rest)
+   - Data retention and disposal policies
+   - Privacy compliance (GDPR, CCPA, etc.)
+
+3. **Authentication & Authorization**
+   - Authentication mechanism security
+   - Authorization model (RBAC, ABAC, etc.)
+   - Session management
+   - Multi-factor authentication requirements
+
+4. **Infrastructure Security**
+   - Network security (firewalls, VPNs, etc.)
+   - Container/deployment security
+   - Secrets management
+   - Dependency vulnerability scanning
+
+### Quality Standards
+- Critical Vulnerabilities: Maximum {{ quality_standards.critical_vulnerabilities_max }}
+- High Vulnerabilities: Maximum {{ quality_standards.high_vulnerabilities_max }}
+
+### Output Format
+
+Return security review report with:
+- Threat model summary
+- Identified vulnerabilities (categorized by severity)
+- Security requirements for implementation
+- Recommended security controls
+- Compliance checklist
+```
+
+**After security review:**
+- Address critical/high security findings
+- Update architecture docs with security controls
+- Document security requirements for implementation
+
+---
+
+## Phase 5: Architecture Decision Records (ADRs)
+
+### Step 5.1: Create ADR Documents
+
+For each significant architectural decision, create an ADR in `docs/architecture/decisions/`:
+
+**ADR Template:**
+```markdown
+# ADR-XXX: [Decision Title]
+
+**Date**: {current_date}
+**Status**: Proposed | Accepted | Deprecated | Superseded
+**Deciders**: [Names/Roles]
+
+## Context
+[What is the issue motivating this decision?]
+
+## Decision
+[What is the change we're proposing/making?]
+
+## Consequences
+### Positive
+- [Benefit 1]
+- [Benefit 2]
+
+### Negative
+- [Drawback 1]
+- [Drawback 2]
+
+### Risks
+- [Risk 1]: [Mitigation]
+- [Risk 2]: [Mitigation]
+
+## Alternatives Considered
+### Alternative 1: [Name]
+- **Pros**: [...]
+- **Cons**: [...]
+- **Why not chosen**: [...]
+
+## Implementation Notes
+[Technical details, migration strategy, etc.]
+```
+
+**Required ADRs (minimum):**
+- Technology stack changes (new languages, frameworks, databases)
+- Architecture pattern choices (microservices vs monolith, event-driven vs request-response, etc.)
+- Data storage decisions (SQL vs NoSQL, schema design, etc.)
+- External service integrations (third-party APIs, SaaS platforms, etc.)
+- Security architecture (auth mechanism, encryption approach, etc.)
+
+---
+
+## Phase 6: Human Approval Gate
+
+### Step 6.1: Review Architecture
+
+**Present to stakeholders:**
+1. System design document
+2. Component diagram
+3. ADRs for major decisions
+4. Risk assessment
+5. Security review findings
+6. Implementation constraints
+
+**Review criteria:**
+- Does architecture support all feature requirements?
+- Are technology choices validated and approved?
+- Are security concerns addressed?
+- Are risks identified and mitigated?
+- Is implementation feasible within constraints?
+
+**Approval options:**
+- ✅ **Approved**: Proceed to implementation planning
+- ⚠️  **Approved with conditions**: Address specific concerns, then proceed
+- ❌ **Rejected**: Revise architecture and re-submit
+
+---
+
+## Phase 7: Finalize Architecture
+
+### Step 7.1: Update Work Items with Architecture Guidance
+
+```python
+# Add architecture references to features
+for feature in features:
+    try:
+        adapter.update_work_item(
+            work_item_id=feature['id'],
+            fields={
+                'System.Description': feature.get('description', '') + f"""
+
+## Architecture Reference
+- Design Doc: docs/architecture/{initiative_name}-design.md
+- Key ADRs: [List ADR numbers]
+- Security Requirements: [List critical security controls]
+- Technical Constraints: [List constraints from architecture]
+""",
+                'System.Tags': feature.get('tags', '') + ';architecture-reviewed'
+            }
+        )
+        print(f"  ✓ Updated #{feature['id']} with architecture references")
+    except Exception as e:
+        print(f"  ✗ Failed to update #{feature['id']}: {e}")
+```
+
+### Step 7.2: Generate Architecture Summary
+
+Save comprehensive summary to `.claude/reports/architecture/`:
+
+```markdown
+# Architecture Planning Summary - {initiative_name}
+
+**Date**: {current_date}
+**Features**: {feature_count}
+**Architect**: {architect_agent}
+
+## Architecture Artifacts Created
+- System Design: docs/architecture/{initiative_name}-design.md
+- ADRs: {adr_count} decisions documented in docs/architecture/decisions/
+- Security Review: docs/architecture/{initiative_name}-security.md
+
+## Key Architectural Decisions
+{List major ADRs with brief summary}
+
+## Technical Risks Identified
+{List risks with severity and mitigation}
+
+## Security Requirements
+{List critical security controls required}
+
+## Technology Stack Changes
+{List any additions/changes to tech stack}
+
+## Implementation Readiness
+- ✅ Architecture approved
+- ✅ Security reviewed
+- ✅ Risks mitigated
+- ✅ Work items updated
+
+## Next Steps
+1. Run /backlog-grooming to create implementation tasks with architecture context
+2. Assign features to sprints based on implementation sequence
+3. Review architecture docs before implementation begins
+```
+
+---
+
+## Agent Commands Used
+
+| Step | Agent Command | Purpose |
+|------|---------------|---------|
+| 2.1 | `/architect` | Design system architecture, create ADRs, assess risks |
+| 4.1 | `/security-specialist` | Security review of proposed architecture |
+
+**Key**: Each agent command spawns a **fresh context window** via the Task tool.
+
+---
+
+## Configuration
+
+**Work Tracking Platform:** {{ work_tracking.platform }}
+
+**Quality Standards:**
+{% if quality_standards %}
+- Code Complexity: <= {{ quality_standards.code_complexity_max }}
+- Critical Vulnerabilities: <= {{ quality_standards.critical_vulnerabilities_max }}
+- High Vulnerabilities: <= {{ quality_standards.high_vulnerabilities_max }}
+{% endif %}
+
+---
+
+## Success Criteria
+
+- [ ] System design document created in docs/architecture/
+- [ ] Component architecture diagram (mermaid) included
+- [ ] ADRs created for all major technology decisions
+- [ ] Security review completed with no unaddressed critical/high findings
+- [ ] Technical risks identified and mitigation strategies documented
+- [ ] Human stakeholder approval obtained
+- [ ] Features updated with architecture references and tags
+- [ ] Architecture summary saved to .claude/reports/architecture/
+
+---
+
+*Generated by Trustable AI Workbench for {{ project.name }}*
+*Renamed from /roadmap-planning (v1.x) to focus on technical architecture instead of business roadmap*
