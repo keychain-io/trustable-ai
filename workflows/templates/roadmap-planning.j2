@@ -238,11 +238,11 @@ else:
 
 ### Step 2.2: Project Architect - Technical Feasibility
 
-{% if 'project-architect' in agent_config.enabled_agents %}
+{% if 'architect' in agent_config.enabled_agents %}
 **Agent**: Project Architect
 **Model**: {{ agent_config.models.architect | default('claude-opus-4') }}
 
-1. **Read agent definition:** `.claude/agents/project-architect.md`
+1. **Read agent definition:** `.claude/agents/architect.md`
 
 2. **Task:** "Review the proposed Epics for technical feasibility:
 
@@ -294,7 +294,7 @@ else:
 
 4. **Checkpoint:** Save technical assessment to state
 {% else %}
-**NOTE**: Project Architect agent is disabled. Enable with: `trustable-ai agent enable project-architect`
+**NOTE**: Project Architect agent is disabled. Enable with: `trustable-ai agent enable architect`
 {% endif %}
 
 ---
@@ -555,7 +555,7 @@ print("\n:arrow_right: Next: Run /epic-breakdown for each Epic to create Feature
 
 **Agents Used:**
 {% if 'business-analyst' in agent_config.enabled_agents %}- Business Analyst (strategic decomposition){% endif %}
-{% if 'project-architect' in agent_config.enabled_agents %}- Project Architect (technical feasibility){% endif %}
+{% if 'architect' in agent_config.enabled_agents %}- Project Architect (technical feasibility){% endif %}
 
 **Work Item Types:**
 - Epic: {{ work_tracking.work_item_types.epic }}

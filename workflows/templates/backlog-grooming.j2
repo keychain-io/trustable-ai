@@ -78,10 +78,10 @@ print(f"📋 Work Tracking: {adapter.platform}")
    - Gaps and missing information
 
 {% endif %}
-{% if config.is_agent_enabled('project-architect') %}
+{% if config.is_agent_enabled('architect') %}
 ### Step 2: Project Architect - Technical Feasibility Review
 
-1. **Read agent definition:** `.claude/agents/project-architect.md`
+1. **Read agent definition:** `.claude/agents/architect.md`
 2. **Task:** "Review backlog items for technical feasibility and architecture implications:
    - Identify technical dependencies
    - Assess complexity and risk
@@ -173,7 +173,7 @@ Create summary report with:
 
 **Agents Used:**
 {% if config.is_agent_enabled('business-analyst') %}- Business Analyst{% endif %}
-{% if config.is_agent_enabled('project-architect') %}- Project Architect{% endif %}
+{% if config.is_agent_enabled('architect') %}- Project Architect{% endif %}
 
 **Quality Standards:**
 - Business value scoring: 1-100 scale
