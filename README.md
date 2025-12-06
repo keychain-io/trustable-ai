@@ -7,7 +7,7 @@ An AI-assisted software lifecycle framework featuring multi-agent orchestration,
 Trustable AI provides a sophisticated system for managing AI-assisted software development workflows. It coordinates specialized AI agents to handle complex development tasks while maintaining context, state, and integration with your work tracking platform.
 
 **Key Capabilities:**
-- Multi-agent orchestration with 13 specialized agents
+- Multi-agent orchestration with 7 context-driven agents
 - Re-entrant workflows with state persistence
 - Re-entrant initialization (update settings without re-entering everything)
 - Hierarchical context management with auto-generated CLAUDE.md files
@@ -94,23 +94,27 @@ After rendering, use the slash commands in Claude Code:
 
 ## Features
 
-### Multi-Agent System (13 Agents)
+### Multi-Agent System (7 Context-Driven Agents)
 
-| Agent | Description | Model |
-|-------|-------------|-------|
-| **business-analyst** | Requirements analysis, business value scoring | sonnet |
-| **project-architect** | Technical architecture, risk assessment | opus |
-| **security-specialist** | Security review, vulnerability analysis | sonnet |
-| **senior-engineer** | Task breakdown, estimation, code review | sonnet |
-| **software-developer** | Feature implementation, bug fixes | sonnet |
-| **qa-engineer** | Test planning, quality validation | sonnet |
-| **devops-developer** | CI/CD, infrastructure automation | sonnet |
-| **scrum-master** | Sprint coordination, workflow management | sonnet |
-| **project-manager** | Project planning, stakeholder communication | sonnet |
-| **general-engineer** | Cross-functional development tasks | sonnet |
-| **qa-tester** | Test execution, defect tracking | haiku |
-| **prototype-engineer** | Rapid prototyping, exploration | sonnet |
-| **documentation-specialist** | CLAUDE.md generation, code documentation | sonnet |
+Trustable AI uses **context-driven agents** that adapt their behavior based on the task context, rather than having a separate agent for each specialized role.
+
+| Agent | Core Responsibilities | Context-Driven Behaviors | Model |
+|-------|----------------------|--------------------------|-------|
+| **business-analyst** | Requirements analysis, business value scoring, prioritization | Sprint planning, roadmap analysis, feature assessment | sonnet |
+| **architect** | Technical architecture, system design, technology decisions | Component design, risk assessment, ADR creation | opus |
+| **senior-engineer** | Task breakdown, estimation, code review, epic decomposition | Feature decomposition, sprint planning, backlog grooming | sonnet |
+| **engineer** | Feature implementation, DevOps, performance optimization | → DevOps tasks (CI/CD, infrastructure)<br>→ Performance tasks (optimization, profiling) | sonnet |
+| **tester** | Test planning, test execution, adversarial testing | → Adversarial testing (find bugs)<br>→ Spec-driven testing (independent verification)<br>→ Falsifiability proving (test validation)<br>→ Test arbitration (fault attribution) | sonnet |
+| **security-specialist** | Security review, vulnerability analysis, threat modeling | Code review, architecture review, deployment security | sonnet |
+| **scrum-master** | Sprint coordination, workflow management, retrospectives | Sprint planning, daily standups, closure decisions | sonnet |
+
+**Context-Driven Behavior:** Agents adapt based on task keywords. For example:
+- `/engineer` analyzing a deployment task → Acts as DevOps engineer (CI/CD focus)
+- `/engineer` analyzing a performance issue → Acts as Performance engineer (profiling focus)
+- `/tester` in sprint planning → Test planning and strategy
+- `/tester` with failing tests → Fault attribution and bug creation
+
+**Deprecated Agents:** The framework maintains backward compatibility for old agent names (project-architect, software-developer, qa-engineer, etc.) by aliasing them to the new consolidated agents.
 
 ### Workflow Templates
 
