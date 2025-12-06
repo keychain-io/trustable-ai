@@ -19,7 +19,7 @@ AI-generated code often contains subtle bugs. AI-generated tests often miss thos
 │  This Workflow (Adversarial Verification with Agent Slash Commands)     │
 │                                                                         │
 │  1. /senior-engineer → Creates API contract                            │
-│  2. /software-developer → Implements feature                           │
+│  2. /senior-engineer → Implements feature                              │
 │  3. /spec-driven-tester → Tests from SPEC ONLY (no code!)             │
 │  4. /adversarial-tester → Tries to break code                         │
 │  5. /falsifiability-prover → Verifies tests can fail                  │
@@ -44,18 +44,41 @@ AI-generated code often contains subtle bugs. AI-generated tests often miss thos
 First, collect the work item information:
 
 ```python
-work_item_id = input("Enter work item ID (e.g., FEATURE-001): ")
+# Initialize work tracking adapter
+import sys
+sys.path.insert(0, ".claude/skills")
+from work_tracking import get_adapter
+
+adapter = get_adapter()
+print(f"📋 Work Tracking: {adapter.platform}")
+
+work_item_id = input("Enter work item ID (e.g., 1001): ")
 sprint_number = input("Enter sprint number: ")
 
-# Load specification file
+# Load work item from adapter
+try:
+    work_item = adapter.get_work_item(int(work_item_id))
+    print(f"✅ Loaded work item #{work_item_id}: {work_item.get('title', 'Untitled')}")
+
+    # Extract fields
+    work_item_title = work_item.get('title', '')
+    work_item_description = work_item.get('description', '')
+    acceptance_criteria = work_item.get('acceptance_criteria', [])
+except Exception as e:
+    print(f"❌ Failed to load work item #{work_item_id}: {e}")
+    print("   Make sure the work item exists in azure-devops")
+    exit(1)
+
+# Load specification file (if it exists, otherwise use work item description)
 from pathlib import Path
 spec_file = Path(f"docs/specifications/sprint-{sprint_number}/{work_item_id}-spec.md")
 if spec_file.exists():
     specification = spec_file.read_text()
     print(f"✅ Loaded specification from {spec_file}")
 else:
-    print(f"❌ Specification file not found: {spec_file}")
-    print("   Run /sprint-planning first to create specifications")
+    print(f"⚠️ Specification file not found: {spec_file}")
+    print("   Using work item description as specification")
+    specification = work_item_description
 ```
 
 ---
@@ -122,7 +145,7 @@ Save contract to: `.claude/contracts/{work_item_id}-contract.md`
 
 ### Step 2.1: Implement Feature
 
-**Call `/software-developer` with the following task:**
+**Call `/senior-engineer` with the following task:**
 
 ```
 ## YOUR TASK: Implement Feature
@@ -446,7 +469,7 @@ For each failing test:
 ### Step 7.2: If Gates Fail
 
 - Coverage too low → Call `/spec-driven-tester` to add more tests
-- Complexity too high → Call `/software-developer` to refactor
+- Complexity too high → Call `/senior-engineer` to refactor
 - Adversary found gaps → Address gaps and re-verify
 
 ---
@@ -456,8 +479,47 @@ For each failing test:
 ### Step 8.1: Update Work Item Status
 
 ```python
-# Update work item to Done
-# Add verification summary as comment
+# Prepare verification summary
+verification_summary = f"""## Feature Implementation Complete - Adversarial Verification Passed
+
+✅ All verification phases complete for work item #{work_item_id}
+
+### Verification Results:
+- API Contract: Defined and validated
+- Implementation: Complete with unit tests
+- Spec-Driven Tests: Pass (independent verification)
+- Adversarial Tests: Pass (attack surface covered)
+- Falsifiability: Tests verified as falsifiable
+- Arbitration: {arbitration_result}
+
+### Artifacts Created:
+- API Contract: .claude/contracts/{work_item_id}-contract.md
+- Verification Report: .claude/reports/{work_item_id}-verification.md
+- Spec-Driven Tests: {project.test_directory}/spec_driven/test_{work_item_id}.*
+- Adversarial Tests: {project.test_directory}/adversarial/test_{work_item_id}_adversarial.*
+
+### Test Results:
+- All tests passing
+- Coverage meets 80% minimum
+- No critical vulnerabilities detected
+
+Feature ready for deployment.
+"""
+
+# Update work item status to Done via adapter
+try:
+    adapter.update_work_item(
+        work_item_id=int(work_item_id),
+        fields={
+            'System.State': 'Done',
+            'System.History': verification_summary
+        }
+    )
+    print(f"✅ Updated work item #{work_item_id} to Done")
+    print(f"   Added verification summary to work item history")
+except Exception as e:
+    print(f"⚠️ Failed to update work item status: {e}")
+    print(f"   Verification complete but manual status update required")
 ```
 
 ### Step 8.2: Generate Verification Report
@@ -471,7 +533,7 @@ Save comprehensive report to `.claude/reports/{work_item_id}-verification.md`
 | Phase | Agent Command | Purpose |
 |-------|---------------|---------|
 | 1 | `/senior-engineer` | Design API contract |
-| 2 | `/software-developer` | Implement feature |
+| 2 | `/senior-engineer` | Implement feature |
 | 3 | `/spec-driven-tester` | Tests from spec (no code access) |
 | 4 | `/adversarial-tester` | Find gaps and bugs |
 | 5 | `/falsifiability-prover` | Verify tests work |
