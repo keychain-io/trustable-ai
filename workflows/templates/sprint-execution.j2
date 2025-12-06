@@ -235,11 +235,140 @@ Return JSON with:
 - Coverage >= {{ quality_standards.test_coverage_min }}%
 - No critical issues found
 - Integration tests demonstrate feature works in full system
+
+**Fault Attribution**: For each failed test, provide:
+```json
+{
+  "test_name": "test_user_login_valid_credentials",
+  "error": "AssertionError: Expected 200, got 401",
+  "expected": "HTTP 200 with auth token",
+  "actual": "HTTP 401 Unauthorized",
+  "acceptance_criterion": "User can log in with valid email/password",
+  "fault_attribution": "CODE|TEST|SPEC",
+  "reasoning": "Spec requires login to work, test expects 200, code returns 401 - CODE is wrong"
+}
+```
+
+**Fault Attribution Rules**:
+- **CODE**: Test expectation matches spec, but code doesn't → Create bug ticket
+- **TEST**: Test expectation doesn't match spec → Tester fixes test
+- **SPEC**: Spec is ambiguous or contradictory → Escalate to human
 ```
 
 **After the agent completes:**
 - Parse validation result JSON
 - Check confidence level
+- Handle test failures with fault attribution and bug creation
+
+---
+
+### Step A4b: Handle Test Failures (Fault Attribution & Bug Creation)
+
+**IF tests fail (`validation_status == "fail"`), perform fault attribution:**
+
+```python
+# Parse which tests failed
+failed_tests = validation_result.get('failed_tests', [])
+
+if failed_tests:
+    print(f"\n⚠️  {len(failed_tests)} test(s) failed")
+
+    # For each failed test, determine fault: CODE, TEST, or SPEC
+    for failure in failed_tests:
+        test_name = failure.get('test_name')
+        error_message = failure.get('error')
+        spec_reference = failure.get('acceptance_criterion')
+
+        # Fault attribution logic:
+        # - CODE fault: Test expects correct behavior per spec, code doesn't match
+        # - TEST fault: Test expectation doesn't match spec
+        # - SPEC fault: Spec is ambiguous or incorrect
+
+        fault = "CODE"  # Default assumption: code is wrong
+
+        # Tester agent should have provided fault attribution in validation result
+        if 'fault_attribution' in failure:
+            fault = failure['fault_attribution']  # CODE | TEST | SPEC
+
+        print(f"\n  ❌ {test_name}")
+        print(f"     Error: {error_message}")
+        print(f"     Fault: {fault}")
+
+        # Create bug ticket for CODE faults
+        if fault == "CODE":
+            try:
+                bug_title = f"Test failure: {test_name}"
+                bug_description = f"""## Test Failure
+
+**Test**: {test_name}
+**Task**: #{selected_task['id']} - {selected_task['title']}
+**Error**: {error_message}
+
+**Acceptance Criterion**: {spec_reference}
+
+**Fault Attribution**: Code does not match spec expectation
+
+**Expected Behavior**: {failure.get('expected', 'N/A')}
+**Actual Behavior**: {failure.get('actual', 'N/A')}
+
+**Fix Required**: Update implementation to match spec
+
+---
+*Auto-created by /sprint-execution*
+"""
+
+                bug = adapter.create_work_item(
+                    work_item_type="{{ work_tracking.work_item_types.bug }}",
+                    title=bug_title,
+                    description=bug_description,
+                    fields={
+                        'System.IterationPath': f'{{ work_tracking.project }}\\{sprint_name}',
+                        'System.Parent': selected_task['id'],  # Link to parent task
+                        'System.Tags': 'auto-generated;test-failure',
+                        'Microsoft.VSTS.Common.Priority': 1  # High priority
+                    }
+                )
+
+                print(f"     🐛 Created bug #{bug['id']}: {bug_title}")
+
+            except Exception as e:
+                print(f"     ⚠️  Failed to create bug ticket: {e}")
+
+        elif fault == "TEST":
+            print(f"     ⚠️  TEST fault: Test expectation doesn't match spec")
+            print(f"     Action: Tester should fix test expectations")
+
+        elif fault == "SPEC":
+            print(f"     ⚠️  SPEC fault: Specification is ambiguous or incorrect")
+            print(f"     Action: Escalate to human for spec clarification")
+
+    # Do NOT proceed to commit if tests failed
+    print(f"\n❌ Cannot proceed to commit - {len(failed_tests)} test failure(s)")
+    print(f"   Fix issues and re-run /sprint-execution")
+
+    # Update task status to "Blocked" or "In Progress" (not Done)
+    try:
+        adapter.update_work_item(
+            work_item_id=selected_task['id'],
+            fields={
+                'System.State': 'In Progress',
+                'System.History': f"""
+Test validation failed - {len(failed_tests)} test(s) failing
+
+{len([f for f in failed_tests if f.get('fault_attribution') == 'CODE'])} CODE faults (bugs created)
+{len([f for f in failed_tests if f.get('fault_attribution') == 'TEST'])} TEST faults (test fixes needed)
+{len([f for f in failed_tests if f.get('fault_attribution') == 'SPEC'])} SPEC faults (clarification needed)
+
+Review bug tickets and fix issues before re-running.
+"""
+            }
+        )
+    except Exception as e:
+        print(f"⚠️  Failed to update work item: {e}")
+
+    # Exit implementation cycle
+    selected_task = None  # Clear selection to skip commit step
+```
 
 ---
 
