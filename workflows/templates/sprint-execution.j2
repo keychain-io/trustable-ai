@@ -32,21 +32,27 @@
 ## Initialize Workflow
 
 ```python
+# Initialize work tracking adapter
+import sys
+sys.path.insert(0, ".claude/skills")
+from work_tracking import get_adapter
+
+adapter = get_adapter()
+print(f"📋 Work Tracking: {adapter.platform}")
+
 current_sprint = input("Sprint name (e.g., Sprint 1): ")
 
-# Load sprint work items from .claude/work-items/
-from pathlib import Path
-import yaml
-
-sprint_items = []
-work_items_dir = Path(".claude/work-items")
-for f in work_items_dir.glob("*.yaml"):
-    with open(f) as file:
-        item = yaml.safe_load(file)
-        if item.get('sprint') == current_sprint:
-            sprint_items.append(item)
-
-print(f"📋 Found {len(sprint_items)} items in {current_sprint}")
+# Load sprint work items via adapter
+try:
+    sprint_items = adapter.query_work_items(
+        filters={
+            'System.IterationPath': f'{{ work_tracking.project }}\\{current_sprint}'
+        }
+    )
+    print(f"📋 Found {len(sprint_items)} items in {current_sprint}")
+except Exception as e:
+    print(f"❌ Failed to load sprint items: {e}")
+    sprint_items = []
 ```
 
 ---
@@ -56,14 +62,22 @@ print(f"📋 Found {len(sprint_items)} items in {current_sprint}")
 Gather metrics from work items:
 
 ```python
-# Calculate metrics
-completed = [i for i in sprint_items if i['status'] == 'Done']
-in_progress = [i for i in sprint_items if i['status'] == 'In Progress']
-blocked = [i for i in sprint_items if i['status'] == 'Blocked']
-not_started = [i for i in sprint_items if i['status'] == 'New']
+# Calculate metrics from adapter work items
+completed = [i for i in sprint_items if i.get('state') == 'Done']
+in_progress = [i for i in sprint_items if i.get('state') == 'In Progress']
+blocked = [i for i in sprint_items if i.get('state') == 'Blocked']
+not_started = [i for i in sprint_items if i.get('state') == 'New']
 
-total_points = sum(i.get('story_points', 0) for i in sprint_items)
-completed_points = sum(i.get('story_points', 0) for i in completed)
+# Get story points from work items
+def get_story_points(item):
+    {% if work_tracking.custom_fields.story_points %}
+    return item.get('fields', {}).get('{{ work_tracking.custom_fields.story_points }}', 0) or 0
+    {% else %}
+    return 0
+    {% endif %}
+
+total_points = sum(get_story_points(i) for i in sprint_items)
+completed_points = sum(get_story_points(i) for i in completed)
 
 print(f"📊 Sprint Status:")
 print(f"  Total: {len(sprint_items)} items ({total_points} pts)")

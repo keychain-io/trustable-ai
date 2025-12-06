@@ -42,19 +42,30 @@
 ## Initialize Workflow
 
 ```python
-# Get Epic to break down
-epic_id = input("Epic ID to break down (e.g., EPIC-001): ")
+# Initialize work tracking adapter
+import sys
+sys.path.insert(0, ".claude/skills")
+from work_tracking import get_adapter
 
-# Load Epic details from work tracking
-from pathlib import Path
-epic_file = Path(f".claude/work-items/{epic_id}.yaml")
-if epic_file.exists():
-    import yaml
-    with open(epic_file) as f:
-        epic = yaml.safe_load(f)
-    print(f"✅ Loaded Epic: {epic['title']}")
-else:
-    print(f"❌ Epic {epic_id} not found at {epic_file}")
+adapter = get_adapter()
+print(f"📋 Work Tracking: {adapter.platform}")
+
+# Get Epic to break down
+epic_id = input("Epic ID to break down (e.g., 1001): ")
+
+# Load Epic details from work tracking system
+try:
+    epic = adapter.get_work_item(int(epic_id))
+    print(f"✅ Loaded Epic #{epic_id}: {epic.get('title', 'Untitled')}")
+
+    # Extract fields for workflow
+    epic_title = epic.get('title', '')
+    epic_description = epic.get('description', '')
+    epic_tags = epic.get('tags', '')
+except Exception as e:
+    print(f"❌ Failed to load Epic #{epic_id}: {e}")
+    print("   Make sure the Epic exists in {{ work_tracking.platform }}")
+    exit(1)
 ```
 
 ---
@@ -94,12 +105,38 @@ You are analyzing an Epic to identify the user-facing deliverables (Features).
 
 3. **Features** (3-8 distinct deliverables)
    For each Feature, provide:
-   - **Title**: User-focused (e.g., "User can export tasks to JSON")
+   - **Title**: User-focused, with clear scope indication
+
+     **IMPORTANT TITLE SCOPING RULES:**
+     - Titles MUST indicate the specific aspect being delivered, not the entire concept
+     - For multi-phase work, include phase qualifier: "- Strategy Design", "- Implementation", "- Testing"
+     - Match titles to actual deliverables that will be completed
+
+     ✅ GOOD Examples:
+     - "Adversarial Testing - Strategy Design"
+     - "API Authentication - OAuth Integration"
+     - "Export Feature - JSON Format Support"
+     - "User Dashboard - Read-Only View"
+
+     ❌ BAD Examples (too broad for single Feature):
+     - "Adversarial Testing" (is this strategy? implementation? both?)
+     - "API Authentication" (which method? which components?)
+     - "Export Feature" (which formats? which data?)
+     - "User Dashboard" (view? edit? admin? all?)
+
+     **Title Pattern**: "[Feature Area] - [Specific Scope]"
+
    - **User Story**: "As a [persona], I want [capability] so that [benefit]"
    - **Acceptance Criteria**: 3-5 specific, testable criteria
    - **Business Value**: High / Medium / Low
    - **Dependencies**: Other Features this depends on
    - **Sequence**: Suggested implementation order (1, 2, 3...)
+
+   - **Completion Criteria**: For Features that produce code
+     - Code must compile without errors
+     - Developer-level unit tests must pass
+     - Matches human concept of "complete" for that specific scope
+     - Can be demonstrated to stakeholders as working
 
 4. **Scope Questions**
    - What needs Product Owner clarification?
@@ -316,14 +353,8 @@ Review and approve Features to create:
 For each approved Feature:
 
 ```python
-# Create Feature work item
-feature_data = {
-    'id': f"FEATURE-{next_id}",
-    'type': 'Feature',
-    'title': feature['title'],
-    'status': 'New',
-    'parent': epic_id,
-    'description': f"""## User Story
+# Build Feature description
+description = f"""## User Story
 {feature['user_story']}
 
 ## Acceptance Criteria
@@ -333,24 +364,71 @@ feature_data = {
 {technical_components}
 
 ## Estimation
-- Story Points: {story_points}
-- Confidence: {confidence}
-""",
-    'story_points': estimate['story_points'],
-    'business_value': feature['business_value'],
-    'dependencies': feature['dependencies']
-}
+- Story Points: {estimate['story_points']}
+- Confidence: {estimate['confidence']}
 
-# Save to .claude/work-items/FEATURE-XXX.yaml
+## Dependencies
+{', '.join(feature['dependencies']) if feature['dependencies'] else 'None'}
+
+---
+*Created via /epic-breakdown workflow*
+"""
+
+# Create Feature work item via adapter
+try:
+    result = adapter.create_work_item(
+        work_item_type='{{ work_tracking.work_item_types.feature }}',
+        title=feature['title'],
+        description=description,
+        fields={
+            {% if work_tracking.custom_fields.story_points %}
+            '{{ work_tracking.custom_fields.story_points }}': estimate['story_points'],
+            {% endif %}
+            {% if work_tracking.custom_fields.business_value %}
+            '{{ work_tracking.custom_fields.business_value }}': feature['business_value'],
+            {% endif %}
+            'System.Tags': f"epic-breakdown; parent-epic-{epic_id}; business-value-{feature['business_value'].lower()}"
+        }
+    )
+
+    feature_id = result['id']
+    print(f"✅ Created Feature #{feature_id}: {feature['title']}")
+
+    # Link to parent Epic
+    try:
+        adapter.link_work_items(feature_id, int(epic_id), "Parent")
+        print(f"   🔗 Linked to Epic #{epic_id}")
+    except Exception as e:
+        print(f"   ⚠️ Failed to link to Epic: {e}")
+
+    # Store for dependency linking
+    feature_ids[feature['title']] = feature_id
+
+except Exception as e:
+    print(f"❌ Failed to create Feature '{feature['title']}': {e}")
+    continue
 ```
 
 ### Step 4.2: Create Dependency Links
 
 For Features with dependencies, create links:
 
-```
-✅ FEATURE-002 depends on FEATURE-001
-✅ FEATURE-003 depends on FEATURE-001
+```python
+# Create dependency links between Features
+for feature in approved_features:
+    if feature['dependencies']:
+        feature_id = feature_ids.get(feature['title'])
+        if not feature_id:
+            continue
+
+        for dep_title in feature['dependencies']:
+            dep_id = feature_ids.get(dep_title)
+            if dep_id:
+                try:
+                    adapter.link_work_items(feature_id, dep_id, "Predecessor")
+                    print(f"✅ Feature #{feature_id} depends on #{dep_id}")
+                except Exception as e:
+                    print(f"⚠️ Failed to link dependency: {e}")
 ```
 
 ---
