@@ -78,11 +78,16 @@ if not incomplete_workflows:
     print("=" * 70)
     print("\nAll workflows have completed successfully, or none have been started.")
     print("\nAvailable workflows to start:")
-    print("  /sprint-planning     - Plan a new sprint")
-    print("  /backlog-grooming    - Refine and prioritize backlog")
-    print("  /daily-standup       - Generate standup report")
-    print("  /sprint-execution    - Monitor sprint progress")
-    print("  /sprint-completion   - Close out a sprint")
+    print("  /roadmap-planning     - Plan product roadmap and themes")
+    print("  /product-intake       - Triage and process feature requests")
+    print("  /epic-breakdown       - Break epics into features and stories")
+    print("  /sprint-planning      - Plan a new sprint")
+    print("  /backlog-grooming     - Refine and prioritize backlog")
+    print("  /feature-implementation - Implement features with adversarial testing")
+    print("  /sprint-execution     - Monitor sprint progress")
+    print("  /dependency-management - Analyze and track dependencies")
+    print("  /daily-standup        - Generate standup report")
+    print("  /sprint-completion    - Close out a sprint")
     print("  /sprint-retrospective - Run retrospective analysis")
 else:
     print("=" * 70)
@@ -352,9 +357,16 @@ For convenience, you can also resume a specific workflow directly:
 /workflow-resume
 
 # The workflow-specific commands will auto-detect state:
-/sprint-planning      # Auto-resumes if state exists
-/backlog-grooming     # Auto-resumes if state exists
-/sprint-execution     # Auto-resumes if state exists
+/roadmap-planning         # Auto-resumes if state exists
+/product-intake           # Auto-resumes if state exists
+/epic-breakdown           # Auto-resumes if state exists
+/sprint-planning          # Auto-resumes if state exists
+/backlog-grooming         # Auto-resumes if state exists
+/feature-implementation   # Auto-resumes if state exists
+/sprint-execution         # Auto-resumes if state exists
+/dependency-management    # Auto-resumes if state exists
+/sprint-completion        # Auto-resumes if state exists
+/sprint-retrospective     # Auto-resumes if state exists
 ```
 
 ## State File Location

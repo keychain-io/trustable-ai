@@ -238,8 +238,15 @@ class AzureCLI:
             cmd.extend(['--assigned-to', assigned_to])
         if area:
             cmd.extend(['--area', area])
-        if fields:
-            field_args = [f"{k}={v}" for k, v in fields.items()]
+
+        # Prepare fields - include markdown format if description provided
+        all_fields = fields.copy() if fields else {}
+        if description:
+            # Set description format to Markdown for proper rendering
+            all_fields['System.DescriptionFormat'] = 'Markdown'
+
+        if all_fields:
+            field_args = [f"{k}={v}" for k, v in all_fields.items()]
             cmd.extend(['--fields'] + field_args)
 
         result = self._run_command(cmd)

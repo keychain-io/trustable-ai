@@ -597,6 +597,19 @@ def init_command(
             click.echo(f"   ✓ Indexed {len(index['context_files'])} context files")
             click.echo(f"   ✓ Context index saved to {index_path}")
 
+    # Copy skills directory to .claude/skills/ (silently, non-critical)
+    # Done at the end to avoid interfering with context generation
+    try:
+        skills_src = Path(__file__).parent.parent.parent / "skills"
+        skills_dest = claude_dir / "skills"
+        if skills_src.exists() and skills_src.is_dir():
+            if skills_dest.exists():
+                shutil.rmtree(skills_dest)
+            shutil.copytree(skills_src, skills_dest)
+    except Exception:
+        # Skills copying is non-critical, fail silently
+        pass
+
     # Summary
     action = "updated" if existing_config else "complete"
     click.echo(f"\n✅ Initialization {action}!\n")
