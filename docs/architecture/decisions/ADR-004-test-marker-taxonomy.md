@@ -1,4 +1,4 @@
-# ADR-004: Test Marker Taxonomy
+# ADR-004: Test Classification Taxonomy (Framework-Agnostic)
 
 **Date**: 2025-12-07
 **Status**: Proposed
@@ -9,42 +9,60 @@
 
 ## Context
 
-Tests are created by multiple agents (QA Engineer, Software Developer, DevOps Engineer) without consistent classification. This makes it impossible to:
-- Run targeted test suites (only security tests, only unit tests)
-- Execute workflow-specific test levels (sprint execution runs unit+integration, release runs all)
-- Generate categorized test reports
-- Skip slow tests during development
-- Enforce quality gates (all security tests must pass)
+Tests are created by multiple agents (QA Engineer, Software Developer, DevOps Engineer) across different projects using different languages and testing frameworks (Python/pytest, JavaScript/Jest, Java/JUnit, etc.). Without consistent classification:
+- Can't run targeted test suites (only security tests, only unit tests)
+- Can't execute workflow-specific test levels (sprint execution runs unit+integration, release runs all)
+- Can't generate categorized test reports
+- Can't skip slow tests during development
+- Can't enforce quality gates (all security tests must pass)
 
-We need to choose a test classification system that is:
-1. **Standard**: Uses widely-adopted tooling
+We need to choose a **framework-agnostic** test classification system that:
+1. **Universal**: Works across all testing frameworks and languages
 2. **Simple**: Easy for agents and humans to apply
 3. **Expressive**: Supports workflow-aware test execution
-4. **Enforceable**: Can validate marker correctness
+4. **Flexible**: Adapts to each project's native test tooling
 
 ---
 
 ## Decision
 
-**Use pytest.mark.* markers with a standardized registry.**
+**Use a universal test taxonomy with framework-specific implementation guidance.**
 
-All tests will be tagged with:
+The framework defines a **language/framework-agnostic taxonomy**:
 1. **Test Level** (exactly one): `unit`, `integration`, `system`, `acceptance`, `validation`
 2. **Test Type** (at least one): `functional`, `security`, `performance`, `usability`
-3. **Optional modifiers**: `slow`, `requires_db`, `requires_network`, `flaky`
+3. **Optional modifiers**: `slow`, `requires-db`, `requires-network`, `flaky`
 
-Example:
+**Agent templates** provide instructions for applying this taxonomy in each framework:
+- **Python/pytest**: Use `@pytest.mark.{level}` and `@pytest.mark.{type}`
+- **JavaScript/Jest**: Use comments or test description patterns
+- **Java/JUnit**: Use `@Tag("{level}")` and `@Tag("{type}")`
+- **Other frameworks**: Use framework-native tagging or comment conventions
+
+Example (Python/pytest):
 ```python
 @pytest.mark.unit
 @pytest.mark.functional
 def test_user_login():
     pass
+```
 
-@pytest.mark.integration
-@pytest.mark.security
-@pytest.mark.requires_db
-def test_password_hashing():
-    pass
+Example (JavaScript/Jest):
+```javascript
+// Test: unit, functional
+test('user login with valid credentials', () => {
+  // ...
+});
+```
+
+Example (Java/JUnit):
+```java
+@Test
+@Tag("unit")
+@Tag("functional")
+public void testUserLogin() {
+    // ...
+}
 ```
 
 ---
@@ -84,33 +102,34 @@ def test_password_hashing():
 
 ---
 
-### Option 3: pytest.mark.* with registry - CHOSEN
-**Description**: Use pytest's marker system with a standardized marker registry defined in `pytest.ini`.
+### Option 3: Universal Taxonomy with Framework-Specific Guidance - CHOSEN
+**Description**: Define universal taxonomy (test levels + types), provide framework-specific implementation guidance in agent templates.
 
 **Pros**:
-- **Standard pytest mechanism** (no custom framework)
-- **IDE support** (PyCharm, VS Code recognize markers)
-- **Extensible taxonomy** (can add markers as needed)
-- **Workflow integration** (`pytest -m "unit and functional"`)
-- **Validation** (pytest warns about unknown markers)
+- **Framework-agnostic**: Works across Python, JavaScript, Java, Go, etc.
+- **Language-neutral**: Same taxonomy regardless of tech stack
+- **Flexible implementation**: Uses each framework's native tagging mechanism
+- **No framework lock-in**: Projects use their own test tooling
+- **Agent-friendly**: Clear instructions for applying taxonomy in any framework
 
 **Cons**:
-- Requires `pytest.ini` configuration
-- All projects need marker definitions
-- Marker enforcement requires custom plugin (optional)
+- No single enforcement mechanism (each framework validates differently)
+- Requires framework detection during `trustable-ai init`
+- Agent templates need framework-specific examples
 
-**Example**:
-```ini
-# pytest.ini
-[pytest]
-markers =
-    unit: Unit tests for isolated components
-    integration: Integration tests for component interactions
-    functional: Functional tests verifying business requirements
-    security: Security tests (OWASP, auth, vulnerabilities)
+**Example (Universal Taxonomy)**:
+```yaml
+test_levels: [unit, integration, system, acceptance, validation]
+test_types: [functional, security, performance, usability]
+modifiers: [slow, requires-db, requires-network, flaky]
 ```
 
-**Why chosen**: Standard pytest mechanism with broad ecosystem support. Registry provides documentation and validation. Workflow presets simplify common cases.
+**Example (Framework-Specific Application)**:
+- Python: `@pytest.mark.unit` / `@pytest.mark.functional`
+- JavaScript: `// Test: unit, functional`
+- Java: `@Tag("unit")` / `@Tag("functional")`
+
+**Why chosen**: Only approach that works across all languages/frameworks. Framework provides taxonomy and agent instructions, projects use native tooling. Aligns with framework's goal of being language-agnostic.
 
 ---
 
@@ -145,18 +164,19 @@ def test_user_login():
 
 ### Positive
 
-- **Standard pytest compatibility**: Works with all pytest tooling
-- **IDE support**: PyCharm, VS Code, etc. recognize and autocomplete markers
-- **Workflow integration**: `pytest -m "unit and functional"` for targeted execution
-- **Extensible taxonomy**: Can add markers (e.g., `smoke`, `regression`) as needed
-- **Documentation**: Marker registry in `pytest.ini` documents each marker
-- **Validation**: pytest warns about unknown markers (typo detection)
+- **Framework-agnostic**: Works across Python, JavaScript, Java, Go, C#, etc.
+- **Language-neutral**: Same taxonomy for all projects
+- **No vendor lock-in**: Uses native test framework tooling
+- **Agent-friendly**: Clear, universal instructions in agent templates
+- **Workflow-aware**: Consistent test classification enables workflow-specific execution
+- **Extensible**: Can add new test types/levels as needed
 
 ### Negative
 
-- **Configuration required**: Every project needs `pytest.ini` with marker definitions
-- **Enforcement complexity**: Requires custom validation for marker correctness
-- **Learning curve**: Developers must learn marker taxonomy
+- **Framework detection required**: `trustable-ai init` must detect project language/framework
+- **No universal enforcement**: Each framework validates differently (pytest has markers, Jest doesn't)
+- **Agent template complexity**: Templates need framework-specific examples
+- **Validation variation**: Enforcement varies by framework capabilities
 
 ### Risks
 
@@ -176,128 +196,144 @@ def test_user_login():
 
 ## Implementation Notes
 
-### Marker Registry
+### Universal Taxonomy Registry
 
 ```python
-# testing/markers.py
-from enum import Enum
-
-class TestLevel(Enum):
-    """Test levels per testing pyramid."""
-    UNIT = "unit"
-    INTEGRATION = "integration"
-    SYSTEM = "system"
-    ACCEPTANCE = "acceptance"
-    VALIDATION = "validation"
-
-class TestType(Enum):
-    """Test types for classification."""
-    FUNCTIONAL = "functional"
-    SECURITY = "security"
-    PERFORMANCE = "performance"
-    USABILITY = "usability"
-```
-
-### pytest.ini Configuration
-
-```ini
-[pytest]
-markers =
-    # Test Levels
-    unit: Unit tests for isolated components
-    integration: Integration tests for component interactions
-    system: System-level end-to-end tests
-    acceptance: User acceptance criteria tests
-    validation: Release validation tests
-
-    # Test Types
-    functional: Functional tests verifying business requirements
-    security: Security tests (OWASP, auth, vulnerabilities)
-    performance: Performance and load tests
-    usability: UI/UX and accessibility tests
-
-    # Modifiers
-    slow: Tests that take >10 seconds
-    requires_db: Tests requiring database access
-    requires_network: Tests requiring network access
-    flaky: Tests with known intermittent failures
-```
-
-### Agent Template Updates
-
-```jinja2
-{# agents/templates/tester.j2 #}
-## Test Marker Standards
-
-Every test MUST have:
-1. **Test Level** (exactly one): `@pytest.mark.unit`, `@pytest.mark.integration`, etc.
-2. **Test Type** (at least one): `@pytest.mark.functional`, `@pytest.mark.security`, etc.
-
-Example:
-```python
-@pytest.mark.unit
-@pytest.mark.functional
-def test_user_login_valid_credentials():
-    """Test successful login with valid credentials."""
-    pass
-```
-```
-
-### Workflow Presets
-
-```python
-# testing/markers.py
-WORKFLOW_MARKER_PRESETS = {
-    "sprint-execution": {"unit", "integration", "functional"},
-    "sprint-completion": {"unit", "integration", "functional", "acceptance"},
-    "release-validation": {"unit", "integration", "system", "acceptance", "security", "validation"},
-    "security-review": {"security"},
-    "performance-test": {"performance"},
+# config/test_taxonomy.py
+TEST_TAXONOMY = {
+    "test_levels": {
+        "unit": "Isolated components/functions",
+        "integration": "Component interactions",
+        "system": "End-to-end workflows",
+        "acceptance": "User acceptance criteria",
+        "validation": "Release validation"
+    },
+    "test_types": {
+        "functional": "Business logic, features, functionality",
+        "security": "Authentication, authorization, vulnerabilities",
+        "performance": "Speed, throughput, resource usage",
+        "usability": "UI/UX, accessibility, user workflows"
+    },
+    "modifiers": {
+        "slow": "Tests taking >10 seconds",
+        "requires-db": "Tests requiring database",
+        "requires-network": "Tests requiring network access",
+        "flaky": "Tests with known intermittent failures"
+    }
 }
 ```
 
-### CLI Integration
-
-```bash
-# Run tests for sprint execution (unit + integration + functional)
-trustable-ai test --workflow=sprint-execution
-
-# Run only security tests at unit level
-trustable-ai test --type=security --level=unit
-
-# Run all tests except slow ones
-pytest -m "not slow"
-
-# Run unit and integration functional tests
-pytest -m "(unit or integration) and functional"
-```
-
-### Validation Tool
+### Framework Detection & Config Generation
 
 ```python
-# cli/commands/validate.py
-def validate_test_markers(test_directory: str):
-    """Validate all tests have required markers."""
-    tests = discover_tests(test_directory)
-    issues = []
+# cli/commands/init.py
+def detect_test_framework(project_path: Path) -> str:
+    """Detect testing framework based on project files."""
+    if (project_path / "pytest.ini").exists() or (project_path / "setup.py").exists():
+        return "pytest"
+    elif (project_path / "package.json").exists():
+        return "jest"
+    elif (project_path / "pom.xml").exists():
+        return "junit"
+    # ... more framework detection
+    return "generic"
 
-    for test in tests:
-        markers = get_markers(test)
-
-        # Check for test level
-        level_markers = markers & {"unit", "integration", "system", "acceptance", "validation"}
-        if len(level_markers) == 0:
-            issues.append(f"{test}: Missing test level marker")
-        elif len(level_markers) > 1:
-            issues.append(f"{test}: Multiple test level markers: {level_markers}")
-
-        # Check for test type
-        type_markers = markers & {"functional", "security", "performance", "usability"}
-        if len(type_markers) == 0:
-            issues.append(f"{test}: Missing test type marker")
-
-    return issues
+def generate_test_config(framework: str, project_path: Path):
+    """Generate framework-specific test configuration."""
+    if framework == "pytest":
+        generate_pytest_ini(project_path)
+    elif framework == "jest":
+        update_jest_config(project_path)
+    elif framework == "junit":
+        create_junit_guidance(project_path)
+    else:
+        create_generic_test_guidance(project_path)
 ```
+
+### Agent Template Updates (Framework-Agnostic)
+
+```jinja2
+{# agents/templates/tester.j2 #}
+## Test Classification Standards
+
+Apply consistent test classifications to all tests using your project's test framework:
+
+### Required Classifications
+
+Every test MUST have:
+1. **Test Level** (exactly one): unit | integration | system | acceptance | validation
+2. **Test Type** (at least one): functional | security | performance | usability
+
+### Framework-Specific Syntax
+
+{% if project.tech_stack.languages contains "Python" %}
+**Python (pytest)**:
+```python
+@pytest.mark.unit
+@pytest.mark.functional
+def test_user_login():
+    pass
+```
+{% endif %}
+
+{% if project.tech_stack.languages contains "JavaScript" %}
+**JavaScript (Jest)**:
+```javascript
+// Test: unit, functional
+test('user login', () => {
+  // ...
+});
+```
+{% endif %}
+
+{% if project.tech_stack.languages contains "Java" %}
+**Java (JUnit)**:
+```java
+@Test
+@Tag("unit")
+@Tag("functional")
+public void testUserLogin() {
+}
+```
+{% endif %}
+
+### Workflow-Aware Execution
+
+- **Sprint Execution**: unit + integration + functional
+- **Release Validation**: ALL test levels and types
+```
+
+### Workflow Test Execution Guidance
+
+```jinja2
+{# workflows/templates/sprint-execution.j2 #}
+## Run Tests with Classification Filters
+
+{% if project.tech_stack.languages contains "Python" %}
+```bash
+pytest -m "(unit or integration) and functional"
+```
+{% endif %}
+
+{% if project.tech_stack.languages contains "JavaScript" %}
+```bash
+npm test -- --testNamePattern="unit|integration"
+```
+{% endif %}
+
+{% if project.tech_stack.languages contains "Java" %}
+```bash
+mvn test -Dgroups="unit | integration"
+```
+{% endif %}
+```
+
+### No Framework CLI Command
+
+**Important**: The framework does NOT provide `trustable-ai test` because:
+- Test execution is project-specific
+- Projects use their native test runners
+- Framework only provides taxonomy and agent instructions
 
 ---
 

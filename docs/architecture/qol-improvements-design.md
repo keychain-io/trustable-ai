@@ -241,39 +241,128 @@ def add_architecture_reference(work_item_id: int, doc_path: str, git_commit: str
 
 #### Architecture Overview
 
-Standardizes test markers across the framework, updates agent templates to apply markers consistently, provides workflow-aware test execution.
+**Framework-agnostic test classification system** that instructs Engineer and Tester agents to apply consistent test classifications regardless of testing framework (pytest, Jest, JUnit, etc.) or language (Python, JavaScript, Java, etc.).
 
-#### Test Marker Registry
+The framework provides:
+1. **Universal test taxonomy** (test types + test levels)
+2. **Agent template instructions** for applying classifications in any test framework
+3. **Framework-specific examples** in agent context (pytest for Python, Jest for JS, JUnit for Java, etc.)
+4. **Workflow guidance** on which test classifications to run per workflow phase
 
-**Test Types**:
-- `@pytest.mark.functional` - Business logic tests
-- `@pytest.mark.security` - Security tests
-- `@pytest.mark.performance` - Performance tests
-- `@pytest.mark.usability` - UI/UX tests
+#### Universal Test Taxonomy
 
-**Test Levels**:
-- `@pytest.mark.unit` - Isolated component tests
-- `@pytest.mark.integration` - Component interaction tests
-- `@pytest.mark.system` - End-to-end tests
-- `@pytest.mark.acceptance` - User acceptance tests
-- `@pytest.mark.validation` - Release validation tests
+**Test Types** (What is being tested):
+- **functional**: Business logic, features, functionality
+- **security**: Authentication, authorization, vulnerabilities, data protection
+- **performance**: Speed, throughput, resource usage, scalability
+- **usability**: UI/UX, accessibility, user workflows
 
-#### Workflow Presets
+**Test Levels** (Scope of testing):
+- **unit**: Isolated components/functions
+- **integration**: Component interactions
+- **system**: End-to-end workflows
+- **acceptance**: User acceptance criteria
+- **validation**: Release validation
 
+**Execution Modifiers**:
+- **slow**: Tests taking >10 seconds
+- **requires-db**: Tests requiring database
+- **requires-network**: Tests requiring network access
+- **flaky**: Tests with known intermittent failures
+
+#### Agent Template Instructions
+
+**Instructions injected into Engineer and Tester agents**:
+
+```markdown
+## Test Classification Standards
+
+Apply consistent test classifications to all tests using your project's test framework syntax:
+
+### Required Classifications
+
+Every test MUST have:
+1. **Test Level** (exactly one): unit | integration | system | acceptance | validation
+2. **Test Type** (at least one): functional | security | performance | usability
+
+### Framework-Specific Syntax
+
+**Python (pytest)**:
 ```python
-WORKFLOW_MARKERS = {
-    "sprint-execution": {"unit", "integration", "functional"},
-    "sprint-completion": {"unit", "integration", "functional", "acceptance"},
-    "release-validation": {"unit", "integration", "system", "acceptance", "security"},
+@pytest.mark.unit
+@pytest.mark.functional
+def test_user_login():
+    pass
+```
+
+**JavaScript (Jest)**:
+```javascript
+describe('user login', () => {
+  it('authenticates valid credentials', () => {
+    // Tags: unit, functional
+  });
+});
+```
+
+**Java (JUnit)**:
+```java
+@Test
+@Tag("unit")
+@Tag("functional")
+public void testUserLogin() {
 }
 ```
 
-#### CLI Integration
-
-```bash
-trustable-ai test --type=security --level=unit
-trustable-ai test --workflow=sprint-execution
+**Other frameworks**: Use comments or framework-native tagging mechanism:
 ```
+// Test: unit, functional
+```
+
+### Workflow-Aware Execution
+
+Different workflows run different test scopes:
+- **Sprint Execution**: unit + integration + functional
+- **Sprint Completion**: unit + integration + functional + acceptance
+- **Release Validation**: ALL test levels and types
+- **Security Review**: security tests only
+```
+
+#### Configuration Template Generation
+
+When `trustable-ai init` runs, detect project language/framework and generate appropriate test classification config:
+
+**Python projects** → `pytest.ini` with markers
+**JavaScript projects** → Update `jest.config.js` or `package.json` with test patterns
+**Java projects** → JUnit 5 tagging guidance
+**Generic projects** → Comment-based classification guidance
+
+#### Workflow Integration
+
+Workflows provide test execution guidance based on classification:
+
+```markdown
+## Sprint Execution Testing
+
+Run tests classified as:
+- **Levels**: unit, integration
+- **Types**: functional
+
+Skip:
+- system, acceptance tests (too slow for daily execution)
+- performance tests (run separately)
+
+**Command examples**:
+- pytest: `pytest -m "unit or integration"`
+- Jest: `npm test -- --testNamePattern="unit|integration"`
+- JUnit: Run with tag filter `unit | integration`
+```
+
+#### No Framework CLI Command
+
+**Important**: The framework does NOT provide a `trustable-ai test` command because:
+- Test execution is project-specific (use pytest, Jest, JUnit, etc. directly)
+- Framework only provides **classification taxonomy** and **agent instructions**
+- Projects use their native test runners with classification filters
 
 ---
 
