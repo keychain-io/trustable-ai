@@ -77,22 +77,25 @@ Analyze the following Epic and break it down into a hierarchy of Features and Ta
    - Features should be independently deliverable
    - Estimate story points for each Feature (5-20 pts ideal)
 
-2. **Task Breakdown**: For each Feature, identify 2-5 Tasks that implement the Feature and, if applicable, deploy it
-   - Exactly one task should request the complete implementation of the Feature code and unit and integration tests, and it should contain enough context for an engineer to implement both the code and the tests solely based on the Task description and if any attachments. The Task should include detailed function specification of each testable technical task for an engineer to implement. The tests should be falsifiable and comprehensive relative to the scope and goals of the Feature. The test type and requirements should be project-stage aware, be labelled according to the project's test classification taxonomy, and be designed to provide evidence that the feature was implemented completely.
+2. **Task Breakdown**: For each Feature, identify 2-5 Tasks that implement the Feature
+   - Each Task should be a specific, actionable work item (1-5 story points)
+   - Include implementation tasks, testing tasks, and deployment tasks
+   - Tasks must have clear acceptance criteria
+   - Exactly one task should request the complete implementation of the Feature code and comprehensive tests, and it should contain enough context for an engineer to implement both the code and the tests solely based on the Task description and, if any, attachments. The Task should include detailed function specification of each testable technical task for an engineer to implement. The tests should be falsifiable and comprehensive relative to the scope and goals of the Feature. The test type and requirements should be project-stage aware, be labelled according to the project's test classification taxonomy, and be designed to provide evidence that the feature was implemented completely.
    - Exactly one tasks should request the running of the tests created in the implementation task, collecting results, verifying falsifiable of the tests, confirming code coverage, and confirming feature coverage of the tests.
-   - Deployment tasks should be included if the Feature requires deployment to a dev, staging, or production environment.
-   - All tasks should be actionable and specific and not overlap
-   - Each Task should be completable within 7 days
-   - Include acceptance criteria for each Task
+   - Deployment tasks if Feature requires deployment
+   - All Tasks should be non-overlapping and completable within one sprint
 
-3. **Dependency Analysis**: Identify dependencies between Features/Tasks
+3. **Dependency Analysis**: Identify dependencies between Features and Tasks
    - Which Features must be completed before others?
+   - Which Tasks have dependencies on other Tasks?
    - Are there external dependencies (APIs, data, infrastructure)?
 
 4. **Verification**: Ensure decomposition is complete
+   - Sum of Task story points within each Feature should equal Feature estimate
    - Sum of Feature story points should approximate Epic estimate
    - All Epic acceptance criteria covered by Feature/Task breakdown
-   - No orphaned requirements (everything has a Feature/Task)
+   - No orphaned requirements (everything has a Feature and Tasks)
 
 ### Output Format
 
@@ -104,36 +107,53 @@ Return JSON with Epic decomposition:
   "features": [
     {
       "title": "Feature 1: User Authentication",
-      "description": "Implement secure user authentication with OAuth2",
+      "description": "Implement secure user authentication with OAuth2. Users need ability to log in using their existing Google or GitHub accounts instead of creating new credentials. System must issue JWT tokens for authenticated sessions and support token refresh for long-lived sessions.",
       "story_points": 13,
       "acceptance_criteria": [
         "Users can log in with Google/GitHub OAuth",
         "JWT tokens issued on successful auth",
-        "Token refresh mechanism implemented"
+        "Token refresh mechanism implemented",
+        "Failed auth attempts logged and rate-limited",
+        "User can revoke access tokens"
       ],
       "tasks": [
         {
-          "title": "Task 1: Implement OAuth2 integration",
-          "description": "Integrate Google/GitHub OAuth providers",
-          "story_points": 5,
+          "title": "Implement OAuth2 integration and JWT token service",
+          "description": "Integrate Google/GitHub OAuth providers and create JWT token generation service. Configure OAuth callback endpoints, implement JWT signing with RS256, and create token validation logic.",
+          "story_points": 8,
           "acceptance_criteria": [
-            "OAuth callback endpoints created",
-            "Provider SDK configured",
-            "User profile data fetched"
+            "OAuth callback endpoints created for Google and GitHub",
+            "Provider SDKs configured and tested",
+            "JWT service generates valid tokens with user claims",
+            "Token validation correctly rejects invalid/expired tokens",
+            "Unit tests achieve >80% coverage for auth components"
           ]
         },
         {
-          "title": "Task 2: Implement JWT token service",
-          "description": "Create service for JWT generation and validation",
+          "title": "Run and verify authentication tests",
+          "description": "Execute all authentication tests (unit, integration, security), verify test falsifiability, confirm code coverage meets standards, and validate feature completeness.",
           "story_points": 3,
           "acceptance_criteria": [
-            "JWT library configured",
-            "Token generation tested",
-            "Token validation tested"
+            "All unit tests pass for OAuth and JWT components",
+            "Integration tests verify full OAuth flow",
+            "Security tests confirm token validation robustness",
+            "Code coverage meets project minimum (80%)",
+            "Tests are falsifiable (can detect actual failures)"
+          ]
+        },
+        {
+          "title": "Deploy authentication service to staging",
+          "description": "Deploy OAuth and JWT services to staging environment, configure environment variables, and verify functionality in staging.",
+          "story_points": 2,
+          "acceptance_criteria": [
+            "Services deployed to staging environment",
+            "OAuth providers configured with staging credentials",
+            "Smoke tests pass in staging",
+            "Monitoring and logging verified"
           ]
         }
       ],
-      "dependencies": []
+      "dependencies": ["Database schema for user accounts"]
     }
   ],
   "total_story_points": 65,
@@ -160,46 +180,62 @@ decomposition = agent_result  # JSON from agent
 
 # Create Features under Epic
 for feature_data in decomposition['features']:
-    # Create Feature work item
-    feature = adapter.create_work_item(
-        work_item_type="Feature",
-        title=feature_data['title'],
-        description=f"""{feature_data['description']}
+    # Build comprehensive Feature description
+    feature_description = f"""{feature_data['description']}
 
 ## Acceptance Criteria
 {chr(10).join(f"- {ac}" for ac in feature_data['acceptance_criteria'])}
 
+## Dependencies
+{chr(10).join(f"- {dep}" for dep in feature_data.get('dependencies', [])) if feature_data.get('dependencies') else 'None'}
+
 ## Parent Epic
 WI-{epic_id}: {epic['title']}
-""",
+
+---
+*Feature created via /backlog-grooming*
+"""
+
+    # Create Feature work item
+    feature = adapter.create_work_item(
+        work_item_type="Feature",
+        title=feature_data['title'],
+        description=feature_description,
         fields={
             'System.Parent': epic_id,  # Link to parent Epic
-            'System.Tags': 'epic-decomposed'
+            'System.State': 'Proposed',  # Ready for sprint planning
+            'System.Tags': 'epic-decomposed; ready-for-planning'
         }
     )
 
-    print(f"  ✓ Created Feature WI-{feature['id']}: {feature_data['title']}")
+    print(f"  ✓ Created Feature WI-{feature['id']}: {feature_data['title']} ({feature_data['story_points']} pts)")
 
     # Create Tasks under Feature
     for task_data in feature_data.get('tasks', []):
-        task = adapter.create_work_item(
-            work_item_type="Task",
-            title=task_data['title'],
-            description=f"""{task_data['description']}
+        task_description = f"""{task_data['description']}
 
 ## Acceptance Criteria
 {chr(10).join(f"- {ac}" for ac in task_data['acceptance_criteria'])}
 
 ## Parent Feature
 WI-{feature['id']}: {feature_data['title']}
-""",
+
+---
+*Task created via /backlog-grooming*
+"""
+
+        task = adapter.create_work_item(
+            work_item_type="Task",
+            title=task_data['title'],
+            description=task_description,
             fields={
                 'System.Parent': feature['id'],  # Link to parent Feature
-                'System.Tags': 'epic-decomposed'
+                'System.State': 'Proposed',  # Ready for sprint planning
+                'System.Tags': 'epic-decomposed; ready-for-sprint'
             }
         )
 
-        print(f"    ✓ Created Task WI-{task['id']}: {task_data['title']}")
+        print(f"    ✓ Created Task WI-{task['id']}: {task_data['title']} ({task_data['story_points']} pts)")
 
 # Update Epic state
 adapter.update_work_item(
@@ -231,7 +267,47 @@ else:
 ```
 
 
-**If no Epics found, skip to Step 1.**
+**If no Epics found, continue to Step 0.5.**
+
+---
+
+### Step 0.5: Detect and Handle Childless Work Items
+
+**Check for orphaned Epics and Features that need decomposition:**
+
+```python
+# Find Epics without Features (childless Epics)
+childless_epics = []
+for epic in adapter.query_work_items(filters={'System.WorkItemType': ['Epic']}):
+    children = adapter.query_work_items(filters={'System.Parent': epic['id']})
+    if len(children) == 0 and epic.get('state') not in ['Done', 'Removed']:
+        childless_epics.append(epic)
+
+# Find Features without parent Epic (standalone Features that might need breakdown)
+orphaned_features = []
+for feature in adapter.query_work_items(filters={'System.WorkItemType': ['Feature']}):
+    if not feature.get('parent') and feature.get('state') in ['New', 'Proposed']:
+        # Check if this Feature is too large (>20 story points suggests it needs breakdown)
+
+print(f"🔍 Found {len(childless_epics)} Epics needing decomposition")
+print(f"🔍 Found {len(orphaned_features)} large Features needing breakdown")
+
+# For childless Epics, decompose into Features (same process as Step 0)
+for epic in childless_epics:
+    print(f"\n📦 Decomposing childless Epic WI-{epic['id']}: {epic['title']}")
+    # Use the same Epic decomposition logic from Step 0
+    # Call /senior-engineer agent to break down Epic into Features
+    # Create Features as children of the Epic
+
+# Note: Orphaned Features stay as Features - they'll be broken into Tasks during /sprint-planning
+# We just flag them for review
+if orphaned_features:
+    print(f"\n⚠️  Large Features found (will be broken into Tasks during sprint planning):")
+    for feature in orphaned_features:
+        print(f"  WI-{feature['id']}: {feature['title']}")
+```
+
+---
 
 ### Step 1: Business Analyst - Backlog Analysis
 
