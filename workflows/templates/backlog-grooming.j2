@@ -95,8 +95,8 @@ Analyze the following Epic and break it down into a hierarchy of Features and Ta
    - Each Task should be a specific, actionable work item (1-5 story points)
    - Include implementation tasks, testing tasks, and deployment tasks
    - Tasks must have clear acceptance criteria
-   - Exactly one task should implement the Feature code and tests
-   - Exactly one task should run and verify the tests
+   - Exactly one task should request the complete implementation of the Feature code and comprehensive tests, and it should contain enough context for an engineer to implement both the code and the tests solely based on the Task description and, if any, attachments. The Task should include detailed function specification of each testable technical task for an engineer to implement. The tests should be falsifiable and comprehensive relative to the scope and goals of the Feature. The test type and requirements should be project-stage aware, be labelled according to the project's test classification taxonomy, and be designed to provide evidence that the feature was implemented completely.
+   - Exactly one tasks should request the running of the tests created in the implementation task, collecting results, verifying falsifiable of the tests, confirming code coverage, and confirming feature coverage of the tests.
    - Deployment tasks if Feature requires deployment
    - All Tasks should be non-overlapping and completable within one sprint
 
