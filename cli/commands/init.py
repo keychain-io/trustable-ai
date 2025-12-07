@@ -18,6 +18,7 @@ from workflows import WorkflowRegistry
 from cli.platform_detector import PlatformDetector
 from cli.permissions_generator import PermissionsTemplateGenerator
 from cli.config_generators.pytest_generator import PytestConfigGenerator
+from cli.config_generators.jest_generator import JestConfigGenerator
 
 
 def _load_existing_config(config_file: Path) -> Optional[FrameworkConfig]:
@@ -258,6 +259,68 @@ def _generate_pytest_config(project_path: Path) -> Dict[str, Any]:
             "generated": False,
             "path": None,
             "reason": f"Error writing pytest.ini: {e}",
+        }
+
+
+def _generate_jest_config(project_path: Path) -> Dict[str, Any]:
+    """
+    Generate jest.config.js configuration file for JavaScript/TypeScript projects.
+
+    Detects if project uses Jest and generates jest.config.js with test taxonomy
+    patterns based on the universal test taxonomy (config/test_taxonomy.py).
+
+    Args:
+        project_path: Path to the project root directory
+
+    Returns:
+        Dict with generation results:
+            - generated: True if jest.config.js was generated, False if skipped
+            - path: Path to jest.config.js if generated, None otherwise
+            - reason: Reason for skipping if not generated
+
+    Example:
+        >>> result = _generate_jest_config(Path("/my/js/project"))
+        >>> result["generated"]
+        True
+        >>> result["path"]
+        PosixPath('/my/js/project/jest.config.js')
+    """
+    jest_config_path = project_path / "jest.config.js"
+
+    # Skip if jest.config.js already exists
+    if jest_config_path.exists():
+        return {
+            "generated": False,
+            "path": jest_config_path,
+            "reason": "jest.config.js already exists",
+        }
+
+    # Detect if project uses Jest
+    framework = detect_test_framework(project_path)
+    if framework != "jest":
+        return {
+            "generated": False,
+            "path": None,
+            "reason": f"Project uses {framework}, not jest",
+        }
+
+    # Generate jest.config.js
+    generator = JestConfigGenerator()
+    content = generator.generate_jest_config(project_path)
+
+    # Write to file
+    try:
+        generator.write_to_file(content, jest_config_path)
+        return {
+            "generated": True,
+            "path": jest_config_path,
+            "reason": None,
+        }
+    except Exception as e:
+        return {
+            "generated": False,
+            "path": None,
+            "reason": f"Error writing jest.config.js: {e}",
         }
 
 
@@ -606,7 +669,7 @@ def init_command(
         click.echo(f"\n⚠️  Warning: Could not generate permissions: {e}")
         click.echo("   You can configure permissions manually in .claude/settings.local.json")
 
-    # Generate pytest.ini for Python projects
+    # Generate test framework configuration
     click.echo("\n🧪 Detecting test framework...")
     try:
         project_root = Path.cwd()
@@ -625,12 +688,25 @@ def init_command(
             else:
                 if result["reason"]:
                     click.echo(f"   ⏭ {result['reason']}")
+        elif framework == "jest":
+            click.echo("\n📝 Generating jest.config.js...")
+            result = _generate_jest_config(project_root)
+
+            if result["generated"]:
+                click.echo(f"   ✓ jest.config.js created at {result['path']}")
+                click.echo("   - Test discovery configured (testMatch patterns)")
+                click.echo("   - Test taxonomy patterns documented (unit, integration, functional, etc.)")
+                click.echo("   - Classification approaches explained (name patterns, comments)")
+                click.echo("   - Coverage thresholds configured")
+            else:
+                if result["reason"]:
+                    click.echo(f"   ⏭ {result['reason']}")
         else:
-            click.echo(f"   ⏭ pytest.ini not generated (project uses {framework})")
+            click.echo(f"   ⏭ Test config not generated (project uses {framework})")
     except Exception as e:
-        # pytest.ini generation is non-critical, warn but continue
-        click.echo(f"\n⚠️  Warning: Could not generate pytest.ini: {e}")
-        click.echo("   You can create pytest.ini manually if needed")
+        # Test framework config generation is non-critical, warn but continue
+        click.echo(f"\n⚠️  Warning: Could not generate test configuration: {e}")
+        click.echo("   You can create test configuration manually if needed")
 
     # Create initial files (only if new)
     if not existing_config:
