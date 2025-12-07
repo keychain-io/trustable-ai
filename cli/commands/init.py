@@ -17,6 +17,7 @@ from agents import AgentRegistry
 from workflows import WorkflowRegistry
 from cli.platform_detector import PlatformDetector
 from cli.permissions_generator import PermissionsTemplateGenerator
+from cli.config_generators.pytest_generator import PytestConfigGenerator
 
 
 def _load_existing_config(config_file: Path) -> Optional[FrameworkConfig]:
@@ -196,6 +197,68 @@ def _generate_permissions_config(claude_dir: Path) -> Dict[str, int]:
     }
 
     return counts
+
+
+def _generate_pytest_config(project_path: Path) -> Dict[str, Any]:
+    """
+    Generate pytest.ini configuration file for Python projects.
+
+    Detects if project uses pytest and generates pytest.ini with test taxonomy
+    markers based on the universal test taxonomy (config/test_taxonomy.py).
+
+    Args:
+        project_path: Path to the project root directory
+
+    Returns:
+        Dict with generation results:
+            - generated: True if pytest.ini was generated, False if skipped
+            - path: Path to pytest.ini if generated, None otherwise
+            - reason: Reason for skipping if not generated
+
+    Example:
+        >>> result = _generate_pytest_config(Path("/my/python/project"))
+        >>> result["generated"]
+        True
+        >>> result["path"]
+        PosixPath('/my/python/project/pytest.ini')
+    """
+    pytest_ini_path = project_path / "pytest.ini"
+
+    # Skip if pytest.ini already exists
+    if pytest_ini_path.exists():
+        return {
+            "generated": False,
+            "path": pytest_ini_path,
+            "reason": "pytest.ini already exists",
+        }
+
+    # Detect if project uses pytest
+    framework = detect_test_framework(project_path)
+    if framework != "pytest":
+        return {
+            "generated": False,
+            "path": None,
+            "reason": f"Project uses {framework}, not pytest",
+        }
+
+    # Generate pytest.ini
+    generator = PytestConfigGenerator()
+    content = generator.generate_pytest_ini(project_path)
+
+    # Write to file
+    try:
+        generator.write_to_file(content, pytest_ini_path)
+        return {
+            "generated": True,
+            "path": pytest_ini_path,
+            "reason": None,
+        }
+    except Exception as e:
+        return {
+            "generated": False,
+            "path": None,
+            "reason": f"Error writing pytest.ini: {e}",
+        }
 
 
 def _detect_project_settings(root: Path) -> Dict[str, Any]:
@@ -542,6 +605,32 @@ def init_command(
         # Permissions generation is non-critical, warn but continue
         click.echo(f"\n⚠️  Warning: Could not generate permissions: {e}")
         click.echo("   You can configure permissions manually in .claude/settings.local.json")
+
+    # Generate pytest.ini for Python projects
+    click.echo("\n🧪 Detecting test framework...")
+    try:
+        project_root = Path.cwd()
+        framework = detect_test_framework(project_root)
+        click.echo(f"   Test framework: {framework}")
+
+        if framework == "pytest":
+            click.echo("\n📝 Generating pytest.ini...")
+            result = _generate_pytest_config(project_root)
+
+            if result["generated"]:
+                click.echo(f"   ✓ pytest.ini created at {result['path']}")
+                click.echo("   - Test discovery configured (testpaths, python_files)")
+                click.echo("   - Test taxonomy markers defined (unit, integration, functional, etc.)")
+                click.echo("   - Marker descriptions for IDE support")
+            else:
+                if result["reason"]:
+                    click.echo(f"   ⏭ {result['reason']}")
+        else:
+            click.echo(f"   ⏭ pytest.ini not generated (project uses {framework})")
+    except Exception as e:
+        # pytest.ini generation is non-critical, warn but continue
+        click.echo(f"\n⚠️  Warning: Could not generate pytest.ini: {e}")
+        click.echo("   You can create pytest.ini manually if needed")
 
     # Create initial files (only if new)
     if not existing_config:
