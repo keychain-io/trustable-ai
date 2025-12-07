@@ -156,8 +156,23 @@ class AgentRegistry:
         if not self.templates_dir.exists():
             return []
 
-        # Templates to exclude (not actual agents)
-        excluded = {"slash-command"}
+        # Templates to exclude (not actual agents or deprecated agents)
+        excluded = {
+            "slash-command",
+            # Deprecated agents (consolidated into 7 core agents in v2.0)
+            "adversarial-tester",
+            "code-reviewer",
+            "documentation-specialist",
+            "falsifiability-prover",
+            "performance-engineer",
+            "project-architect",
+            "release-manager",
+            "spec-driven-tester",
+            "technical-writer",
+            "test-arbitrator",
+            "devops-engineer",
+            "qa-engineer",
+        }
 
         agents = []
         for template_file in self.templates_dir.glob("*.j2"):

@@ -3,3 +3,22 @@ recursive-include workflows/templates *.j2
 recursive-include skills/templates *.j2
 include *.md
 include *.yaml
+
+# Exclude deprecated agent templates (consolidated into 7 core agents)
+exclude agents/templates/adversarial-tester.j2
+exclude agents/templates/code-reviewer.j2
+exclude agents/templates/documentation-specialist.j2
+exclude agents/templates/falsifiability-prover.j2
+exclude agents/templates/performance-engineer.j2
+exclude agents/templates/project-architect.j2
+exclude agents/templates/release-manager.j2
+exclude agents/templates/spec-driven-tester.j2
+exclude agents/templates/technical-writer.j2
+exclude agents/templates/test-arbitrator.j2
+exclude agents/templates/devops-engineer.j2
+exclude agents/templates/qa-engineer.j2
+
+# Exclude deprecated workflow templates
+exclude workflows/templates/feature-implementation.j2
+exclude workflows/templates/sprint-completion.j2
+exclude workflows/templates/epic-breakdown.j2
