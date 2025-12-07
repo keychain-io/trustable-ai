@@ -15,6 +15,8 @@ from config import create_default_config, save_config, load_config
 from config.schema import FrameworkConfig
 from agents import AgentRegistry
 from workflows import WorkflowRegistry
+from cli.platform_detector import PlatformDetector
+from cli.permissions_generator import PermissionsTemplateGenerator
 
 
 def _load_existing_config(config_file: Path) -> Optional[FrameworkConfig]:
@@ -134,6 +136,66 @@ def detect_test_framework(project_path: Path) -> str:
 
     # Fallback to generic
     return "generic"
+
+
+def _generate_permissions_config(claude_dir: Path) -> Dict[str, int]:
+    """
+    Generate permissions configuration for Claude Code.
+
+    Detects platform and generates .claude/settings.local.json with safe-action
+    permissions that auto-approve safe operations while requiring approval for
+    destructive ones.
+
+    Args:
+        claude_dir: Path to .claude directory
+
+    Returns:
+        Dict with counts of permission types:
+            - auto_approved: Number of auto-approved operations
+            - requires_approval: Number of operations requiring approval
+            - denied: Number of denied operations
+
+    Example:
+        >>> counts = _generate_permissions_config(Path(".claude"))
+        >>> counts["auto_approved"]
+        53
+    """
+    settings_path = claude_dir / "settings.local.json"
+
+    # Detect platform
+    detector = PlatformDetector()
+    platform_info = detector.detect_platform()
+
+    # Generate permissions
+    generator = PermissionsTemplateGenerator()
+
+    # Load existing settings if present
+    existing_settings = {}
+    if settings_path.exists():
+        try:
+            with settings_path.open("r") as f:
+                existing_settings = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            # If file is corrupt or unreadable, start fresh
+            existing_settings = {}
+
+    # Generate new permissions (development mode for local development)
+    new_permissions = generator.generate_permissions(platform_info, mode="development")
+
+    # Merge with existing settings (preserve user customizations)
+    merged_settings = {**existing_settings, **new_permissions}
+
+    # Write merged settings
+    generator.write_to_file(merged_settings, settings_path)
+
+    # Count permission types for summary
+    counts = {
+        "auto_approved": len(new_permissions["permissions"]["allow"]),
+        "requires_approval": len(new_permissions["permissions"]["ask"]),
+        "denied": len(new_permissions["permissions"]["deny"]),
+    }
+
+    return counts
 
 
 def _detect_project_settings(root: Path) -> Dict[str, Any]:
@@ -456,6 +518,30 @@ def init_command(
     # Save configuration
     save_config(config, config_file)
     click.echo(f"\n   ✓ Configuration saved to {config_file}")
+
+    # Generate permissions configuration
+    click.echo("\n🔍 Detecting platform...")
+    try:
+        detector = PlatformDetector()
+        platform_info = detector.detect_platform()
+        platform_desc = platform_info["os"]
+        if platform_info.get("is_wsl"):
+            platform_desc += " (WSL2)"
+        click.echo(f"   Platform: {platform_desc}")
+        click.echo(f"   Shell: {platform_info['shell']}")
+
+        click.echo("\n🔒 Configuring permissions...")
+        counts = _generate_permissions_config(claude_dir)
+
+        click.echo("\n✅ Permissions configured:")
+        click.echo(f"   - Auto-approved: {counts['auto_approved']} safe operations (git status, pytest, etc.)")
+        click.echo(f"   - Require approval: {counts['requires_approval']} operations (git push, network access, etc.)")
+        click.echo(f"   - Denied: {counts['denied']} destructive operations (--force, rm -rf, etc.)")
+        click.echo(f"\n   Settings saved to {claude_dir / 'settings.local.json'}")
+    except Exception as e:
+        # Permissions generation is non-critical, warn but continue
+        click.echo(f"\n⚠️  Warning: Could not generate permissions: {e}")
+        click.echo("   You can configure permissions manually in .claude/settings.local.json")
 
     # Create initial files (only if new)
     if not existing_config:

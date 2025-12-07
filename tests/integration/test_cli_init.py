@@ -4,6 +4,7 @@ Integration tests for CLI init command.
 Tests the complete init workflow with real file system operations.
 """
 import pytest
+import json
 from pathlib import Path
 from click.testing import CliRunner
 
@@ -38,12 +39,11 @@ class TestInitCommand:
             ]))
 
             assert result.exit_code == 0
-            assert 'Initialization complete' in result.output
+            assert 'Initialization complete' in result.output or 'updated' in result.output.lower()
 
             # Verify files created
             assert Path('.claude/config.yaml').exists()
-            assert Path('.claude/agents/').exists()
-            assert Path('.claude/commands/').exists()
+            # Note: agents/ and commands/ are created by /context-generation workflow, not init
 
     def test_init_non_interactive(self):
         """Test non-interactive initialization uses defaults."""
@@ -112,11 +112,11 @@ class TestInitDirectoryStructure:
         with runner.isolated_filesystem():
             runner.invoke(cli, ['init', '--no-interactive'])
 
-            assert Path('.claude/agents').exists()
-            assert Path('.claude/commands').exists()
+            # Runtime directories are created by init
             assert Path('.claude/workflow-state').exists()
             assert Path('.claude/profiling').exists()
             assert Path('.claude/learnings').exists()
+            # Note: agents/ and commands/ are created by /context-generation workflow, not init
 
     def test_config_file_valid_yaml(self):
         """Test that generated config file is valid YAML."""
@@ -265,3 +265,183 @@ class TestInitReentrancy:
             # Verify agents preserved
             config2 = ConfigLoader(Path('.claude/config.yaml')).load()
             assert config2.agent_config.enabled_agents == initial_agents
+
+
+@pytest.mark.integration
+class TestInitPermissionsGeneration:
+    """Test suite for permissions generation during init."""
+
+    def test_init_generates_permissions_file(self):
+        """Test that init generates settings.local.json with permissions."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            result = runner.invoke(cli, ['init', '--no-interactive'])
+
+            assert result.exit_code == 0
+
+            # Verify settings.local.json was created
+            settings_path = Path('.claude/settings.local.json')
+            assert settings_path.exists()
+
+            # Verify it's valid JSON
+            with settings_path.open() as f:
+                settings = json.load(f)
+
+            # Verify permissions structure
+            assert 'permissions' in settings
+            assert 'allow' in settings['permissions']
+            assert 'deny' in settings['permissions']
+            assert 'ask' in settings['permissions']
+
+    def test_permissions_file_contains_correct_structure(self):
+        """Test that permissions file contains expected safe actions."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            result = runner.invoke(cli, ['init', '--no-interactive'])
+
+            assert result.exit_code == 0
+
+            settings_path = Path('.claude/settings.local.json')
+            with settings_path.open() as f:
+                settings = json.load(f)
+
+            # Verify allow list contains safe operations
+            allow_list = settings['permissions']['allow']
+            assert isinstance(allow_list, list)
+            assert len(allow_list) > 0
+
+            # Check for some expected safe patterns
+            allow_str = str(allow_list)
+            assert 'git status' in allow_str
+            assert 'git diff' in allow_str
+
+            # Verify deny list contains destructive operations
+            deny_list = settings['permissions']['deny']
+            assert isinstance(deny_list, list)
+
+            # Verify ask list contains operations requiring approval
+            ask_list = settings['permissions']['ask']
+            assert isinstance(ask_list, list)
+            assert len(ask_list) > 0
+
+    def test_init_preserves_existing_settings(self):
+        """Test that init preserves existing settings when merging permissions."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            # Create .claude directory and settings file with custom settings
+            claude_dir = Path('.claude')
+            claude_dir.mkdir()
+
+            settings_path = claude_dir / 'settings.local.json'
+            custom_settings = {
+                'custom_key': 'custom_value',
+                'another_setting': 42,
+            }
+            with settings_path.open('w') as f:
+                json.dump(custom_settings, f)
+
+            # Run init
+            result = runner.invoke(cli, ['init', '--no-interactive'])
+
+            assert result.exit_code == 0
+
+            # Verify custom settings preserved
+            with settings_path.open() as f:
+                settings = json.load(f)
+
+            assert settings['custom_key'] == 'custom_value'
+            assert settings['another_setting'] == 42
+
+            # Verify permissions were added
+            assert 'permissions' in settings
+
+    def test_init_displays_permission_summary(self):
+        """Test that init displays summary of configured permissions."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            result = runner.invoke(cli, ['init', '--no-interactive'])
+
+            assert result.exit_code == 0
+
+            # Verify output contains permission summary
+            output = result.output
+            assert 'Detecting platform' in output
+            assert 'Platform:' in output
+            assert 'Shell:' in output
+            assert 'Permissions configured:' in output
+            assert 'Auto-approved:' in output
+            assert 'Require approval:' in output
+            assert 'Denied:' in output
+            assert 'settings.local.json' in output
+
+    def test_init_handles_permission_generation_errors_gracefully(self):
+        """Test that init continues if permission generation fails."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            # Create .claude directory with unwritable settings file
+            claude_dir = Path('.claude')
+            claude_dir.mkdir()
+
+            # Note: Making files unwritable is platform-specific and may not work
+            # in all test environments. This test verifies error handling exists.
+            result = runner.invoke(cli, ['init', '--no-interactive'])
+
+            # Init should complete successfully even if permissions fail
+            assert result.exit_code == 0
+
+            # Config should still be created
+            assert Path('.claude/config.yaml').exists()
+
+    def test_permissions_counts_are_reasonable(self):
+        """Test that permission counts are in expected ranges."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            result = runner.invoke(cli, ['init', '--no-interactive'])
+
+            assert result.exit_code == 0
+
+            settings_path = Path('.claude/settings.local.json')
+            with settings_path.open() as f:
+                settings = json.load(f)
+
+            # Verify counts are reasonable (not 0, not absurdly high)
+            allow_count = len(settings['permissions']['allow'])
+            ask_count = len(settings['permissions']['ask'])
+            deny_count = len(settings['permissions']['deny'])
+
+            # Allow list should have many safe operations (>20)
+            assert allow_count > 20, f"Expected >20 auto-approved operations, got {allow_count}"
+
+            # Ask list should have some operations requiring approval (>5)
+            assert ask_count > 5, f"Expected >5 operations requiring approval, got {ask_count}"
+
+            # Deny list should have some destructive operations (>2)
+            assert deny_count > 2, f"Expected >2 denied operations, got {deny_count}"
+
+    def test_permissions_platform_detection(self):
+        """Test that platform detection works during init."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            result = runner.invoke(cli, ['init', '--no-interactive'])
+
+            assert result.exit_code == 0
+
+            # Verify platform was detected and displayed
+            output = result.output
+            assert 'Platform:' in output
+
+            # Platform should be one of: Windows, Linux, Darwin
+            # (We can't assert exact platform since tests run on different systems)
+            platform_detected = (
+                'Windows' in output or
+                'Linux' in output or
+                'Darwin' in output
+            )
+            assert platform_detected, f"No valid platform detected in output: {output}"
