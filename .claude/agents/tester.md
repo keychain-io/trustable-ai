@@ -5,8 +5,8 @@ Comprehensive testing: design test strategies, create test plans, perform advers
 
 ## Model Configuration
 - Model: claude-sonnet-4.5
-- Extended Thinking: **ENABLED**
-- Context Window: Maximum
+- Extended Thinking: Not required (optimized for speed)
+- Context Window: Standard
 
 ## Output Formatting
 Use actual Unicode emojis, NOT GitHub-style shortcodes:
@@ -193,6 +193,165 @@ Use actual Unicode emojis, NOT GitHub-style shortcodes:
 - **High Risk Areas**: [areas needing extra testing]
 - **Known Limitations**: [test gaps, future work]
 ```
+
+## Test Classification
+
+Use the universal test taxonomy to classify all tests you write or review. Test classification enables workflow-aware test execution, targeted test runs, and categorized reporting.
+
+### Test Taxonomy Dimensions
+
+**Test Levels** (exactly one required):
+- `unit`: Isolated components/functions (fast, no external dependencies)
+- `integration`: Component interactions (moderate speed, may use files/network)
+- `system`: End-to-end workflows (slower, requires full system)
+- `acceptance`: User acceptance criteria validation
+- `validation`: Release validation (smoke tests)
+
+**Test Types** (at least one required):
+- `functional`: Business logic, features, functionality
+- `security`: Authentication, authorization, vulnerabilities
+- `performance`: Speed, throughput, resource usage
+- `usability`: UI/UX, accessibility, user workflows
+
+**Modifiers** (optional):
+- `slow`: Tests taking >10 seconds
+- `requires-db`: Tests requiring database
+- `requires-network`: Tests requiring network access
+- `flaky`: Tests with known intermittent failures
+
+### Framework-Specific Implementation
+
+**Python (pytest)**:
+```python
+import pytest
+
+@pytest.mark.unit
+@pytest.mark.functional
+def test_calculate_total():
+    """Test calculate_total function (isolated, fast)."""
+    assert calculate_total([1, 2, 3]) == 6
+
+@pytest.mark.integration
+@pytest.mark.functional
+@pytest.mark.requires_db
+def test_user_repository_save():
+    """Test user repository saves to database."""
+    # Uses real database connection
+    user = User(name="Alice")
+    repo.save(user)
+    assert repo.find_by_name("Alice") == user
+
+@pytest.mark.system
+@pytest.mark.security
+@pytest.mark.slow
+def test_authentication_flow_end_to_end():
+    """Test complete user authentication workflow."""
+    # End-to-end test with full system
+    response = client.post("/signup", data={"email": "test@example.com"})
+    assert response.status_code == 201
+    # ... complete flow
+```
+
+**Run tests**:
+```bash
+# Run only unit tests
+pytest -m unit
+
+# Run unit and integration tests
+pytest -m "unit or integration"
+
+# Run functional tests (any level)
+pytest -m functional
+
+# Run specific combination
+pytest -m "integration and functional and not slow"
+
+# Exclude database tests
+pytest -m "not requires_db"
+```
+
+
+
+
+**Generic (Comment-based classification)**:
+```
+# Any language without native test markers
+
+# @test-level: unit
+# @test-type: functional
+function test_calculate_total() {
+    assert(calculate_total([1, 2, 3]) == 6)
+}
+
+# @test-level: integration
+# @test-type: functional
+# @modifier: requires-db
+function test_user_repository_save() {
+    user = User("Alice")
+    repo.save(user)
+    assert(repo.find_by_name("Alice") == user)
+}
+
+# @test-level: system
+# @test-type: security
+# @modifier: slow
+function test_authentication_flow_end_to_end() {
+    response = client.post("/signup", {email: "test@example.com"})
+    assert(response.status_code == 201)
+    // ... complete flow
+}
+```
+
+### When to Use Each Classification
+
+**Test Level Selection**:
+- Use `unit` when testing a single function/class in isolation with mocked dependencies
+- Use `integration` when testing interactions between 2+ components (e.g., repository + database)
+- Use `system` when testing complete user workflows or end-to-end scenarios
+- Use `acceptance` when validating specific user acceptance criteria from requirements
+- Use `validation` for smoke tests that verify basic system health after deployment
+
+**Test Type Selection**:
+- Use `functional` for testing business logic, features, and functionality (most tests)
+- Use `security` for authentication, authorization, input validation, vulnerability tests
+- Use `performance` for load tests, stress tests, response time validation
+- Use `usability` for UI/UX tests, accessibility checks, user workflow validation
+
+**Modifier Selection**:
+- Use `slow` for tests taking >10 seconds (allows excluding from rapid development cycles)
+- Use `requires-db` for tests needing database (allows running subset without DB setup)
+- Use `requires-network` for tests needing external APIs (allows offline testing)
+- Use `flaky` for tests with known intermittent failures (track separately, fix gradually)
+
+### Workflow-Aware Test Execution
+
+Different workflows execute different test subsets:
+
+**Development (local)**:
+- Run: `unit` + `functional` (fast feedback)
+- Skip: `slow`, `requires-network` (speed up iteration)
+
+**Sprint Execution (CI)**:
+- Run: `unit` + `integration` + `functional` + `security`
+- Skip: `system` (too slow for every commit), `flaky` (don't block on known issues)
+
+**Release Validation (pre-deploy)**:
+- Run: ALL levels, ALL types (comprehensive validation)
+- Include: `validation` + `acceptance` + `system` (full end-to-end)
+
+**Performance Testing (scheduled)**:
+- Run: `performance` type only (dedicated performance test runs)
+- Include: `slow` + `requires-db` + `requires-network` (realistic conditions)
+
+### Test Classification Checklist
+
+For every test you write or review, verify:
+- [ ] Has exactly ONE test level (`unit`, `integration`, `system`, `acceptance`, or `validation`)
+- [ ] Has at least ONE test type (`functional`, `security`, `performance`, or `usability`)
+- [ ] Has appropriate modifiers if test is `slow`, `requires-db`, `requires-network`, or `flaky`
+- [ ] Classification matches actual test behavior (e.g., unit test doesn't use database)
+- [ ] Framework-specific markers/tags applied correctly
+- [ ] Test can be selected via framework's test filtering mechanism
 
 ## Adversarial Testing Process
 

@@ -73,13 +73,16 @@ Analyze the following Epic and break it down into a hierarchy of Features and Ta
 ### Decomposition Requirements
 
 1. **Feature Extraction**: Identify 3-7 Features that comprise this Epic
-   - Each Feature should represent a cohesive capability
+   - Each Feature should represent a cohesive capability that is measurable, testable, and valuable
    - Features should be independently deliverable
    - Estimate story points for each Feature (5-20 pts ideal)
 
-2. **Task Breakdown**: For each Feature, identify 2-5 Tasks
-   - Tasks should be actionable and specific
-   - Each Task should be completable in 1-3 days
+2. **Task Breakdown**: For each Feature, identify 2-5 Tasks that implement the Feature and, if applicable, deploy it
+   - Exactly one task should request the complete implementation of the Feature code and unit and integration tests, and it should contain enough context for an engineer to implement both the code and the tests solely based on the Task description and if any attachments. The Task should include detailed function specification of each testable technical task for an engineer to implement. The tests should be falsifiable and comprehensive relative to the scope and goals of the Feature. The test type and requirements should be project-stage aware, be labelled according to the project's test classification taxonomy, and be designed to provide evidence that the feature was implemented completely.
+   - Exactly one tasks should request the running of the tests created in the implementation task, collecting results, verifying falsifiable of the tests, confirming code coverage, and confirming feature coverage of the tests.
+   - Deployment tasks should be included if the Feature requires deployment to a dev, staging, or production environment.
+   - All tasks should be actionable and specific and not overlap
+   - Each Task should be completable within 7 days
    - Include acceptance criteria for each Task
 
 3. **Dependency Analysis**: Identify dependencies between Features/Tasks
@@ -254,6 +257,24 @@ else:
    - Priority recommendations
    - Gaps and missing information
 
+### Step 2: Project Architect - Technical Feasibility Review
+
+1. **Read agent definition:** `.claude/agents/architect.md`
+2. **Task:** "Review backlog items for technical feasibility and architecture implications:
+   - Identify technical dependencies
+   - Assess complexity and risk
+   - Flag items requiring architecture decisions
+   - Recommend technical spikes if needed
+   - Estimate relative effort (T-shirt sizing)"
+3. **Spawn agent** using Task tool with model `claude-opus-4`
+4. **Input:** Backlog items from Step 1
+5. **Display output** to user
+6. **Collect:**
+   - Technical risk assessments
+   - Dependency mappings
+   - Spike recommendations
+   - Effort estimates (S/M/L/XL)
+
 ### Step 3: Human Review & Approval Gate
 
 **Instructions for User:**
@@ -328,7 +349,7 @@ Create summary report with:
 ## Configuration
 
 **Agents Used:**
-- Business Analyst
+- Business Analyst- Project Architect
 **Quality Standards:**
 - Business value scoring: 1-100 scale
 - Technical risk: Low/Medium/High

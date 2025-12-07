@@ -37,14 +37,12 @@ class WorkflowSkill(BaseSkill):
     def initialize(self) -> bool:
         """Initialize state manager and profiler."""
         try:
-            from core.state_manager import WorkflowStateManager
-            from core.profiler import WorkflowProfiler
+            # Import the actual classes and functions that exist
+            from core import WorkflowState, WorkflowProfiler
 
-            state_dir = Path(self.config.get('state_dir', '.claude/workflow-state'))
-            profile_dir = Path(self.config.get('profile_dir', '.claude/profiling'))
-
-            self._state_manager = WorkflowStateManager(state_dir)
-            self._profiler = WorkflowProfiler(profile_dir)
+            # Store the classes for later use
+            self._state_class = WorkflowState
+            self._profiler_class = WorkflowProfiler
             self._initialized = True
             return True
         except ImportError as e:
@@ -57,14 +55,14 @@ class WorkflowSkill(BaseSkill):
         warnings = []
 
         try:
-            from core.state_manager import WorkflowStateManager
+            from core import WorkflowState
         except ImportError:
-            missing.append("core.state_manager module")
+            missing.append("core.WorkflowState class")
 
         try:
-            from core.profiler import WorkflowProfiler
+            from core import WorkflowProfiler
         except ImportError:
-            missing.append("core.profiler module")
+            missing.append("core.WorkflowProfiler class")
 
         state_dir = Path(self.config.get('state_dir', '.claude/workflow-state'))
         if not state_dir.exists():

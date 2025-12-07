@@ -37,10 +37,11 @@ class ContextSkill(BaseSkill):
     def initialize(self) -> bool:
         """Initialize context loaders."""
         try:
-            from core.context_loader import ContextLoader
-            from core.optimized_loader import OptimizedContextLoader
+            # Import functions and classes that actually exist
+            from core import context_loader
+            from core import OptimizedContextLoader
 
-            self._context_loader = ContextLoader()
+            self._context_loader = context_loader
             self._optimized_loader = OptimizedContextLoader()
             self._initialized = True
             return True
@@ -54,12 +55,12 @@ class ContextSkill(BaseSkill):
         warnings = []
 
         try:
-            from core.context_loader import ContextLoader
+            from core import context_loader
         except ImportError:
             missing.append("core.context_loader module")
 
         try:
-            from core.optimized_loader import OptimizedContextLoader
+            from core import OptimizedContextLoader
         except ImportError:
             warnings.append("core.optimized_loader module (optional)")
 

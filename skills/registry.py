@@ -40,7 +40,29 @@ class SkillRegistry:
                 # Check if it has an __init__.py
                 init_file = item / "__init__.py"
                 if init_file.exists():
-                    discovered.append(item.name)
+                    # Verify it's actually a skill by checking if it can be loaded
+                    try:
+                        module_name = f"skills.{item.name}"
+                        module = importlib.import_module(module_name)
+
+                        # Check if module has skill pattern
+                        has_skill = (
+                            hasattr(module, "get_skill") or
+                            hasattr(module, "Skill") or
+                            any(
+                                isinstance(getattr(module, attr_name), type) and
+                                issubclass(getattr(module, attr_name), BaseSkill) and
+                                getattr(module, attr_name) is not BaseSkill
+                                for attr_name in dir(module)
+                                if not attr_name.startswith("_")
+                            )
+                        )
+
+                        if has_skill:
+                            discovered.append(item.name)
+                    except Exception:
+                        # Skip modules that can't be imported or don't have skills
+                        pass
 
         self._discovered = True
         return discovered
