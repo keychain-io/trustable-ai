@@ -32,7 +32,7 @@ def cli():
 
 # Import commands
 from .commands import init, configure, agent, workflow, validate
-from .commands import doctor, status, learnings, context, skill
+from .commands import doctor, status, learnings, context, skill, permissions
 
 # Register core commands
 cli.add_command(init.init_command)
@@ -47,6 +47,7 @@ cli.add_command(status.status)
 cli.add_command(learnings.learnings)
 cli.add_command(context.context)
 cli.add_command(skill.skill)
+cli.add_command(permissions.permissions_command)
 
 
 if __name__ == "__main__":
