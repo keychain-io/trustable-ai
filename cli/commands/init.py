@@ -8,6 +8,8 @@ import click
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 import yaml
+import json
+import shutil
 
 from config import create_default_config, save_config, load_config
 from config.schema import FrameworkConfig
@@ -43,6 +45,95 @@ def _get_existing_value(config: Optional[FrameworkConfig], path: str, default: A
         return value if value is not None else default
     except Exception:
         return default
+
+
+def detect_test_framework(project_path: Path) -> str:
+    """
+    Detect testing framework based on project files.
+
+    Analyzes the project directory structure and configuration files to determine
+    which testing framework is being used. This enables framework-specific test
+    configuration and agent instructions.
+
+    Detection logic:
+    - **pytest** (Python): Checks for pytest.ini, pyproject.toml with [tool.pytest],
+      setup.py, or setup.cfg with pytest configuration
+    - **jest** (JavaScript/TypeScript): Checks for package.json with "jest" in
+      devDependencies or dependencies
+    - **junit** (Java): Checks for pom.xml (Maven) or build.gradle (Gradle)
+    - **go-testing** (Go): Checks for go.mod file
+    - **generic**: Fallback when no specific framework is detected
+
+    Args:
+        project_path: Path to the project directory to analyze
+
+    Returns:
+        Framework name as string: 'pytest', 'jest', 'junit', 'go-testing', or 'generic'
+
+    Example:
+        >>> detect_test_framework(Path("/my/python/project"))
+        'pytest'
+        >>> detect_test_framework(Path("/my/js/project"))
+        'jest'
+    """
+    # Detect pytest (Python)
+    if (project_path / "pytest.ini").exists():
+        return "pytest"
+
+    # Check pyproject.toml for pytest configuration
+    pyproject_path = project_path / "pyproject.toml"
+    if pyproject_path.exists():
+        try:
+            # Try to parse TOML file for pytest configuration
+            content = pyproject_path.read_text()
+            # Simple check for pytest in tool section (works without toml library)
+            if "[tool.pytest" in content:
+                return "pytest"
+        except Exception:
+            # If reading fails, continue checking other files
+            pass
+
+    # Check setup.py for pytest
+    if (project_path / "setup.py").exists():
+        return "pytest"
+
+    # Check setup.cfg for pytest configuration
+    setup_cfg_path = project_path / "setup.cfg"
+    if setup_cfg_path.exists():
+        try:
+            content = setup_cfg_path.read_text()
+            if "[tool:pytest]" in content or "[pytest]" in content:
+                return "pytest"
+        except Exception:
+            pass
+
+    # Detect Jest (JavaScript/TypeScript)
+    package_json_path = project_path / "package.json"
+    if package_json_path.exists():
+        try:
+            package_data = json.loads(package_json_path.read_text())
+            dependencies = package_data.get("dependencies", {})
+            dev_dependencies = package_data.get("devDependencies", {})
+
+            # Check if jest is in dependencies
+            if "jest" in dependencies or "jest" in dev_dependencies:
+                return "jest"
+        except Exception:
+            pass
+
+    # Detect JUnit (Java)
+    if (project_path / "pom.xml").exists():
+        return "junit"
+
+    if (project_path / "build.gradle").exists():
+        return "junit"
+
+    # Detect Go testing
+    if (project_path / "go.mod").exists():
+        return "go-testing"
+
+    # Fallback to generic
+    return "generic"
 
 
 def _detect_project_settings(root: Path) -> Dict[str, Any]:
