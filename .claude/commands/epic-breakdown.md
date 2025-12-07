@@ -2,7 +2,7 @@
 
 **Project**: trusted-ai-development-workbench
 **Workflow**: Epic Breakdown
-**Purpose**: Decompose an Epic into 3-5 deliverable Features (large capabilities, 15-30 pts each)
+**Purpose**: Decompose an Epic into deliverable Features with clear scope
 
 ## Output Formatting Requirements
 
@@ -10,50 +10,23 @@
 
 ---
 
-## Standard Scrum Hierarchy
-
-```
-Epic (months)
-  └── Feature (weeks) ← THIS WORKFLOW CREATES THESE
-       └── User Story (days) ← Created by /backlog-grooming
-            └── Task (hours) ← Created by /sprint-planning
-```
-
-**What is a Feature?**
-- A large, deliverable capability (not a technical task)
-- Typically 15-30 story points
-- Takes 1-2 sprints to complete
-- Has clear business value
-- Can be broken into 3-8 User Stories
-
-**Examples:**
-- ✅ GOOD: "Artifact Hygiene System" (capability spanning multiple stories)
-- ❌ BAD: "Add cleanup command" (this is a User Story, not a Feature)
-
----
-
 ## Where This Fits
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  SOFTWARE LIFECYCLE - SCRUM PROCESS                                         │
+│  SOFTWARE LIFECYCLE - UPSTREAM WORKFLOWS                                    │
 │                                                                             │
 │  /roadmap-planning                                                          │
-│      │  Creates Epics (large business initiatives, months)                 │
+│      │  Creates Epics from business strategy                               │
 │      ▼                                                                      │
 │  ══════════════════                                                         │
 │  YOU ARE HERE: /epic-breakdown                                              │
 │  ══════════════════                                                         │
-│      │  Input: Epic from Azure DevOps                                      │
-│      │  Output: 3-5 Features (deliverable capabilities, weeks)             │
+│      │                                                                      │
+│      │  Input: Epic from azure-devops                      │
+│      │  Output: Features linked to Epic                                    │
 │      ▼                                                                      │
-│  /backlog-grooming                                                          │
-│      │  Breaks Features into User Stories (days)                           │
-│      ▼                                                                      │
-│  /sprint-planning                                                           │
-│      │  Breaks User Stories into Tasks (hours)                             │
-│      ▼                                                                      │
-│  /feature-implementation                                                    │
+│  /backlog-grooming → /sprint-planning → /feature-implementation            │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -69,19 +42,30 @@ Epic (months)
 ## Initialize Workflow
 
 ```python
-# Get Epic to break down
-epic_id = input("Epic ID to break down (e.g., EPIC-001): ")
+# Initialize work tracking adapter
+import sys
+sys.path.insert(0, ".claude/skills")
+from work_tracking import get_adapter
 
-# Load Epic details from work tracking
-from pathlib import Path
-epic_file = Path(f".claude/work-items/{epic_id}.yaml")
-if epic_file.exists():
-    import yaml
-    with open(epic_file) as f:
-        epic = yaml.safe_load(f)
-    print(f"✅ Loaded Epic: {epic['title']}")
-else:
-    print(f"❌ Epic {epic_id} not found at {epic_file}")
+adapter = get_adapter()
+print(f"📋 Work Tracking: {adapter.platform}")
+
+# Get Epic to break down
+epic_id = input("Epic ID to break down (e.g., 1001): ")
+
+# Load Epic details from work tracking system
+try:
+    epic = adapter.get_work_item(int(epic_id))
+    print(f"✅ Loaded Epic #{epic_id}: {epic.get('title', 'Untitled')}")
+
+    # Extract fields for workflow
+    epic_title = epic.get('title', '')
+    epic_description = epic.get('description', '')
+    epic_tags = epic.get('tags', '')
+except Exception as e:
+    print(f"❌ Failed to load Epic #{epic_id}: {e}")
+    print("   Make sure the Epic exists in azure-devops")
+    exit(1)
 ```
 
 ---
@@ -93,23 +77,9 @@ else:
 **Call `/business-analyst` with the following task:**
 
 ```
-## YOUR TASK: Analyze Epic and Identify Features (NOT User Stories)
+## YOUR TASK: Analyze Epic and Identify Features
 
-You are analyzing an Epic to identify 3-5 large, deliverable FEATURES (capabilities).
-
-**CRITICAL**: Features are NOT individual user stories. A Feature is a large capability that will be broken down into multiple User Stories later.
-
-### Examples of Proper Feature Granularity
-
-✅ **GOOD Features** (large capabilities, 15-30 pts):
-- "Problem-Focused Documentation System" (spans multiple documentation files)
-- "Artifact Hygiene System" (includes scanning, detection, remediation)
-- "Context Intelligence System" (includes loading, validation, verification)
-
-❌ **BAD Features** (these are User Stories, not Features):
-- "Update core/CLAUDE.md" (too small, this is a story)
-- "Add cleanup command" (too small, this is a story)
-- "Create schema" (too small, this is a story)
+You are analyzing an Epic to identify the user-facing deliverables (Features).
 
 ### Epic Information
 - ID: {epic_id}
@@ -133,15 +103,40 @@ You are analyzing an Epic to identify 3-5 large, deliverable FEATURES (capabilit
    - What workflows does this Epic enable?
    - What's the user experience flow?
 
-3. **Features** (3-5 large capabilities, NOT 8+ small stories)
+3. **Features** (3-8 distinct deliverables)
    For each Feature, provide:
-   - **Title**: Capability-focused system/feature name (e.g., "Artifact Hygiene System")
-   - **Summary**: What large capability does this provide? (2-3 sentences)
-   - **Business Value**: High / Medium / Low with rationale
-   - **Estimated Story Points**: 15-30 (will span multiple User Stories)
-   - **User Stories Preview**: List 3-6 stories this Feature will break down into
+   - **Title**: User-focused, with clear scope indication
+
+     **IMPORTANT TITLE SCOPING RULES:**
+     - Titles MUST indicate the specific aspect being delivered, not the entire concept
+     - For multi-phase work, include phase qualifier: "- Strategy Design", "- Implementation", "- Testing"
+     - Match titles to actual deliverables that will be completed
+
+     ✅ GOOD Examples:
+     - "Adversarial Testing - Strategy Design"
+     - "API Authentication - OAuth Integration"
+     - "Export Feature - JSON Format Support"
+     - "User Dashboard - Read-Only View"
+
+     ❌ BAD Examples (too broad for single Feature):
+     - "Adversarial Testing" (is this strategy? implementation? both?)
+     - "API Authentication" (which method? which components?)
+     - "Export Feature" (which formats? which data?)
+     - "User Dashboard" (view? edit? admin? all?)
+
+     **Title Pattern**: "[Feature Area] - [Specific Scope]"
+
+   - **User Story**: "As a [persona], I want [capability] so that [benefit]"
+   - **Acceptance Criteria**: 3-5 specific, testable criteria
+   - **Business Value**: High / Medium / Low
    - **Dependencies**: Other Features this depends on
    - **Sequence**: Suggested implementation order (1, 2, 3...)
+
+   - **Completion Criteria**: For Features that produce code
+     - Code must compile without errors
+     - Developer-level unit tests must pass
+     - Matches human concept of "complete" for that specific scope
+     - Can be demonstrated to stakeholders as working
 
 4. **Scope Questions**
    - What needs Product Owner clarification?
@@ -160,7 +155,7 @@ Return your analysis as a JSON structure that can be parsed.
 
 ### Step 1.2: Technical Architecture Review
 
-**Call `/project-architect` with the following task:**
+**Call `/architect` with the following task:**
 
 ```
 ## YOUR TASK: Technical Architecture Review
@@ -176,7 +171,7 @@ Review the proposed Features for technical feasibility and architecture consider
 ### Tech Stack
 **Project Type**: cli-tool
 **Languages**: Python
-**Frameworks**: pytest, pytest
+**Frameworks**: pytest
 **Platforms**: Docker
 
 ### For Each Feature, Analyze:
@@ -291,22 +286,22 @@ Options:
 - Cancel: Stop workflow
 ```
 
-### Step 2.2: Validate Feature Size
+### Step 2.2: Handle Large Features
 
-Check that Features are properly sized (15-30 story points):
+If any Features are 13+ story points:
 
 ```
-✅ PROPER FEATURE SIZING
+⚠️ FEATURES TOO LARGE
 
-Features should be 15-30 story points:
-- Too small (<15 pts): May actually be User Stories, consider consolidating
-- Proper size (15-30 pts): Good Feature granularity
-- Too large (>30 pts): Consider splitting into multiple Features
+The following Features should be broken down further:
 
-If Features are outside this range:
-- [c] Consolidate small items into larger Features
-- [s] Split large Features into multiple
-- [k] Keep as-is and note for backlog grooming
+📦 [Feature Title] - 13 points
+   Recommended: Split into 2-3 smaller Features
+
+Options:
+- [b] Break down now (call /business-analyst again)
+- [k] Keep as-is (accept risk)
+- [d] Defer to backlog grooming
 ```
 
 ---
@@ -325,22 +320,20 @@ Display a summary for human review:
 👥 User Personas: {personas}
 🚶 User Journeys: {count}
 
-📦 PROPOSED FEATURES ({count} Features, target: 3-5):
+📦 PROPOSED FEATURES ({count}):
    Total Story Points: {total}
    Estimated Sprints: {sprints}
 
-  1. [Feature Title] - {points} pts (Business Value: High)
-     Summary: Large deliverable capability description
-     Will break down into: 5 User Stories
+  1. [Feature Title]
+     Story Points: 5 | Complexity: M | Business Value: High
+     User Story: As a..., I want..., so that...
      Dependencies: [Other Feature]
 
-     Preview User Stories:
-     - Story 1 name
-     - Story 2 name
-     - ...
-
-  2. [Feature Title] - {points} pts (Business Value: Medium)
+  2. [Feature Title]
      ...
+
+🔧 TECHNICAL ENABLERS:
+  - [Technical Feature] (prerequisite for: [Business Feature])
 
 ════════════════════════════════════════════════════════════════════════════════
 ```
@@ -360,67 +353,79 @@ Review and approve Features to create:
 
 ### Step 4.1: Create Features in Work Tracking
 
-For each approved Feature, create a Feature work item (NOT User Stories yet - those come in /backlog-grooming):
+For each approved Feature:
 
 ```python
-# Create Feature work item (large capability)
-feature_data = {
-    'id': f"FEATURE-{next_id}",
-    'type': 'Feature',
-    'title': feature['title'],  # e.g., "Artifact Hygiene System"
-    'status': 'New',
-    'parent': epic_id,
-    'description': f"""## Summary
-{feature['summary']}
+# Build Feature description
+description = f"""## User Story
+{feature['user_story']}
 
-## Business Value
-{feature['business_value']}: {feature['business_value_rationale']}
+## Acceptance Criteria
+{acceptance_criteria}
 
-## Scope
-{feature['scope_description']}
+## Technical Components
+{technical_components}
 
-## User Stories
-Will be broken down into {len(feature['user_stories_preview'])} User Stories during backlog grooming:
-{feature['user_stories_preview']}
+## Estimation
+- Story Points: {estimate['story_points']}
+- Confidence: {estimate['confidence']}
 
-## Success Criteria
-{success_criteria}
-
-## Estimated Effort
-{story_points} story points total
+## Dependencies
+{', '.join(feature['dependencies']) if feature['dependencies'] else 'None'}
 
 ---
 *Created via /epic-breakdown workflow*
-""",
-    'story_points': feature['story_points'],  # 15-30 for Feature
-    'business_value': feature['business_value'],
-    'dependencies': feature['dependencies']
-}
+"""
 
-# Create in Azure DevOps
-az boards work-item create \
-  --type "Feature" \
-  --title "{title}" \
-  --description "{description}" \
-  --org "{org}" \
-  --project "{project}"
+# Create Feature work item via adapter
+try:
+    result = adapter.create_work_item(
+        work_item_type='Feature',
+        title=feature['title'],
+        description=description,
+        fields={
+            'System.Tags': f"epic-breakdown; parent-epic-{epic_id}; business-value-{feature['business_value'].lower()}"
+        }
+    )
 
-# Link to Epic
-az boards work-item relation add \
-  --id {feature_id} \
-  --relation-type "parent" \
-  --target-id {epic_id}
+    feature_id = result['id']
+    print(f"✅ Created Feature #{feature_id}: {feature['title']}")
+
+    # Link to parent Epic
+    try:
+        adapter.link_work_items(feature_id, int(epic_id), "Parent")
+        print(f"   🔗 Linked to Epic #{epic_id}")
+    except Exception as e:
+        print(f"   ⚠️ Failed to link to Epic: {e}")
+
+    # Store for dependency linking
+    feature_ids[feature['title']] = feature_id
+
+except Exception as e:
+    print(f"❌ Failed to create Feature '{feature['title']}': {e}")
+    continue
 ```
-
-**IMPORTANT**: Do NOT create User Stories at this stage. Features will be broken down into User Stories during `/backlog-grooming`.
 
 ### Step 4.2: Create Dependency Links
 
 For Features with dependencies, create links:
 
-```
-✅ Feature 1002 depends on Feature 1001
-✅ Feature 1003 depends on Feature 1001
+```python
+# Create dependency links between Features
+for feature in approved_features:
+    if feature['dependencies']:
+        feature_id = feature_ids.get(feature['title'])
+        if not feature_id:
+            continue
+
+        for dep_title in feature['dependencies']:
+            dep_id = feature_ids.get(dep_title)
+            if dep_id:
+                try:
+                    adapter.link_work_items(feature_id, dep_id, "Predecessor")
+                    print(f"✅ Feature #{feature_id} depends on #{dep_id}")
+                except Exception as e:
+                    print(f"⚠️ Failed to link dependency: {e}")
 ```
 
 ---
@@ -467,8 +472,8 @@ Save to `docs/epics/epic-{epic_id}-breakdown.md`:
 ...
 
 ## Next Steps
-1. Run `/backlog-grooming` to break Features into User Stories
-2. Run `/sprint-planning` to break User Stories into Tasks and assign to sprint
+1. Run `/backlog-grooming` to refine and prioritize
+2. Run `/sprint-planning` to assign to sprints
 ```
 
 ### Step 5.3: Summary
@@ -478,18 +483,11 @@ Save to `docs/epics/epic-{epic_id}-breakdown.md`:
 ✅ EPIC BREAKDOWN COMPLETE
 ════════════════════════════════════════════════════════════════════════════════
 
-📦 Created {count} Features (target: 3-5) from Epic {epic_id}
+📦 Created {count} Features from Epic {epic_id}
 🔢 Total Story Points: {total}
 📅 Estimated Sprints: {sprints}
 
-**Standard Scrum Process:**
-Epic (months) → [Features (weeks)] ← YOU ARE HERE
-                     ↓
-                User Stories (days) ← Next: /backlog-grooming
-                     ↓
-                Tasks (hours) ← Then: /sprint-planning
-
-➡️ Next: Run /backlog-grooming to break Features into User Stories
+➡️ Next: Run /backlog-grooming to refine Features
 ```
 
 ---
@@ -499,7 +497,7 @@ Epic (months) → [Features (weeks)] ← YOU ARE HERE
 | Step | Agent Command | Purpose |
 |------|---------------|---------|
 | 1.1 | `/business-analyst` | Identify Features & user stories |
-| 1.2 | `/project-architect` | Technical feasibility |
+| 1.2 | `/architect` | Technical feasibility |
 | 1.3 | `/senior-engineer` | Story point estimates |
 
 **Key**: Each agent command spawns a **fresh context window** via the Task tool.

@@ -75,3 +75,8 @@ planning/
 .claude/work-items/
 .claude/learnings/
 .claude/tasks/
+
+# Coverage files
+coverage.xml
+coverage.json
+cov_annotate/

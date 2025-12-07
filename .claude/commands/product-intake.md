@@ -366,20 +366,55 @@ if action in ['c', 'e']:
     priority_map = {'Critical': 1, 'High': 2, 'Medium': 3, 'Low': 4}
     priority = priority_map.get(validated_urgency, 3)
 
+    # Map urgency to severity (for Bugs)
+    severity_map = {'Critical': '1 - Critical', 'High': '2 - High', 'Medium': '3 - Medium', 'Low': '4 - Low'}
+    severity = severity_map.get(validated_urgency, '3 - Medium')
+
+    # Build fields dict
+    fields = {
+        'Microsoft.VSTS.Common.Priority': priority,
+        'System.Tags': '; '.join(suggested_tags + [
+            f'intake-{intake_type.lower().replace(" ", "-")}',
+            f'urgency-{validated_urgency.lower()}',
+            f'source-{source.lower()}'
+        ])
+    }
+
+    # Add Bug-specific fields if this is a Bug
+    if work_item_type == 'Bug':
+        fields['Microsoft.VSTS.Common.Severity'] = severity
+
+        # Reproduction steps (structured field, not just in description)
+        if repro_steps:
+            fields['Microsoft.VSTS.TCM.ReproSteps'] = f"<div>{repro_steps}</div>"
+
+        # System information (environment, version, etc.)
+        system_info_parts = []
+        if technical_assessment and 'affected_components' in technical_assessment:
+            system_info_parts.append(f"<b>Affected Components:</b> {', '.join(technical_assessment['affected_components'])}")
+        system_info_parts.append(f"<b>Source:</b> {source}")
+        system_info_parts.append(f"<b>Urgency:</b> {validated_urgency}")
+        if expected and actual:
+            system_info_parts.append(f"<b>Expected:</b> {expected}<br><b>Actual:</b> {actual}")
+        fields['Microsoft.VSTS.TCM.SystemInfo'] = '<br>'.join(system_info_parts)
+
+        # Acceptance criteria for bug fix
+        acceptance_parts = []
+        if repro_steps:
+            acceptance_parts.append("- Bug no longer reproduces following the reproduction steps")
+        if expected:
+            acceptance_parts.append(f"- System behaves as expected: {expected}")
+        acceptance_parts.append("- No regression in related functionality")
+        acceptance_parts.append("- Unit tests added to prevent regression")
+        fields['Microsoft.VSTS.Common.AcceptanceCriteria'] = '<br>'.join(acceptance_parts)
+
     # Create work item
     try:
         result = adapter.create_work_item(
             work_item_type=work_item_type,
             title=suggested_title or title,
             description=full_description,
-            fields={
-                'Microsoft.VSTS.Common.Priority': priority,
-                'System.Tags': '; '.join(suggested_tags + [
-                    f'intake-{intake_type.lower().replace(" ", "-")}',
-                    f'urgency-{validated_urgency.lower()}',
-                    f'source-{source.lower()}'
-                ])
-            },
+            fields=fields,
             verify=True
         )
 

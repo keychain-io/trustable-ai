@@ -17,7 +17,7 @@ Use actual Unicode emojis in security reports, NOT GitHub-style shortcodes:
 ## Tech Stack Context
 **Project Type**: cli-tool
 **Languages**: Python
-**Frameworks**: pytest, pytest
+**Frameworks**: pytest
 **Platforms**: Docker
 
 ## Responsibilities

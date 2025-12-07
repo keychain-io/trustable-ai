@@ -51,7 +51,7 @@ Use actual Unicode emojis in reports and tables, NOT GitHub-style shortcodes:
 Context: Q2 Planning - Feature prioritization for trusted-ai-development-workbench
 
 Using Extended Thinking, analyze the proposed features for cli-tool:
-Technology stack: pytest, pytest
+Technology stack: pytest
 
 For each feature:
 - Market demand analysis

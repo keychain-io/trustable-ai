@@ -78,7 +78,7 @@ Parameters:
 
 ### Prompt to Send to Agent
 
-Copy the contents of `.claude/agents/spec-driven-tester.md` and append:
+Copy the contents of `.claude/agents/tester.md` and append:
 
 ---
 
@@ -131,7 +131,7 @@ Parameters:
 
 ### Prompt to Send to Agent
 
-Copy the contents of `.claude/agents/adversarial-tester.md` and append:
+Copy the contents of `.claude/agents/tester.md` and append:
 
 ---
 

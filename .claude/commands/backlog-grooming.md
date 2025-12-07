@@ -35,6 +35,201 @@ print(f"📋 Work Tracking: {adapter.platform}")
 
 ## Workflow Steps
 
+### Step 0: Epic Detection and Decomposition
+
+**Detect Epic-sized items in backlog:**
+
+```python
+# Query for Epics and large items
+epics = adapter.query_work_items(
+    filters={
+        'System.State': ['New', 'Proposed'],
+        'System.WorkItemType': ['Epic']
+    }
+)
+
+# Also find items with large story point estimates (>30 pts)
+
+print(f"📦 Found {len(epics)} Epic-sized items requiring decomposition")
+for epic in epics:
+    print(f"  WI-{epic['id']}: {epic.get('title', 'Untitled')} [{epic.get('type', 'Unknown')}]")
+```
+
+**For each Epic, decompose into Features and Tasks:**
+
+**Call `/senior-engineer` agent for each Epic:**
+
+```
+## YOUR TASK: Decompose Epic into Features and Tasks
+
+Analyze the following Epic and break it down into a hierarchy of Features and Tasks.
+
+### Epic Details
+- ID: {epic['id']}
+- Title: {epic['title']}
+- Description: {epic['description']}
+- Business Value: {epic.get('business_value', 'Not specified')}
+
+### Decomposition Requirements
+
+1. **Feature Extraction**: Identify 3-7 Features that comprise this Epic
+   - Each Feature should represent a cohesive capability
+   - Features should be independently deliverable
+   - Estimate story points for each Feature (5-20 pts ideal)
+
+2. **Task Breakdown**: For each Feature, identify 2-5 Tasks
+   - Tasks should be actionable and specific
+   - Each Task should be completable in 1-3 days
+   - Include acceptance criteria for each Task
+
+3. **Dependency Analysis**: Identify dependencies between Features/Tasks
+   - Which Features must be completed before others?
+   - Are there external dependencies (APIs, data, infrastructure)?
+
+4. **Verification**: Ensure decomposition is complete
+   - Sum of Feature story points should approximate Epic estimate
+   - All Epic acceptance criteria covered by Feature/Task breakdown
+   - No orphaned requirements (everything has a Feature/Task)
+
+### Output Format
+
+Return JSON with Epic decomposition:
+```json
+{
+  "epic_id": {epic['id']},
+  "epic_title": "{epic['title']}",
+  "features": [
+    {
+      "title": "Feature 1: User Authentication",
+      "description": "Implement secure user authentication with OAuth2",
+      "story_points": 13,
+      "acceptance_criteria": [
+        "Users can log in with Google/GitHub OAuth",
+        "JWT tokens issued on successful auth",
+        "Token refresh mechanism implemented"
+      ],
+      "tasks": [
+        {
+          "title": "Task 1: Implement OAuth2 integration",
+          "description": "Integrate Google/GitHub OAuth providers",
+          "story_points": 5,
+          "acceptance_criteria": [
+            "OAuth callback endpoints created",
+            "Provider SDK configured",
+            "User profile data fetched"
+          ]
+        },
+        {
+          "title": "Task 2: Implement JWT token service",
+          "description": "Create service for JWT generation and validation",
+          "story_points": 3,
+          "acceptance_criteria": [
+            "JWT library configured",
+            "Token generation tested",
+            "Token validation tested"
+          ]
+        }
+      ],
+      "dependencies": []
+    }
+  ],
+  "total_story_points": 65,
+  "verification": {
+    "epic_estimate": {epic.get('story_points', 'N/A')},
+    "decomposed_total": 65,
+    "variance_percent": 8,
+    "all_acceptance_criteria_covered": true,
+    "missing_requirements": []
+  }
+}
+```
+```
+
+**After agent completes:**
+
+1. Parse Epic decomposition JSON
+2. Verify decomposition quality (story points sum, acceptance criteria coverage)
+3. Create work item hierarchy:
+
+```python
+epic_id = epic['id']
+decomposition = agent_result  # JSON from agent
+
+# Create Features under Epic
+for feature_data in decomposition['features']:
+    # Create Feature work item
+    feature = adapter.create_work_item(
+        work_item_type="Feature",
+        title=feature_data['title'],
+        description=f"""{feature_data['description']}
+
+## Acceptance Criteria
+{chr(10).join(f"- {ac}" for ac in feature_data['acceptance_criteria'])}
+
+## Parent Epic
+WI-{epic_id}: {epic['title']}
+""",
+        fields={
+            'System.Parent': epic_id,  # Link to parent Epic
+            'System.Tags': 'epic-decomposed'
+        }
+    )
+
+    print(f"  ✓ Created Feature WI-{feature['id']}: {feature_data['title']}")
+
+    # Create Tasks under Feature
+    for task_data in feature_data.get('tasks', []):
+        task = adapter.create_work_item(
+            work_item_type="Task",
+            title=task_data['title'],
+            description=f"""{task_data['description']}
+
+## Acceptance Criteria
+{chr(10).join(f"- {ac}" for ac in task_data['acceptance_criteria'])}
+
+## Parent Feature
+WI-{feature['id']}: {feature_data['title']}
+""",
+            fields={
+                'System.Parent': feature['id'],  # Link to parent Feature
+                'System.Tags': 'epic-decomposed'
+            }
+        )
+
+        print(f"    ✓ Created Task WI-{task['id']}: {task_data['title']}")
+
+# Update Epic state
+adapter.update_work_item(
+    work_item_id=epic_id,
+    state='Proposed',  # Mark as decomposed but not yet approved
+    fields={'System.Tags': epic.get('tags', '') + ';decomposed'}
+)
+
+print(f"✅ Epic WI-{epic_id} decomposed into {len(decomposition['features'])} Features")
+```
+
+4. Verify hierarchy created correctly:
+
+```python
+# Query children of Epic
+children = adapter.query_work_items(
+    filters={'System.Parent': epic_id}
+)
+
+expected_count = len(decomposition['features'])
+actual_count = len(children)
+
+if actual_count != expected_count:
+    print(f"⚠️  Verification failed: Expected {expected_count} Features, got {actual_count}")
+else:
+    print(f"✅ Verification passed: All {expected_count} Features created")
+
+# Verify story points sum
+```
+
+
+**If no Epics found, skip to Step 1.**
+
 ### Step 1: Business Analyst - Backlog Analysis
 
 1. **Read agent definition:** `.claude/agents/business-analyst.md`
@@ -58,24 +253,6 @@ print(f"📋 Work Tracking: {adapter.platform}")
    - Business value scores for each item
    - Priority recommendations
    - Gaps and missing information
-
-### Step 2: Project Architect - Technical Feasibility Review
-
-1. **Read agent definition:** `.claude/agents/project-architect.md`
-2. **Task:** "Review backlog items for technical feasibility and architecture implications:
-   - Identify technical dependencies
-   - Assess complexity and risk
-   - Flag items requiring architecture decisions
-   - Recommend technical spikes if needed
-   - Estimate relative effort (T-shirt sizing)"
-3. **Spawn agent** using Task tool with model `claude-opus-4`
-4. **Input:** Backlog items from Step 1
-5. **Display output** to user
-6. **Collect:**
-   - Technical risk assessments
-   - Dependency mappings
-   - Spike recommendations
-   - Effort estimates (S/M/L/XL)
 
 ### Step 3: Human Review & Approval Gate
 
@@ -151,7 +328,7 @@ Create summary report with:
 ## Configuration
 
 **Agents Used:**
-- Business Analyst- Project Architect
+- Business Analyst
 **Quality Standards:**
 - Business value scoring: 1-100 scale
 - Technical risk: Low/Medium/High

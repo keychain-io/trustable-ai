@@ -1,198 +1,585 @@
 # Context Generation Workflow
 
-Generate hierarchical CLAUDE.md documentation structure with directed context loading for trusted-ai-development-workbench.
+Generate hierarchical CLAUDE.md and README.md documentation structure with directed context loading for trusted-ai-development-workbench.
 
 ## Purpose
 
-This workflow creates CLAUDE.md files with front matter that enables **directed context loading** - each file specifies what child contexts to load based on task keywords, allowing Claude Code to load only the relevant context for each task.
+This workflow analyzes your repository structure and creates:
+- **README.md** files for human-readable documentation
+- **CLAUDE.md** files with YAML front matter for directed context loading
+
+Each file is tailored to the directory's actual contents, not generic templates.
 
 ## Prerequisites
 
-1. Repository should be initialized with `trustable-ai init`
-2. Run `trustable-ai context generate --dry-run` first to see the plan
+1. Repository initialized with `trustable-ai init`
+2. Claude Code running in project root directory
 
 ## Workflow Steps
 
 ### Step 1: Analyze Repository Structure
 
-```bash
-# See what directories will be documented
-trustable-ai context generate --dry-run
+Use Glob and Read tools to analyze the project:
+
+```python
+from pathlib import Path
+import os
+
+# Project root
+root = Path.cwd()
+
+# Directories to skip
+skip_dirs = {
+    'node_modules', 'venv', '.venv', 'env', '.env',
+    '__pycache__', '.git', '.svn', '.hg',
+    'dist', 'build', 'out', 'target', 'bin', 'obj',
+    '.idea', '.vscode', '.vs',
+    'coverage', '.coverage', 'htmlcov',
+    '.pytest_cache', '.mypy_cache', '.ruff_cache',
+}
+
+# Find significant directories (have source files)
+def is_significant(directory):
+    """Check if directory has source code files."""
+    code_extensions = {'.py', '.js', '.ts', '.tsx', '.go', '.rs', '.java', '.cpp', '.c', '.rb'}
+    files = list(directory.glob('*'))
+    code_files = [f for f in files if f.is_file() and f.suffix in code_extensions]
+    return len(code_files) >= 2  # At least 2 source files
+
+def analyze_directory(dir_path):
+    """Analyze a directory's contents."""
+    files = []
+    subdirs = []
+
+    for item in dir_path.iterdir():
+        if item.name.startswith('.') and item.name != '.claude':
+            continue
+        if item.name in skip_dirs:
+            continue
+
+        if item.is_dir():
+            subdirs.append(item.name)
+        elif item.is_file():
+            files.append({
+                'name': item.name,
+                'extension': item.suffix,
+                'size': item.stat().st_size
+            })
+
+    # Detect directory type
+    dir_type = 'module'
+    dir_name = dir_path.name.lower()
+
+    type_patterns = {
+        'src': 'source', 'lib': 'source', 'app': 'source', 'pkg': 'source',
+        'tests': 'tests', 'test': 'tests', 'spec': 'tests', '__tests__': 'tests',
+        'docs': 'documentation', 'documentation': 'documentation',
+        'api': 'api', 'apis': 'api',
+        'core': 'core',
+        'config': 'configuration', 'configs': 'configuration',
+        'scripts': 'scripts', 'bin': 'scripts',
+        '.claude': 'claude_config',
+    }
+
+    dir_type = type_patterns.get(dir_name, 'module')
+
+    # Count file types
+    py_files = len([f for f in files if f['extension'] == '.py'])
+    js_files = len([f for f in files if f['extension'] in ['.js', '.ts', '.tsx']])
+    go_files = len([f for f in files if f['extension'] == '.go'])
+
+    primary_lang = 'mixed'
+    if py_files > js_files and py_files > go_files:
+        primary_lang = 'python'
+    elif js_files > py_files and js_files > go_files:
+        primary_lang = 'javascript'
+    elif go_files > 0:
+        primary_lang = 'go'
+
+    return {
+        'path': str(dir_path),
+        'relative_path': str(dir_path.relative_to(root)),
+        'type': dir_type,
+        'files': files,
+        'subdirs': subdirs,
+        'primary_language': primary_lang,
+        'has_readme': (dir_path / 'README.md').exists(),
+        'has_claude_md': (dir_path / 'CLAUDE.md').exists(),
+    }
+
+# Scan repository (max depth 3)
+directories_to_document = []
+
+# Always include root
+directories_to_document.append(analyze_directory(root))
+
+# Scan subdirectories
+for item in root.rglob('*'):
+    if not item.is_dir():
+        continue
+
+    relative = item.relative_to(root)
+
+    # Check depth
+    if len(relative.parts) > 3:
+        continue
+
+    # Skip ignored directories
+    if any(skip in relative.parts for skip in skip_dirs):
+        continue
+
+    # Check if significant
+    if is_significant(item):
+        directories_to_document.append(analyze_directory(item))
+
+print(f"📁 Found {len(directories_to_document)} directories to document:")
+for d in directories_to_document:
+    status = "✓ has docs" if d['has_claude_md'] else "○ needs docs"
+    print(f"  {d['relative_path']:<30} {status} | {len(d['files'])} files | {d['type']}")
 ```
 
-### Step 2: Generate Base CLAUDE.md Files
+### Step 2: Generate README.md Files (Human Documentation)
 
-```bash
-# Create initial CLAUDE.md templates
-trustable-ai context generate
+For each directory, create README.md with actual content based on directory analysis:
+
+```python
+def generate_readme_content(dir_info):
+    """Generate README.md content based on directory analysis."""
+    dir_name = Path(dir_info['relative_path']).name if dir_info['relative_path'] != '.' else 'trusted-ai-development-workbench'
+    files = dir_info['files']
+    subdirs = dir_info['subdirs']
+    dir_type = dir_info['type']
+
+    # Purpose based on directory type
+    purposes = {
+        'root': f"{dir_name} project root directory.",
+        'source': "Contains the main source code implementation.",
+        'tests': "Contains the test suite for quality assurance.",
+        'api': "Contains API definitions, endpoints, and request handlers.",
+        'documentation': "Contains project documentation and guides.",
+        'configuration': "Contains configuration files and settings.",
+        'scripts': "Contains utility and automation scripts.",
+        'core': "Contains core framework functionality and base implementations.",
+        'claude_config': "Contains Claude Code configuration and workflow state.",
+        'module': f"Contains the {dir_name} module implementation.",
+    }
+    purpose = purposes.get(dir_type, f"Contains {dir_name} related code and resources.")
+
+    # Build README content
+    content = f"# {dir_name}\n\n"
+    content += f"## Purpose\n\n{purpose}\n\n"
+
+    # Key components - analyze actual files
+    key_components = []
+    for f in files:
+        fname = f['name']
+        if fname == '__init__.py':
+            continue
+        elif fname.startswith('test_'):
+            key_components.append(f"**{fname}**: Test file")
+        elif f['extension'] == '.py':
+            # Read first few lines to get docstring
+            file_path = Path(dir_info['path']) / fname
+            try:
+                with open(file_path, 'r', encoding='utf-8') as fp:
+                    lines = fp.readlines()[:10]
+                    # Look for docstring
+                    for line in lines:
+                        if '"""' in line or "'''" in line:
+                            doc = line.strip('"""').strip("'''").strip()
+                            if doc:
+                                key_components.append(f"**{fname}**: {doc}")
+                                break
+                    else:
+                        # No docstring found
+                        base = fname.replace('.py', '').replace('_', ' ').title()
+                        key_components.append(f"**{fname}**: {base} implementation")
+            except Exception:
+                pass
+        elif f['extension'] in ['.js', '.ts', '.tsx']:
+            base = fname.split('.')[0].replace('_', ' ').replace('-', ' ').title()
+            key_components.append(f"**{fname}**: {base} module")
+        elif fname in ['package.json', 'pyproject.toml', 'setup.py']:
+            key_components.append(f"**{fname}**: Package configuration")
+        elif fname == 'Dockerfile':
+            key_components.append(f"**{fname}**: Container configuration")
+
+    if key_components:
+        content += "## Key Components\n\n"
+        for comp in key_components[:10]:
+            content += f"- {comp}\n"
+        content += "\n"
+
+    # Subdirectories
+    if subdirs:
+        content += "## Subdirectories\n\n"
+        for d in subdirs[:10]:
+            content += f"- **{d}/**\n"
+        content += "\n"
+
+    # Structure
+    structure_lines = []
+    for d in subdirs[:10]:
+        structure_lines.append(f"{d}/")
+    for f in [fi['name'] for fi in files[:15]]:
+        if f not in ['__init__.py', '.gitignore']:
+            structure_lines.append(f)
+
+    if structure_lines:
+        content += "## Structure\n\n```\n"
+        content += "\n".join(structure_lines)
+        content += "\n```\n"
+
+    return content
+
+# Generate README.md for each directory
+for dir_info in directories_to_document:
+    dir_path = Path(dir_info['path'])
+    readme_path = dir_path / 'README.md'
+
+    if readme_path.exists():
+        print(f"  ⏭ {dir_info['relative_path']}/README.md (exists, skipping)")
+        continue
+
+    content = generate_readme_content(dir_info)
+
+    if content and content.strip():
+        with open(readme_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        print(f"  ✓ {dir_info['relative_path']}/README.md")
+    else:
+        print(f"  ⚠ {dir_info['relative_path']}/README.md (skipped - empty)")
 ```
 
-### Step 3: Add Context Directives to Root CLAUDE.md
+### Step 3: Generate CLAUDE.md Files with Front Matter
 
-Update the root CLAUDE.md with front matter that directs context loading:
+For each directory, create CLAUDE.md with YAML front matter for directed context loading:
 
-```yaml
----
-context:
-  keywords: [trusted-ai-development-workbench, framework, project, overview]
-  task_types: [any]
-  priority: high
-  max_tokens: 1500
-  children:
-    - path: src/CLAUDE.md
-      when: [implementation, code, feature, bug, api]
-    - path: tests/CLAUDE.md
-      when: [test, testing, pytest, coverage]
-    - path: docs/CLAUDE.md
-      when: [documentation, api-docs]
-    # Add other directories as needed based on your project structure
-  dependencies: []
----
-# Project Name
-...
+```python
+def generate_claude_md_content(dir_info, all_dirs):
+    """Generate CLAUDE.md with front matter."""
+    relative_path = dir_info['relative_path']
+    dir_type = dir_info['type']
+
+    # Keywords based on directory type
+    type_keywords = {
+        'root': ['project', 'overview', 'framework'],
+        'source': ['source', 'code', 'implementation', 'feature'],
+        'tests': ['test', 'testing', 'pytest', 'coverage', 'fixture'],
+        'api': ['api', 'endpoint', 'route', 'handler', 'rest'],
+        'documentation': ['docs', 'documentation', 'guide'],
+        'configuration': ['config', 'configuration', 'settings'],
+        'scripts': ['script', 'automation', 'build'],
+        'core': ['core', 'foundation', 'base'],
+        'claude_config': ['claude', 'runtime', 'workflow', 'agent'],
+        'module': ['module', 'feature'],
+    }
+
+    keywords = type_keywords.get(dir_type, ['module'])
+
+    # Add directory name to keywords
+    dir_name = Path(relative_path).name if relative_path != '.' else ''
+    if dir_name and dir_name not in keywords:
+        keywords.append(dir_name.lower().replace('_', '-').replace('.', '-'))
+
+    # Task types based on directory type
+    type_task_types = {
+        'root': ['any'],
+        'source': ['implementation', 'feature-development', 'bug-fix'],
+        'tests': ['testing', 'quality-assurance'],
+        'api': ['api-development'],
+        'documentation': ['documentation'],
+        'configuration': ['configuration'],
+        'scripts': ['scripting', 'automation'],
+        'core': ['implementation', 'architecture'],
+        'claude_config': ['workflow', 'agent-development'],
+    }
+
+    task_types = type_task_types.get(dir_type, ['implementation'])
+
+    # Priority based on directory type
+    type_priority = {
+        'root': 'high',
+        'source': 'high',
+        'core': 'high',
+        'api': 'high',
+        'tests': 'medium',
+        'configuration': 'medium',
+        'documentation': 'low',
+    }
+
+    priority = type_priority.get(dir_type, 'medium')
+
+    # Max tokens based on directory type
+    type_max_tokens = {
+        'root': 1500,
+        'source': 800,
+        'core': 800,
+        'api': 800,
+        'tests': 600,
+        'documentation': 400,
+    }
+
+    max_tokens = type_max_tokens.get(dir_type, 600)
+
+    # Build children list
+    children = []
+    for d in all_dirs:
+        d_path = d['relative_path']
+        if d_path == relative_path or d_path == '.':
+            continue
+
+        # Check if this is a direct child
+        if relative_path == '.':
+            # Root: check if d_path has no slashes (direct child)
+            if '/' not in d_path and '\\' not in d_path:
+                child_keywords = type_keywords.get(d['type'], [d['type']])[:3]
+                children.append({
+                    'path': f"{d_path}/CLAUDE.md",
+                    'when': child_keywords
+                })
+        else:
+            # Check if d_path is direct child of relative_path
+            parent_parts = Path(relative_path).parts
+            child_parts = Path(d_path).parts
+
+            if len(child_parts) == len(parent_parts) + 1 and child_parts[:len(parent_parts)] == parent_parts:
+                child_keywords = type_keywords.get(d['type'], [d['type']])[:3]
+                children.append({
+                    'path': f"{d_path}/CLAUDE.md",
+                    'when': child_keywords
+                })
+
+    # Build front matter
+    front_matter = "---\n"
+    front_matter += "context:\n"
+    front_matter += f"  keywords: [{', '.join(keywords[:8])}]\n"
+    front_matter += f"  task_types: [{', '.join(task_types[:3])}]\n"
+    front_matter += f"  priority: {priority}\n"
+    front_matter += f"  max_tokens: {max_tokens}\n"
+
+    if children:
+        front_matter += "  children:\n"
+        for child in children[:10]:
+            front_matter += f"    - path: {child['path']}\n"
+            front_matter += f"      when: [{', '.join(child['when'])}]\n"
+    else:
+        front_matter += "  children: []\n"
+
+    front_matter += "  dependencies: []\n"
+    front_matter += "---\n"
+
+    # Minimal body - real docs in README.md
+    dir_name = Path(relative_path).name if relative_path != '.' else 'trusted-ai-development-workbench'
+
+    body = f"# {dir_name}\n\n"
+    body += "## Purpose\n\n"
+    body += "See [README.md](README.md) for full documentation.\n\n"
+
+    return front_matter + body
+
+def merge_claude_md_content(existing_content, new_front_matter):
+    """Merge new front matter with existing CLAUDE.md content."""
+    import re
+
+    # Split existing content into front matter and body
+    front_matter_pattern = r'^---\n(.*?)\n---\n'
+    match = re.match(front_matter_pattern, existing_content, re.DOTALL)
+
+    if match:
+        # File has existing front matter - replace it
+        existing_body = existing_content[match.end():]
+    else:
+        # File has no front matter - preserve entire content as body
+        existing_body = existing_content
+
+    return new_front_matter + existing_body
+
+# Generate or merge CLAUDE.md for each directory
+for dir_info in directories_to_document:
+    dir_path = Path(dir_info['path'])
+    claude_path = dir_path / 'CLAUDE.md'
+
+    # Generate new front matter
+    new_content = generate_claude_md_content(dir_info, directories_to_document)
+
+    if claude_path.exists():
+        # Merge mode: update front matter, preserve custom content
+        try:
+            with open(claude_path, 'r', encoding='utf-8') as f:
+                existing_content = f.read()
+
+            # Extract just the front matter part
+            import re
+            match = re.match(r'^(---\n.*?\n---\n)', new_content, re.DOTALL)
+            if match:
+                new_front_matter = match.group(1)
+                merged_content = merge_claude_md_content(existing_content, new_front_matter)
+
+                with open(claude_path, 'w', encoding='utf-8') as f:
+                    f.write(merged_content)
+                print(f"  🔄 {dir_info['relative_path']}/CLAUDE.md (merged)")
+            else:
+                print(f"  ⚠ {dir_info['relative_path']}/CLAUDE.md (merge failed)")
+        except Exception as e:
+            print(f"  ✗ {dir_info['relative_path']}/CLAUDE.md (error: {e})")
+    else:
+        # Create new file
+        if new_content and new_content.strip():
+            with open(claude_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+            print(f"  ✓ {dir_info['relative_path']}/CLAUDE.md")
+        else:
+            print(f"  ⚠ {dir_info['relative_path']}/CLAUDE.md (skipped - empty)")
 ```
 
-**Front Matter Fields:**
-- `keywords`: Keywords that make this context relevant
-- `task_types`: Types of tasks this context applies to
-- `priority`: high/medium/low - affects token allocation
-- `max_tokens`: Maximum tokens to use from this file
-- `children`: Child contexts to potentially load
-  - `path`: Relative path to child CLAUDE.md
-  - `when`: Keywords that trigger loading this child
-- `dependencies`: Contexts that must be loaded first
+### Step 4: Verify Generated Context
 
-### Step 4: Add Context Directives to Directory CLAUDE.md Files
+Verify CLAUDE.md files are valid and complete:
 
-For each directory's CLAUDE.md, add appropriate front matter:
+```python
+import re
 
-**Example for src/CLAUDE.md:**
-```yaml
----
-context:
-  keywords: [source, code, implementation, api, service]
-  task_types: [implementation, feature-development, bug-fix]
-  priority: high
-  max_tokens: 800
-  children:
-    - path: src/api/CLAUDE.md
-      when: [api, endpoint, route, handler]
-    - path: src/services/CLAUDE.md
-      when: [service, business-logic, domain]
-    - path: src/models/CLAUDE.md
-      when: [model, schema, entity, database]
-  dependencies: []
----
-# src - Source Code
-...
+issues = []
+warnings = []
+passed = 0
+
+for dir_info in directories_to_document:
+    dir_path = Path(dir_info['path'])
+    claude_path = dir_path / 'CLAUDE.md'
+    relative = dir_info['relative_path']
+
+    if not claude_path.exists():
+        issues.append(f"❌ {relative}/CLAUDE.md: File not created")
+        continue
+
+    try:
+        with open(claude_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Check empty
+        if not content.strip():
+            issues.append(f"❌ {relative}/CLAUDE.md: Empty file")
+            continue
+
+        # Check front matter
+        if not content.startswith('---'):
+            warnings.append(f"⚠️  {relative}/CLAUDE.md: Missing front matter")
+            continue
+
+        # Parse YAML
+        match = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
+        if not match:
+            issues.append(f"❌ {relative}/CLAUDE.md: Malformed front matter")
+            continue
+
+        # All checks passed
+        passed += 1
+        print(f"  ✓ {relative}/CLAUDE.md")
+
+    except Exception as e:
+        issues.append(f"❌ {relative}/CLAUDE.md: {e}")
+
+print(f"\n{'='*60}")
+print(f"Verification Summary")
+print(f"{'='*60}")
+print(f"  ✅ Passed: {passed}/{len(directories_to_document)}")
+print(f"  ⚠️  Warnings: {len(warnings)}")
+print(f"  ❌ Errors: {len(issues)}")
+
+if warnings:
+    print(f"\n⚠️  Warnings:\n")
+    for warning in warnings:
+        print(f"  {warning}")
+
+if issues:
+    print(f"\n❌ Errors:\n")
+    for issue in issues:
+        print(f"  {issue}")
+
+if not issues and not warnings:
+    print(f"\n🎉 All documentation files generated successfully!")
 ```
 
-**Example for tests/CLAUDE.md:**
-```yaml
----
-context:
-  keywords: [test, testing, pytest, fixture, mock, coverage]
-  task_types: [testing, quality-assurance]
-  priority: medium
-  max_tokens: 600
-  children:
-    - path: tests/unit/CLAUDE.md
-      when: [unit, fast]
-    - path: tests/integration/CLAUDE.md
-      when: [integration, e2e]
-  dependencies: []
----
-# tests - Test Suite
-...
+### Step 5: Enhance CLAUDE.md Content (Optional)
+
+For each CLAUDE.md, you can enhance the content by analyzing the actual source code:
+
+```python
+# Example: Enhance src/CLAUDE.md with actual module information
+src_claude = Path('src/CLAUDE.md')
+
+if src_claude.exists():
+    # Read current content
+    with open(src_claude, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Analyze src/ directory
+    src_files = list(Path('src').glob('*.py'))
+
+    # Add module descriptions by reading docstrings
+    enhancements = "\n## Modules\n\n"
+    for src_file in src_files[:10]:
+        if src_file.name == '__init__.py':
+            continue
+
+        try:
+            with open(src_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                # Look for module docstring
+                for i, line in enumerate(lines[:20]):
+                    if '"""' in line or "'''" in line:
+                        doc = line.strip('"""').strip("'''").strip()
+                        if doc:
+                            enhancements += f"- **{src_file.name}**: {doc}\n"
+                            break
+        except Exception:
+            pass
+
+    # Append enhancements
+    if enhancements.strip() != "## Modules":
+        content += enhancements
+        with open(src_claude, 'w', encoding='utf-8') as f:
+            f.write(content)
+        print(f"✓ Enhanced src/CLAUDE.md with module descriptions")
 ```
 
-### Step 5: Enhance CLAUDE.md Content
+## Success Criteria
 
-For each CLAUDE.md, ensure it contains:
-
-1. **Purpose**: What this module does (1 paragraph)
-2. **Key Components**: List of important files with descriptions
-3. **Architecture**: How components interact
-4. **Usage Examples**: Code snippets showing typical usage
-5. **Conventions**: Patterns and naming conventions used
-6. **Testing**: How to test this module
-
-**Task for Claude:** Read and enhance each CLAUDE.md by analyzing:
-- The actual source code in that directory
-- Imports and dependencies
-- Public interfaces and APIs
-- Test files for usage examples
-
-### Step 6: Test Directed Context Loading
-
-Test the directed loader to verify context is loaded correctly:
-
-```bash
-# Test context loading for different task types
-python -m core.directed_loader load sprint-planning azure work-item
-python -m core.directed_loader load implementation api feature
-python -m core.directed_loader load testing pytest unit
-
-# View the full context tree
-python -m core.directed_loader tree
-```
-
-Or use the CLI:
-
-```bash
-# Lookup context for a task
-trustable-ai context lookup "implement user authentication API"
-trustable-ai context lookup "write unit tests for payment service"
-trustable-ai context lookup "plan sprint 10 work items"
-```
-
-### Step 7: Build Context Index
-
-```bash
-# Build the context index
-trustable-ai context index
-
-# Verify all CLAUDE.md files are indexed
-trustable-ai context show
-```
-
-## How Directed Loading Works
-
-1. **Start at Root**: Loader begins at root CLAUDE.md
-2. **Match Keywords**: Compares task keywords against `keywords` and `task_types` in front matter
-3. **Follow Children**: If a child's `when` keywords match, that child is loaded
-4. **Recurse**: Process continues recursively through the tree
-5. **Token Budget**: Respects `max_tokens` per file and total budget
-
-**Example Flow for "sprint planning with azure devops":**
-```
-Root CLAUDE.md (always loaded, high priority)
-├── workflows/CLAUDE.md (matches: "sprint", "planning")
-├── agents/CLAUDE.md (matches: "sprint-planning" task type)
-└── adapters/azure_devops/CLAUDE.md (matches: "azure", "devops")
-```
+- [ ] All significant directories have README.md (human docs)
+- [ ] All significant directories have CLAUDE.md (directed loading)
+- [ ] CLAUDE.md files have valid YAML front matter
+- [ ] Children directives point to actual subdirectories
+- [ ] Keywords match directory purpose
+- [ ] Content is generated from actual code, not generic templates
 
 ## Output Structure
 
 ```
 project/
-├── CLAUDE.md                    # Root (with children directives)
+├── README.md                    # Project overview (human-readable)
+├── CLAUDE.md                    # Root context (with children directives)
 ├── src/
-│   ├── CLAUDE.md               # Source (children: api, services, models)
+│   ├── README.md               # Source documentation
+│   ├── CLAUDE.md               # Source context
 │   ├── api/
-│   │   └── CLAUDE.md           # API context
-│   ├── services/
-│   │   └── CLAUDE.md           # Services context
-│   └── models/
-│       └── CLAUDE.md           # Models context
+│   │   ├── README.md
+│   │   └── CLAUDE.md
+│   └── core/
+│       ├── README.md
+│       └── CLAUDE.md
 ├── tests/
-│   ├── CLAUDE.md               # Tests (children: unit, integration)
+│   ├── README.md
+│   ├── CLAUDE.md
 │   ├── unit/
-│   │   └── CLAUDE.md           # Unit test context
+│   │   ├── README.md
+│   │   └── CLAUDE.md
 │   └── integration/
-│       └── CLAUDE.md           # Integration test context
-└── .claude/
-    └── context-index.yaml      # Index for fast lookup
+│       ├── README.md
+│       └── CLAUDE.md
+└── docs/
+    ├── README.md
+    └── CLAUDE.md
 ```
 
 ## Configuration
@@ -200,13 +587,9 @@ project/
 - **Project**: trusted-ai-development-workbench
 - **Type**: cli-tool
 - **Languages**: Python
-- **Frameworks**: pytest, pytest
+- **Frameworks**: pytest
 
-## Success Criteria
+---
 
-- [ ] Root CLAUDE.md has context directives pointing to key directories
-- [ ] Each directory CLAUDE.md has appropriate keywords and task_types
-- [ ] Children directives route to relevant subdirectories
-- [ ] `python -m core.directed_loader tree` shows correct hierarchy
-- [ ] Context lookup returns relevant files for common tasks
-- [ ] Token budgets are respected (verify with `tokens_used` output)
+*Generated by Trustable AI Workbench for trusted-ai-development-workbench*
+*This workflow analyzes your repository and generates context files based on actual code structure*

@@ -1,7 +1,15 @@
 # Product Roadmap Planning Workflow
 
+**⚠️  DEPRECATED**: This workflow has been renamed to `/architecture-planning` (v2.0.0)
+
+**Reason**: The name "roadmap-planning" suggested business roadmap/product timeline planning, but the workflow actually focuses on technical architecture. The new name `/architecture-planning` better reflects its purpose: designing system architecture, validating technology choices, and documenting technical decisions.
+
+**Migration**: Use `/architecture-planning` instead. This workflow will be removed in v3.0.0.
+
+---
+
 **Project**: trusted-ai-development-workbench
-**Workflow**: Product Roadmap Planning
+**Workflow**: Product Roadmap Planning (DEPRECATED)
 **Purpose**: Transform business strategy into Epics that define what we're building
 
 ## Output Formatting Requirements
@@ -185,7 +193,7 @@ else:
    - Type: cli-tool
    - Tech Stack: **Project Type**: cli-tool
 **Languages**: Python
-**Frameworks**: pytest, pytest
+**Frameworks**: pytest
 **Platforms**: Docker
 
    **Required Analysis**:
@@ -233,63 +241,7 @@ else:
 
 ### Step 2.2: Project Architect - Technical Feasibility
 
-**Agent**: Project Architect
-**Model**: claude-opus-4
-
-1. **Read agent definition:** `.claude/agents/project-architect.md`
-
-2. **Task:** "Review the proposed Epics for technical feasibility:
-
-   **Proposed Epics**:
-   {epics_from_step_2_1}
-
-   **Current Architecture Context**:
-   - Project: trusted-ai-development-workbench
-   - Tech Stack: **Project Type**: cli-tool
-**Languages**: Python
-**Frameworks**: pytest, pytest
-**Platforms**: Docker
-
-   **Required Analysis**:
-   1. For each Epic, assess:
-      - Technical feasibility (Can we build this?)
-      - Architecture impact (Does this require significant changes?)
-      - Technical risks (What could go wrong?)
-      - Infrastructure needs (New services, scaling, etc.)
-      - Technical dependencies (What must exist first?)
-      - Rough technical complexity (T-shirt size: S/M/L/XL)
-
-   2. Identify technical prerequisites that should be Epics themselves
-   3. Flag any Epics that are technically infeasible or need redesign
-   4. Recommend technical spikes needed before commitment
-
-   **Output Format**:
-   ```json
-   {
-     'epic_assessments': [
-       {
-         'epic_title': '...',
-         'feasibility': 'Feasible|Needs Spike|Infeasible',
-         'architecture_impact': 'None|Minor|Major|Breaking',
-         'technical_risks': ['Risk 1', 'Risk 2'],
-         'infrastructure_needs': ['Need 1'],
-         'technical_dependencies': ['Dependency 1'],
-         'complexity': 'S|M|L|XL',
-         'recommendation': 'Proceed|Spike First|Redesign'
-       }
-     ],
-     'technical_epics_needed': [
-       {'title': 'Technical enabler epic', 'reason': 'Why needed'}
-     ],
-     'spikes_recommended': [
-       {'title': 'Spike title', 'question': 'What we need to learn'}
-     ]
-   }
-   ```"
-
-3. **Spawn agent** using Task tool with model `claude-opus-4`
-
-4. **Checkpoint:** Save technical assessment to state
+**NOTE**: Project Architect agent is disabled. Enable with: `trustable-ai agent enable architect`
 
 ---
 
@@ -545,7 +497,7 @@ print("\n:arrow_right: Next: Run /epic-breakdown for each Epic to create Feature
 ## Configuration
 
 **Agents Used:**
-- Business Analyst (strategic decomposition)- Project Architect (technical feasibility)
+- Business Analyst (strategic decomposition)
 **Work Item Types:**
 - Epic: Epic
 

@@ -20,10 +20,10 @@ AI-generated code often contains subtle bugs. AI-generated tests often miss thos
 │                                                                         │
 │  1. /senior-engineer → Creates API contract                            │
 │  2. /senior-engineer → Implements feature                              │
-│  3. /spec-driven-tester → Tests from SPEC ONLY (no code!)             │
-│  4. /adversarial-tester → Tries to break code                         │
-│  5. /falsifiability-prover → Verifies tests can fail                  │
-│  6. /test-arbitrator → Resolves code/test/spec conflicts              │
+│  3. /tester → Tests from SPEC ONLY (no code!)             │
+│  4. /tester → Tries to break code                         │
+│  5. /tester → Verifies tests can fail                  │
+│  6. /tester → Resolves code/test/spec conflicts              │
 │                                                                         │
 │  Each agent command spawns a FRESH CONTEXT WINDOW via Task tool        │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -160,7 +160,7 @@ Implement the feature according to the API contract.
 
 ### Project Context
 - Language: Python
-- Frameworks: pytest, pytest
+- Frameworks: pytest
 - Source directory: src
 - Test directory: tests
 
@@ -203,7 +203,7 @@ Your tests would share your blind spots.
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**Call `/spec-driven-tester` with the following task:**
+**Call `/tester` with the following task:**
 
 ```
 ## YOUR TASK: Generate Tests from Specification ONLY
@@ -267,7 +267,7 @@ You test what SHOULD happen (per spec), not what DOES happen (per code).
 
 This agent gets EVERYTHING and tries to break the code.
 
-**Call `/adversarial-tester` with the following task:**
+**Call `/tester` with the following task:**
 
 ```
 ## YOUR TASK: Find Bugs That Tests Miss
@@ -331,7 +331,7 @@ Save to: tests/adversarial/test_{work_item_id}_adversarial.py
 
 ### Step 5.1: Verify Tests Can Fail
 
-**Call `/falsifiability-prover` with the following task:**
+**Call `/tester` with the following task:**
 
 ```
 ## YOUR TASK: Prove Every Test Can Fail
@@ -396,7 +396,7 @@ When a test fails, there's three-way ambiguity:
 - TEST is wrong (doesn't match spec)
 - SPEC is wrong (doesn't match reality)
 
-**Call `/test-arbitrator` with the following task:**
+**Call `/tester` with the following task:**
 
 ```
 ## YOUR TASK: Determine Who Is Wrong
@@ -468,7 +468,7 @@ For each failing test:
 
 ### Step 7.2: If Gates Fail
 
-- Coverage too low → Call `/spec-driven-tester` to add more tests
+- Coverage too low → Call `/tester` to add more tests
 - Complexity too high → Call `/senior-engineer` to refactor
 - Adversary found gaps → Address gaps and re-verify
 
@@ -534,10 +534,10 @@ Save comprehensive report to `.claude/reports/{work_item_id}-verification.md`
 |-------|---------------|---------|
 | 1 | `/senior-engineer` | Design API contract |
 | 2 | `/senior-engineer` | Implement feature |
-| 3 | `/spec-driven-tester` | Tests from spec (no code access) |
-| 4 | `/adversarial-tester` | Find gaps and bugs |
-| 5 | `/falsifiability-prover` | Verify tests work |
-| 6 | `/test-arbitrator` | Resolve conflicts |
+| 3 | `/tester` | Tests from spec (no code access) |
+| 4 | `/tester` | Find gaps and bugs |
+| 5 | `/tester` | Verify tests work |
+| 6 | `/tester` | Resolve conflicts |
 
 **Key**: Each agent command spawns a **fresh context window** via the Task tool.
 

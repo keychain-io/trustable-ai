@@ -6,6 +6,7 @@ project:
     - Python
     frameworks:
     - pytest
+    - pytest
     platforms:
     - Docker
   source_directory: src
@@ -50,12 +51,18 @@ agent_config:
     performance: claude-sonnet-4.5
   enabled_agents:
   - business-analyst
-  - architect
-  - senior-engineer
-  - engineer
-  - tester
-  - security-specialist
+  - code-reviewer
+  - devops-engineer
+  - documentation-specialist
+  - performance-engineer
+  - project-architect
+  - qa-engineer
+  - release-manager
   - scrum-master
+  - security-specialist
+  - senior-engineer
+  - technical-writer
+  - ux-designer
   available_agents:
   - business-analyst
   - project-architect

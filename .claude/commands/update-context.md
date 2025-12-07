@@ -162,7 +162,7 @@ context:
 - **Project**: trusted-ai-development-workbench
 - **Type**: cli-tool
 - **Languages**: Python
-- **Frameworks**: pytest, pytest
+- **Frameworks**: pytest
 
 ## Success Checklist
 

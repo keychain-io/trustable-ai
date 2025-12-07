@@ -17,7 +17,7 @@
 │  SPRINT PLANNING - Agent Orchestration                                      │
 │                                                                             │
 │  Step 1: /business-analyst → Prioritized backlog                           │
-│  Step 2: /project-architect → Architecture review                          │
+│  Step 2: /architect → Architecture review                                  │
 │  Step 3: /security-specialist → Security review                            │
 │  Step 4: /senior-engineer → Estimation & breakdown                         │
 │  Step 5: /scrum-master → Sprint plan assembly                              │
@@ -33,6 +33,14 @@
 ## Initialize Workflow
 
 ```python
+# Initialize work tracking adapter
+import sys
+sys.path.insert(0, ".claude/skills")
+from work_tracking import get_adapter
+
+adapter = get_adapter()
+print(f"📋 Work Tracking: {adapter.platform}")
+
 # Get sprint information
 sprint_number = input("Sprint number: ")
 team_capacity = int(input("Team capacity (story points): "))
@@ -58,7 +66,12 @@ Analyze the backlog and prepare a prioritized list for Sprint {sprint_number}.
 - Tech Stack: Python
 
 ### Available Backlog Items
-{List Features from .claude/work-items/ with status=New or status=Ready}
+{Query adapter for Features where State='New' or State='Ready' and not assigned to a sprint:
+ backlog_items = adapter.query_work_items(
+     work_item_type='Feature',
+     filters={'System.State': ['New', 'Ready'], 'System.IterationPath': None}
+ )
+}
 
 ### For Each Backlog Item, Analyze:
 
@@ -108,7 +121,7 @@ Return as JSON:
 
 ## Step 2: Architecture Review
 
-**Call `/project-architect` with the following task:**
+**Call `/architect` with the following task:**
 
 ```
 ## YOUR TASK: Architecture Review for Sprint
@@ -121,7 +134,7 @@ Review the planned Features for architectural readiness.
 ### Tech Stack
 **Project Type**: cli-tool
 **Languages**: Python
-**Frameworks**: pytest, pytest
+**Frameworks**: pytest
 **Platforms**: Docker
 
 ### For Each Feature, Assess:
@@ -348,30 +361,51 @@ Approve sprint plan? [yes/no/modify]:
 
 ## Step 7: Work Item Creation
 
-After approval, create work items:
+After approval, create work items via adapter:
 
 ```python
+created_items = []
+
 for item in approved_work_items:
-    # Create work item in .claude/work-items/
-    work_item = {
-        'id': f"{item['type'].upper()}-{next_id}",
-        'type': item['type'],
-        'title': item['title'],
-        'status': 'New',
-        'sprint': sprint_number,
-        'description': item['description'],
-        'acceptance_criteria': item['acceptance_criteria'],
-        'story_points': item['story_points'],
-        'priority': item['priority'],
-        'tags': item['tags'],
-        'dependencies': item['dependencies']
-    }
+    # Prepare description with acceptance criteria
+    description = f"""{item['description']}
 
-    # Save to .claude/work-items/{id}.yaml
-    # Create spec file for Features at docs/specifications/sprint-{n}/
+## Acceptance Criteria
+{chr(10).join('- [ ] ' + criteria for criteria in item['acceptance_criteria'])}
 
-print(f"✅ Created {count} work items")
-print(f"📄 Created {spec_count} specification files")
+## Sprint Planning Notes
+- Planned for Sprint {sprint_number}
+- Story Points: {item['story_points']}
+- Priority: {item['priority']}
+"""
+
+    try:
+        # Create work item via adapter
+        result = adapter.create_work_item(
+            work_item_type=item['type'],
+            title=item['title'],
+            description=description,
+            fields={
+                'System.IterationPath': f'Trusted AI Development Workbench\\{sprint_number}',
+                'System.Tags': '; '.join(item.get('tags', [])),
+                'Microsoft.VSTS.Common.Priority': item.get('priority', 2)
+            }
+        )
+
+        created_items.append(result['id'])
+        print(f"✅ Created {item['type']} #{result['id']}: {item['title']}")
+
+        # Create specification file for Features
+        if item['type'] == 'Feature':
+            spec_file = f"docs/specifications/sprint-{sprint_number}/{result['id']}-{item['title'].lower().replace(' ', '-')}.md"
+            # TODO: Generate spec file content
+
+    except Exception as e:
+        print(f"❌ Failed to create {item['type']} '{item['title']}': {e}")
+        continue
+
+print(f"✅ Created {len(created_items)} work items")
+print(f"   Work Item IDs: {', '.join(map(str, created_items))}")
 ```
 
 ---
@@ -411,7 +445,7 @@ Sprint {sprint_number} is ready!
 | Step | Agent Command | Purpose |
 |------|---------------|---------|
 | 1 | `/business-analyst` | Prioritize backlog |
-| 2 | `/project-architect` | Architecture review |
+| 2 | `/architect` | Architecture review |
 | 3 | `/security-specialist` | Security review |
 | 4 | `/senior-engineer` | Estimation & breakdown |
 | 5 | `/scrum-master` | Sprint plan assembly |

@@ -11,7 +11,7 @@ Design user experiences, create wireframes and prototypes, conduct usability ana
 ## Tech Stack Context
 **Project Type**: cli-tool
 **Languages**: Python
-**Frameworks**: pytest, pytest
+**Frameworks**: pytest
 **Platforms**: Docker
 
 ## Responsibilities

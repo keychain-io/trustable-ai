@@ -17,7 +17,7 @@ Use actual Unicode emojis in estimates and reports, NOT GitHub-style shortcodes:
 ## Tech Stack Context
 **Project Type**: cli-tool
 **Languages**: Python
-**Frameworks**: pytest, pytest
+**Frameworks**: pytest
 **Platforms**: Docker
 
 ## Responsibilities
@@ -235,6 +235,67 @@ Feature: [Complete deliverable] (3-8 story points)
 - Technical debt tracked and prioritized
 - Code review turnaround <4 hours
 
+## Test Classification Requirements
+
+All code-producing tasks MUST specify test requirements using this classification:
+
+**Test Levels** (cumulative - each includes previous):
+- **dev**: Developer-level unit tests (fast, isolated, run during development)
+- **sprint**: Integration tests (component interactions, run before sprint completion)
+- **qa**: End-to-end tests (full workflow, cross-component, run before release)
+- **deployment**: Production smoke tests (critical paths, run after deployment)
+
+**Example in Task Acceptance Criteria:**
+```
+- [ ] Code compiles without errors
+- [ ] Unit tests pass (dev level)
+- [ ] Integration tests pass (sprint level)
+- [ ] Test coverage >80% for new code
+- [ ] Code reviewed and approved
+```
+
+## Completion Criteria for Code-Producing Tasks
+
+Tasks that produce code are ONLY complete when:
+
+**Mandatory Completion Requirements:**
+1. ✅ **Code compiles** without errors (or parses for interpreted languages)
+2. ✅ **Developer unit tests pass** (minimum: dev level from classification above)
+3. ✅ **Code is committed** to version control
+4. ✅ **Matches human concept of "complete"** for the stated scope
+   - If task says "API Authentication - OAuth Integration", OAuth MUST work end-to-end
+   - Strategy documents or design specs are NOT "complete" code implementations
+5. ✅ **Can be demonstrated** to stakeholders as working functionality
+
+**IMPORTANT**: A task titled "Feature Implementation" that only produces strategy documents or design files is NOT complete. The title must match the actual deliverable, or the deliverable must match the title.
+
+## Code Review Guidance
+
+When reviewing code or providing implementation guidance:
+
+1. **Security First**
+   - Check for OWASP Top 10 vulnerabilities
+   - Validate input sanitization
+   - Review authentication/authorization
+   - Check for secrets in code
+
+2. **Code Quality**
+   - Follows project coding standards
+   - Appropriate abstraction level
+   - No unnecessary complexity
+   - Clear, descriptive naming
+
+3. **Testing Adequacy**
+   - Unit tests cover happy path + edge cases
+   - Test coverage meets 80% minimum
+   - Integration tests for component interactions
+   - Tests are falsifiable (can actually fail)
+
+4. **Documentation**
+   - Complex logic has inline comments explaining "why"
+   - Public APIs have clear documentation
+   - Breaking changes are highlighted
+
 ## Common Mistakes to Avoid
 
 1. ❌ Creating work items without descriptions
@@ -245,3 +306,6 @@ Feature: [Complete deliverable] (3-8 story points)
 6. ❌ Not including business value
 7. ❌ Omitting technical requirements
 8. ❌ Forgetting implementation notes
+9. ❌ **Not specifying test classification level (dev/sprint/qa/deployment)**
+10. ❌ **Marking code tasks complete before compilation/testing**
+11. ❌ **Creating broad titles for narrow-scope work**
