@@ -32,9 +32,10 @@
 │  ══════════════════                                                         │
 │      │                                                                      │
 │      ├──► Bugs ──────────────► Backlog (prioritized for fix)               │
-│      ├──► Small Features ───► Backlog (ready for grooming)                 │
-│      ├──► Large Features ───► /epic-breakdown (needs decomposition)        │
-│      └──► Strategic Ideas ──► /roadmap-planning (next planning cycle)      │
+│      ├──► Small Tasks ──────► Backlog (ready for sprint)                   │
+│      ├──► Medium Features ──► Backlog (ready for sprint planning)          │
+│      ├──► Large Epics ──────► /backlog-grooming (decompose to Features)    │
+│      └──► Strategic Ideas ──► /architecture-planning (architectural design)│
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -218,10 +219,10 @@ state.set_metadata("urgency", urgency)
       - Low: Minor issue, cosmetic, nice-to-have
 
    2. **Classify Size**:
-      - Small: Can be done in 1-2 days, single component
-      - Medium: 3-5 days, multiple components
-      - Large: 1-2 weeks, needs breakdown into Features
-      - Epic: Multiple weeks, needs /epic-breakdown workflow
+      - Small: Can be done in 1-2 days, single component → Create as Task
+      - Medium: 3-5 days, multiple components → Create as Feature
+      - Large: 1-2 weeks, needs breakdown into Features → Create as Epic
+      - Epic: Multiple weeks, needs decomposition → Create as Epic, run /backlog-grooming
 
    3. **Identify Related Work**:
       - Is this a duplicate of existing work item?
@@ -401,6 +402,20 @@ if action == 'q':
 
 ```python
 if action in ['c', 'e']:
+    # Determine work item type based on size classification from triage
+    # This overrides the initial type from intake classification
+    size_to_type = {
+        'Small': '{{ work_tracking.work_item_types.task }}',      # 1-2 days → Task
+        'Medium': '{{ work_tracking.work_item_types.feature }}',  # 3-5 days → Feature
+        'Large': '{{ work_tracking.work_item_types.epic }}',      # 1-2 weeks → Epic (needs Features)
+        'Epic': '{{ work_tracking.work_item_types.epic }}'        # Multiple weeks → Epic (needs breakdown)
+    }
+
+    # Use size-based type unless it's a Bug (bugs stay as bugs regardless of size)
+    if intake_type not in ['Bug', 'Security', 'Performance']:
+        work_item_type = size_to_type.get(size, work_item_type)
+        print(f"\n:label: Size classification: {size} → Creating as {work_item_type}")
+
     print(f"\n:rocket: Creating {work_item_type}...")
 
     # Build description
@@ -583,18 +598,35 @@ print("\n" + "=" * 80)
 print(":white_check_mark: INTAKE COMPLETE")
 print("=" * 80)
 
-if size == 'Epic':
-    print(f"\n:arrow_right: This item is Epic-sized.")
-    print(f"   Run /epic-breakdown with work item {work_item_id}")
-elif size == 'Large':
-    print(f"\n:arrow_right: This item is Large-sized.")
-    print("   Consider running /epic-breakdown or add to /backlog-grooming")
-elif validated_urgency == 'Critical':
-    print(f"\n:fire: CRITICAL item created: {work_item_id}")
-    print("   Immediate attention required!")
-else:
-    print(f"\n:arrow_right: Item {work_item_id} added to backlog")
-    print("   Will be refined in next /backlog-grooming session")
+# Route based on work item type created
+if work_item_type == '{{ work_tracking.work_item_types.epic }}':
+    print(f"\n:arrow_right: Epic {work_item_id} created: {suggested_title or title}")
+    print(f"   Size: {size} | Urgency: {validated_urgency}")
+    print(f"\n:arrow_right: Next step: Run /backlog-grooming to decompose into Features and Tasks")
+elif work_item_type == '{{ work_tracking.work_item_types.feature }}':
+    print(f"\n:arrow_right: Feature {work_item_id} created: {suggested_title or title}")
+    print(f"   Size: {size} ({technical_assessment.get('story_points', 'N/A')} pts) | Urgency: {validated_urgency}")
+    if validated_urgency == 'Critical':
+        print(f"\n:fire: CRITICAL Feature - add to sprint immediately")
+    else:
+        print(f"\n:arrow_right: Ready for /sprint-planning (Feature will be broken into Tasks)")
+elif work_item_type == '{{ work_tracking.work_item_types.task }}':
+    print(f"\n:arrow_right: Task {work_item_id} created: {suggested_title or title}")
+    print(f"   Size: Small | Urgency: {validated_urgency}")
+    if validated_urgency == 'Critical':
+        print(f"\n:fire: CRITICAL Task - add to current sprint")
+    else:
+        print(f"\n:arrow_right: Ready for /sprint-planning")
+elif work_item_type == '{{ work_tracking.work_item_types.bug }}':
+    print(f"\n:bug: Bug {work_item_id} created: {suggested_title or title}")
+    print(f"   Urgency: {validated_urgency}")
+    if validated_urgency == 'Critical':
+        print(f"\n:fire: CRITICAL Bug - immediate action required!")
+        print("   1. Notify on-call engineer")
+        print("   2. Add to current sprint")
+        print("   3. Begin investigation")
+    else:
+        print(f"\n:arrow_right: Added to bug backlog for triage and prioritization")
 
 state.complete_workflow()
 profiler.save_report()
