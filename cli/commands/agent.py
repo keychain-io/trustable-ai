@@ -140,7 +140,7 @@ def render_agent(agent_name: str, output: Optional[str], show: bool):
         if output:
             output_path = Path(output)
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(rendered)
+            output_path.write_text(rendered, encoding='utf-8')
             click.echo(f"✅ Rendered agent saved to {output_path}")
 
         # Show output if requested
@@ -174,8 +174,12 @@ def render_all_agents(output_dir: str, with_commands: bool):
         click.echo(f"\n📝 Rendering {len(enabled_agents)} agents to {output_path}\n")
 
         for agent_name in enabled_agents:
-            output_file = registry.save_rendered_agent(agent_name, output_path)
-            click.echo(f"  ✓ {agent_name} → {output_file}")
+            try:
+                output_file = registry.save_rendered_agent(agent_name, output_path)
+                click.echo(f"  ✓ {agent_name} → {output_file}")
+            except Exception as e:
+                click.echo(f"  ✗ {agent_name}: {type(e).__name__}: {e}")
+                raise
 
         click.echo(f"\n✅ All agents rendered successfully.\n")
 
@@ -185,13 +189,21 @@ def render_all_agents(output_dir: str, with_commands: bool):
             click.echo(f"📝 Rendering agent slash commands to {commands_dir}\n")
 
             for agent_name in enabled_agents:
-                output_file = registry.save_agent_slash_command(agent_name, commands_dir)
-                click.echo(f"  ✓ /{agent_name} → {output_file}")
+                try:
+                    output_file = registry.save_agent_slash_command(agent_name, commands_dir)
+                    click.echo(f"  ✓ /{agent_name} → {output_file}")
+                except Exception as e:
+                    click.echo(f"  ✗ /{agent_name}: {type(e).__name__}: {e}")
+                    raise
 
             click.echo(f"\n✅ Agent slash commands rendered successfully.\n")
 
     except FileNotFoundError as e:
         click.echo(f"❌ Error: {e}")
+        raise SystemExit(1)
+    except Exception as e:
+        click.echo(f"❌ Error: {type(e).__name__}: {e}")
+        raise SystemExit(1)
 
 
 @agent_command.command(name="render-commands")

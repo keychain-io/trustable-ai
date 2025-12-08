@@ -377,7 +377,7 @@ class OptimizedContextLoader:
         if not path:
             path = self.project_root / ".claude" / "context-usage.json"
 
-        with open(path, 'w') as f:
+        with open(path, 'w', encoding='utf-8') as f:
             json.dump(self.usage_log, f, indent=2)
 
     def load_usage_log(self, path: Optional[Path] = None):

@@ -53,7 +53,20 @@
       "Bash(tree:*)",
       "Bash(tsc --noEmit:*)",
       "Bash(which:*)",
-      "Bash(whoami:*)"
+      "Bash(whoami:*)",
+      "Bash(xargs:*)",
+      "Bash(pip3 index:*)",
+      "Bash(twine check:*)",
+      "Bash(pip3 install:*)",
+      "Bash(pip3 show:*)",
+      "Bash(twine upload:*)",
+      "Bash(trustable-ai --version:*)",
+      "Bash(az boards work-item list:*)",
+      "Bash(python3:*)",
+      "Bash(az devops configure:*)",
+      "Bash(trustable-ai agent render-all:*)",
+      "Bash(trustable-ai workflow:*)",
+      "Bash(trustable-ai agent render:*)"
     ],
     "deny": [
       "Bash(az boards work-item delete:*)",

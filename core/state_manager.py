@@ -69,7 +69,7 @@ class WorkflowState:
     def save(self) -> None:
         """Persist state to disk."""
         self.state["updated_at"] = datetime.now().isoformat()
-        self.state_file.write_text(json.dumps(self.state, indent=2))
+        self.state_file.write_text(json.dumps(self.state, indent=2), encoding='utf-8')
 
     def start_step(self, step_name: str, step_data: Optional[Dict] = None) -> None:
         """

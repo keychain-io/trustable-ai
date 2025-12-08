@@ -20,7 +20,7 @@ Example Usage:
     pytest_ini_content = generator.generate_pytest_ini(Path("/path/to/project"))
 
     # Write to file
-    with open("pytest.ini", "w") as f:
+    with open("pytest.ini", "w", encoding="utf-8") as f:
         f.write(pytest_ini_content)
 """
 

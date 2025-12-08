@@ -226,7 +226,7 @@ class AgentRegistry:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         output_file = output_dir / f"{agent_name}.md"
-        output_file.write_text(rendered)
+        output_file.write_text(rendered, encoding='utf-8')
 
         return output_file
 
@@ -336,7 +336,7 @@ class AgentRegistry:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         output_file = output_dir / f"{agent_name}.md"
-        output_file.write_text(rendered)
+        output_file.write_text(rendered, encoding='utf-8')
 
         return output_file
 
@@ -421,6 +421,6 @@ def render_agent(
     if output_file:
         output_file = Path(output_file)
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        output_file.write_text(rendered)
+        output_file.write_text(rendered, encoding='utf-8')
 
     return rendered

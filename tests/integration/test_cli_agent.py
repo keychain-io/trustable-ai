@@ -147,7 +147,7 @@ class TestAgentEnableDisable:
             config_path.parent.mkdir(parents=True)
             config_path.write_text(sample_config_yaml)
 
-            result = runner.invoke(cli, ['agent', 'enable', 'project-architect'])
+            result = runner.invoke(cli, ['agent', 'enable', 'architect'])
 
             assert result.exit_code == 0
 
@@ -155,7 +155,7 @@ class TestAgentEnableDisable:
             from config.loader import ConfigLoader
             loader = ConfigLoader(config_path)
             config = loader.load()
-            assert 'project-architect' in config.agent_config.enabled_agents
+            assert 'architect' in config.agent_config.enabled_agents
 
     def test_disable_agent(self, sample_config_yaml):
         """Test disabling an agent."""
@@ -208,8 +208,8 @@ class TestAgentEnableDisable:
             from config.loader import ConfigLoader
             loader = ConfigLoader(config_path)
             config = loader.load()
-            # Should have more than the default 3 agents
-            assert len(config.agent_config.enabled_agents) >= 10
+            # Should have all non-deprecated agents (8 in v2.0)
+            assert len(config.agent_config.enabled_agents) >= 8
 
 
 @pytest.mark.integration
@@ -237,6 +237,6 @@ class TestAgentRenderAll:
             assert result.exit_code == 0
             assert 'Rendering' in result.output or '✓' in result.output
 
-            # Verify files were created
+            # Verify files were created (8 non-deprecated agents in v2.0)
             agent_files = list(Path('.claude/agents').glob('*.md'))
-            assert len(agent_files) >= 10
+            assert len(agent_files) >= 8

@@ -337,7 +337,7 @@ class WorkflowProfiler:
         filepath = output_dir / filename
 
         # Save markdown report
-        filepath.write_text(self.generate_report())
+        filepath.write_text(self.generate_report(), encoding='utf-8')
         print(f"📊 Profile report saved: {filepath}")
 
         # Save raw JSON
@@ -349,7 +349,7 @@ class WorkflowProfiler:
             "metadata": self.metadata,
             "agent_calls": [asdict(call) for call in self.agent_calls]
         }
-        json_file.write_text(json.dumps(json_data, indent=2))
+        json_file.write_text(json.dumps(json_data, indent=2), encoding='utf-8')
         print(f"📊 Profile data saved: {json_file}")
 
         return filepath

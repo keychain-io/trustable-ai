@@ -32,7 +32,7 @@ class TestAgentRegistry:
         assert "business-analyst" in agents
         assert "senior-engineer" in agents
         assert "scrum-master" in agents
-        assert "project-architect" in agents
+        assert "architect" in agents
         assert "security-specialist" in agents
 
     def test_list_agents_sorted(self, sample_framework_config):

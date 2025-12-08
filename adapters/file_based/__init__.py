@@ -196,7 +196,7 @@ class FileBasedAdapter:
         type_dir = self._type_to_dir(work_item_type)
         file_path = self.work_items_dir / type_dir / f"{work_item_id}.yaml"
 
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             yaml.dump(work_item, f, default_flow_style=False, sort_keys=False)
 
         # Update parent's child list
@@ -256,7 +256,7 @@ class FileBasedAdapter:
         work_item["updated_at"] = datetime.now().isoformat()
 
         # Save updated work item to its existing path
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             yaml.dump(work_item, f, default_flow_style=False, sort_keys=False)
 
         if verify:
@@ -392,7 +392,7 @@ class FileBasedAdapter:
         work_item["updated_at"] = datetime.now().isoformat()
 
         # Save updated work item
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             yaml.dump(work_item, f, default_flow_style=False, sort_keys=False)
 
         return comment_entry
@@ -419,7 +419,7 @@ class FileBasedAdapter:
         source.setdefault("links", []).append(link)
 
         # Save updated source
-        with open(source_path, "w") as f:
+        with open(source_path, "w", encoding="utf-8") as f:
             yaml.dump(source, f, default_flow_style=False, sort_keys=False)
 
         return link
@@ -430,7 +430,7 @@ class FileBasedAdapter:
         if parent and file_path:
             parent.setdefault("child_ids", []).append(child_id)
 
-            with open(file_path, "w") as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 yaml.dump(parent, f, default_flow_style=False, sort_keys=False)
 
     # Sprint Management
@@ -462,7 +462,7 @@ class FileBasedAdapter:
 
         file_path = self.work_items_dir / "sprints" / f"{name.replace(' ', '-')}.yaml"
 
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             yaml.dump(sprint, f, default_flow_style=False)
 
         return sprint

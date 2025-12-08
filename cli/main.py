@@ -6,10 +6,14 @@ software development workflows.
 """
 import click
 from pathlib import Path
+try:
+    from importlib.metadata import version
+except ImportError:
+    from importlib_metadata import version  # Python 3.7 compatibility
 
 
 @click.group()
-@click.version_option(version="2.0.0", prog_name="trustable-ai")
+@click.version_option(version=version("trustable-ai"), prog_name="trustable-ai")
 def cli():
     """
     Trustable AI - AI-assisted software lifecycle automation.

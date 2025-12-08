@@ -52,7 +52,7 @@ def render_workflow(workflow_name: str, output: Optional[str], show: bool):
         if output:
             output_path = Path(output)
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(rendered)
+            output_path.write_text(rendered, encoding='utf-8')
             click.echo(f"✅ Rendered workflow saved to {output_path}")
 
         # Show output if requested

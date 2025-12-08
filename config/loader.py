@@ -113,7 +113,7 @@ class ConfigLoader:
         # Convert to dict and save
         config_dict = config.model_dump(exclude_none=True)
 
-        with open(self.config_path, "w") as f:
+        with open(self.config_path, "w", encoding="utf-8") as f:
             yaml.safe_dump(
                 config_dict,
                 f,

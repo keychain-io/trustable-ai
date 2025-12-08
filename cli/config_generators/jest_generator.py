@@ -31,7 +31,7 @@ Usage:
     jest_config_content = generator.generate_jest_config(Path("/path/to/project"))
 
     # Write to file
-    with open("jest.config.js", "w") as f:
+    with open("jest.config.js", "w", encoding="utf-8") as f:
         f.write(jest_config_content)
 """
 

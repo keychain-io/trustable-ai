@@ -111,7 +111,7 @@ class LearningsSkill(BaseSkill):
 
         # Save individual learning file
         learning_file = self._learnings_dir / f"{learning_id}.yaml"
-        with open(learning_file, 'w') as f:
+        with open(learning_file, 'w', encoding='utf-8') as f:
             yaml.dump(learning, f, default_flow_style=False)
 
         # Update index
@@ -254,7 +254,7 @@ class LearningsSkill(BaseSkill):
     def _save_index(self) -> None:
         """Save the learnings index."""
         index_path = self._learnings_dir / 'index.yaml'
-        with open(index_path, 'w') as f:
+        with open(index_path, 'w', encoding='utf-8') as f:
             yaml.dump(self._index, f, default_flow_style=False)
 
 

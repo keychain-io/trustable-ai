@@ -69,3 +69,4 @@ trustable-ai workflow render-all  # Renders to .claude/commands/
 - **State Persistence**: Workflow state enables resume after failures
 - **Template Customization**: Copy templates here to customize for your project
 - **Token Budget**: Context loading respects Claude's token limits
+- trustable-ai must target Linux, Windows, and Macos. As such, all trustable-ai file writes (for example for rendering agents, workflows, and skills) must specify utf-8 encoding explicitly.

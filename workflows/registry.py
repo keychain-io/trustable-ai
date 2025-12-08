@@ -183,7 +183,7 @@ class WorkflowRegistry:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         output_file = output_dir / f"{workflow_name}.md"
-        output_file.write_text(rendered)
+        output_file.write_text(rendered, encoding='utf-8')
 
         return output_file
 

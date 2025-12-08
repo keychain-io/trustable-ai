@@ -189,7 +189,7 @@ class TestWorkflowRegistryEdgeCases:
             "business-analyst",
             "senior-engineer",
             "scrum-master",
-            "project-architect",
+            "architect",
             "security-specialist",
         ]
 

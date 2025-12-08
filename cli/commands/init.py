@@ -775,7 +775,6 @@ def init_command(
         # Save updated config with selected agents
         save_config(config, config_file)
 
-        # Skip agent/workflow rendering - users will run /context-generation in Claude Code instead
         # Ask about context generation
         if click.confirm("\nGenerate hierarchical context files (README.md + CLAUDE.md)?", default=not existing_config):
             from cli.commands.context import (
@@ -909,6 +908,46 @@ def init_command(
             click.echo(f"   ✓ Indexed {len(index['context_files'])} context files")
             click.echo(f"   ✓ Context index saved to {index_path}")
 
+    # Render agents and workflows so they're immediately usable
+    # This happens in both interactive and non-interactive modes
+    if config.agent_config.enabled_agents:
+        click.echo("\n📝 Rendering agents and workflows...")
+
+        try:
+            # Create AgentRegistry if not already created
+            if 'registry' not in locals():
+                registry = AgentRegistry(config)
+
+            # Render enabled agents
+            agents_dir = claude_dir / "agents"
+            agents_dir.mkdir(parents=True, exist_ok=True)
+
+            for agent_name in config.agent_config.enabled_agents:
+                try:
+                    output_file = registry.save_rendered_agent(agent_name, agents_dir)
+                    click.echo(f"   ✓ {agent_name} → {output_file.relative_to(Path.cwd())}")
+                except Exception as e:
+                    click.echo(f"   ✗ {agent_name}: {e}")
+
+            # Render ALL workflows (no enable/disable for workflows)
+            workflow_registry = WorkflowRegistry(config)
+            workflows_dir = claude_dir / "commands"
+            workflows_dir.mkdir(parents=True, exist_ok=True)
+
+            for workflow_name in workflow_registry.list_workflows():
+                try:
+                    output_file = workflow_registry.save_rendered_workflow(workflow_name, workflows_dir)
+                    click.echo(f"   ✓ /{workflow_name} → {output_file.relative_to(Path.cwd())}")
+                except Exception as e:
+                    click.echo(f"   ✗ /{workflow_name}: {e}")
+
+            click.echo(f"\n   ✅ Agents and workflows ready to use in Claude Code")
+        except Exception as e:
+            click.echo(f"   ⚠️  Error rendering: {e}")
+            click.echo(f"   You can render manually with:")
+            click.echo(f"      trustable-ai agent render-all")
+            click.echo(f"      trustable-ai workflow render-all")
+
     # Copy skills directory to .claude/skills/ (silently, non-critical)
     # Done at the end to avoid interfering with context generation
     try:
@@ -927,26 +966,31 @@ def init_command(
     click.echo(f"\n✅ Initialization {action}!\n")
 
     if not existing_config:
+        # Determine correct command based on platform
+        import platform as platform_module
+        if platform_module.system() == 'Windows':
+            claude_cmd = "claude.cmd"
+        else:
+            claude_cmd = "claude"
+
         click.echo("📋 Next steps:")
         click.echo(f"")
-        click.echo(f"  1. Review and customize .claude/config.yaml for your project")
+        click.echo(f"  1. Start Claude Code in this directory:")
+        click.echo(f"     $ {claude_cmd}")
         click.echo(f"")
-        click.echo(f"  2. Start Claude Code in this directory:")
-        click.echo(f"     $ claude-code")
+        click.echo(f"  2. Use the rendered workflows (slash commands):")
+        click.echo(f"     /sprint-planning      - Plan your sprint")
+        click.echo(f"     /backlog-grooming     - Refine your backlog")
+        click.echo(f"     /context-generation   - Update CLAUDE.md files")
         click.echo(f"")
-        click.echo(f"  3. Run the context generation workflow:")
-        click.echo(f"     /context-generation")
-        click.echo(f"")
-        click.echo(f"     This will:")
-        click.echo(f"     - Analyze your project structure")
-        click.echo(f"     - Generate CLAUDE.md files tailored to your codebase")
-        click.echo(f"     - Create agent definitions in .claude/agents/")
-        click.echo(f"     - Create workflow commands in .claude/commands/")
-        click.echo(f"     - Merge with any existing CLAUDE.md files intelligently")
+        click.echo(f"  3. Or spawn agents directly:")
+        click.echo(f"     /architect            - Architecture decisions")
+        click.echo(f"     /business-analyst     - Business value analysis")
+        click.echo(f"     /engineer             - Implementation tasks")
         click.echo(f"")
         click.echo(f"  4. Commit the generated files to git:")
         click.echo(f"     $ git add .claude/")
-        click.echo(f"     $ git commit -m \"Add Trustable AI configuration and context\"")
+        click.echo(f"     $ git commit -m \"Add Trustable AI configuration\"")
         click.echo(f"")
         click.echo(f"For more information: https://docs.trustable.ai/getting-started\n")
     else:

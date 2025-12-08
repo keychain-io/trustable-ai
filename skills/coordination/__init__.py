@@ -169,7 +169,7 @@ class CoordinationSkill(BaseSkill):
         # Archive the session
         archive_path = self._coordination_dir / 'archive' / f"{session_id}.yaml"
         archive_path.parent.mkdir(exist_ok=True)
-        with open(archive_path, 'w') as f:
+        with open(archive_path, 'w', encoding='utf-8') as f:
             yaml.dump(session, f, default_flow_style=False)
 
         # Remove from active
@@ -378,7 +378,7 @@ class CoordinationSkill(BaseSkill):
     def _save_sessions(self) -> None:
         """Save active sessions to disk."""
         sessions_file = self._coordination_dir / 'sessions.yaml'
-        with open(sessions_file, 'w') as f:
+        with open(sessions_file, 'w', encoding='utf-8') as f:
             yaml.dump(self._active_sessions, f, default_flow_style=False)
 
 

@@ -59,7 +59,7 @@ def capture(title: str, category: str, content: str, tags: tuple, source: str, w
 
     # Save learning
     learning_file = learnings_dir / f"{learning_id}.yaml"
-    with open(learning_file, "w") as f:
+    with open(learning_file, "w", encoding="utf-8") as f:
         yaml.dump(learning, f, default_flow_style=False)
 
     # Update index
@@ -78,7 +78,7 @@ def capture(title: str, category: str, content: str, tags: tuple, source: str, w
     })
     index.setdefault("categories", {}).setdefault(category, []).append(learning_id)
 
-    with open(index_file, "w") as f:
+    with open(index_file, "w", encoding="utf-8") as f:
         yaml.dump(index, f, default_flow_style=False)
 
     click.echo(f"✓ Learning captured: {learning_id}")
@@ -303,7 +303,7 @@ def export_learnings(format: str, output: str):
         content = json.dumps(all_learnings, indent=2, default=str)
 
     if output:
-        with open(output, "w") as f:
+        with open(output, "w", encoding="utf-8") as f:
             f.write(content)
         click.echo(f"✓ Exported {len(all_learnings)} learnings to {output}")
     else:
