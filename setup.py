@@ -10,7 +10,7 @@ long_description = readme_path.read_text() if readme_path.exists() else ""
 
 setup(
     name="trustable-ai",
-    version="2.0.2",
+    version="2.0.3",
     author="Trustable AI Contributors",
     description="AI-assisted software lifecycle tools with multi-agent orchestration, state management, and work tracking integration",
     long_description=long_description,
