@@ -501,6 +501,71 @@ else:
     print(f"   • Story points sum correctly across hierarchy")
     {% endif %}
     print(f"   • Epic decomposition is complete and verified")
+
+# STEP 6: Output verification checklist
+print(f"\n{'='*80}")
+print(f"📋 Epic Decomposition Verification Checklist")
+print(f"{'='*80}\n")
+
+# Item 1: Epic decomposed
+print(f"- [x] Epic WI-{epic_id} decomposed into {len(created_features)} Features")
+
+# Item 2: Features created with child count
+print(f"- [x] Features created:")
+for feature_info in created_features:
+    task_count = feature_info.get('expected_tasks', 0)
+    print(f"  - [x] Feature WI-{feature_info['id']}: {feature_info['title']} ({task_count} Tasks)")
+
+# Item 3: Tasks created per Feature
+total_tasks = sum(f.get('expected_tasks', 0) for f in created_features)
+print(f"- [x] {total_tasks} Tasks created across {len(created_features)} Features")
+
+# Item 4: Story points validated (conditional)
+{% if work_tracking.custom_fields.story_points %}
+if story_point_mismatches:
+    print(f"- [ ] Story points validated (WARNING: {len(story_point_mismatches)} mismatches found)")
+else:
+    print(f"- [x] Story points validated (all variances within 20% threshold)")
+{% else %}
+print(f"- [ ] Story points validated (N/A - story points not configured)")
+{% endif %}
+
+# Item 5: Acceptance criteria validated
+# Check if Features have acceptance criteria
+features_with_ac = 0
+for feature_info in created_features:
+    try:
+        feature_full = adapter.get_work_item(feature_info['id'])
+        ac = feature_full.get('fields', {}).get('Microsoft.VSTS.Common.AcceptanceCriteria', '')
+        if ac and ac.strip():
+            features_with_ac += 1
+    except:
+        pass
+
+if features_with_ac == len(created_features):
+    print(f"- [x] Acceptance criteria validated ({features_with_ac}/{len(created_features)} Features have acceptance criteria)")
+elif features_with_ac > 0:
+    print(f"- [~] Acceptance criteria partially validated ({features_with_ac}/{len(created_features)} Features have acceptance criteria)")
+else:
+    print(f"- [ ] Acceptance criteria validated (0/{len(created_features)} Features have acceptance criteria)")
+
+print(f"\n{'='*80}")
+
+# STEP 7: Human approval gate
+print(f"\n⚠️  HUMAN REVIEW REQUIRED")
+print(f"Please review the checklist above before continuing to the next Epic.")
+print(f"This ensures all verification steps completed successfully.\n")
+
+approval = input("Type 'proceed' to continue to next Epic, or 'skip' to end grooming: ").strip().lower()
+
+if approval == 'skip':
+    print(f"\n✅ Backlog grooming ended by user")
+    break  # Exit Epic loop
+elif approval != 'proceed':
+    print(f"\n❌ Invalid input. Backlog grooming ended.")
+    break
+else:
+    print(f"\n✅ Continuing to next Epic...\n")
 ```
 
 {% endif %}

@@ -1240,3 +1240,505 @@ agent_config:
         # Story point verification should be wrapped in Jinja if
         assert "{% if work_tracking.custom_fields.story_points %}" in verification_section, \
             "Story point verification should be wrapped in Jinja if statement"
+
+
+@pytest.mark.integration
+class TestBacklogGroomingChecklistOutput:
+    """Test suite for verification checklist output in backlog-grooming workflow."""
+
+    @pytest.fixture
+    def azure_config_yaml(self):
+        """Sample configuration with Azure DevOps adapter."""
+        return """
+project:
+  name: "Test Project"
+  type: "web-application"
+  tech_stack:
+    languages: ["Python"]
+    frameworks: ["FastAPI"]
+  source_directory: "src"
+  test_directory: "tests"
+
+work_tracking:
+  platform: "azure-devops"
+  organization: "https://dev.azure.com/testorg"
+  project: "TestProject"
+  credentials_source: "cli"
+
+  work_item_types:
+    epic: "Epic"
+    feature: "Feature"
+    story: "User Story"
+    task: "Task"
+    bug: "Bug"
+
+  custom_fields:
+    story_points: "Microsoft.VSTS.Scheduling.StoryPoints"
+    business_value: "Microsoft.VSTS.Common.BusinessValue"
+
+  iteration_format: "{project}\\\\{sprint}"
+  sprint_naming: "Sprint {number}"
+
+quality_standards:
+  test_coverage_min: 80
+  critical_vulnerabilities_max: 0
+  high_vulnerabilities_max: 0
+  code_complexity_max: 10
+
+agent_config:
+  models:
+    senior-engineer: "claude-sonnet-4.5"
+  enabled_agents:
+    - senior-engineer
+"""
+
+    @pytest.fixture
+    def no_story_points_config_yaml(self):
+        """Sample configuration without story points."""
+        return """
+project:
+  name: "Test Project"
+  type: "web-application"
+  tech_stack:
+    languages: ["Python"]
+
+work_tracking:
+  platform: "azure-devops"
+  organization: "https://dev.azure.com/testorg"
+  project: "TestProject"
+  credentials_source: "cli"
+
+  work_item_types:
+    epic: "Epic"
+    feature: "Feature"
+    task: "Task"
+
+quality_standards:
+  test_coverage_min: 80
+
+agent_config:
+  models:
+    senior-engineer: "claude-sonnet-4.5"
+  enabled_agents:
+    - senior-engineer
+"""
+
+    def test_checklist_section_exists_after_verification(self, tmp_path, azure_config_yaml):
+        """Test that checklist section exists after verification completes."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Should have checklist section
+        assert "Epic Decomposition Verification Checklist" in rendered, \
+            "Checklist section missing"
+
+        # Should be after verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+
+        assert verification_pos < checklist_pos, \
+            "Checklist should be after verification section"
+
+    def test_checklist_includes_epic_decomposition_item(self, tmp_path, azure_config_yaml):
+        """Test that checklist includes Epic decomposition item with format: '- [x] Epic WI-{id} decomposed into {n} Features'."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get checklist section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        checklist_section = rendered[checklist_pos:checklist_pos + 2000]
+
+        # Should have Epic decomposition item with correct format
+        assert "- [x] Epic WI-{epic_id} decomposed into {len(created_features)} Features" in checklist_section, \
+            "Checklist missing Epic decomposition item with correct format"
+
+    def test_checklist_includes_features_created_with_child_count(self, tmp_path, azure_config_yaml):
+        """Test that checklist includes Features created item with child count."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get checklist section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        checklist_section = rendered[checklist_pos:checklist_pos + 2000]
+
+        # Should have Features created header
+        assert "- [x] Features created:" in checklist_section, \
+            "Checklist missing Features created item"
+
+        # Should iterate over Features and show child count
+        assert "for feature_info in created_features:" in checklist_section, \
+            "Checklist should iterate over created_features"
+
+        # Should show Feature ID, title, and task count
+        assert "Feature WI-{feature_info['id']}" in checklist_section, \
+            "Should show Feature ID"
+        assert "{feature_info['title']}" in checklist_section, \
+            "Should show Feature title"
+        assert "({task_count} Tasks)" in checklist_section, \
+            "Should show Task count"
+
+    def test_checklist_includes_tasks_created_per_feature(self, tmp_path, azure_config_yaml):
+        """Test that checklist includes Tasks created per Feature."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get checklist section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        checklist_section = rendered[checklist_pos:checklist_pos + 2000]
+
+        # Should calculate total tasks
+        assert "total_tasks = sum(f.get('expected_tasks', 0) for f in created_features)" in checklist_section, \
+            "Should calculate total tasks"
+
+        # Should show total tasks created
+        assert "- [x] {total_tasks} Tasks created across {len(created_features)} Features" in checklist_section, \
+            "Should show total Tasks created"
+
+    def test_checklist_includes_story_points_validation(self, tmp_path, azure_config_yaml):
+        """Test that checklist includes story points validation item."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get checklist section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        checklist_section = rendered[checklist_pos:checklist_pos + 2000]
+
+        # Should have story points validation item
+        assert "Story points validated" in checklist_section, \
+            "Checklist should include story points validation"
+
+        # Should check for mismatches
+        assert "if story_point_mismatches:" in checklist_section, \
+            "Should check story_point_mismatches"
+
+        # Should show [x] if no mismatches, [ ] if mismatches found
+        assert "- [x] Story points validated (all variances within 20% threshold)" in checklist_section, \
+            "Should show [x] for successful validation"
+        assert "- [ ] Story points validated (WARNING: {len(story_point_mismatches)} mismatches found)" in checklist_section, \
+            "Should show [ ] for failed validation"
+
+    def test_checklist_includes_acceptance_criteria_validation(self, tmp_path, azure_config_yaml):
+        """Test that checklist includes acceptance criteria validation item."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get checklist section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        checklist_section = rendered[checklist_pos:checklist_pos + 2000]
+
+        # Should have acceptance criteria validation
+        assert "Acceptance criteria validated" in checklist_section, \
+            "Checklist should include acceptance criteria validation"
+
+        # Should query Features for acceptance criteria
+        assert "features_with_ac = 0" in checklist_section, \
+            "Should initialize acceptance criteria counter"
+
+        # Should query each Feature
+        assert "adapter.get_work_item(feature_info['id'])" in checklist_section, \
+            "Should query each Feature for acceptance criteria"
+
+        # Should check Microsoft.VSTS.Common.AcceptanceCriteria field
+        assert "Microsoft.VSTS.Common.AcceptanceCriteria" in checklist_section, \
+            "Should check AcceptanceCriteria field"
+
+    def test_checklist_uses_checkmark_for_completed_items(self, tmp_path, azure_config_yaml):
+        """Test that checklist uses [x] for completed items."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get checklist section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        checklist_section = rendered[checklist_pos:checklist_pos + 2000]
+
+        # Should use [x] for completed items
+        assert "- [x] Epic WI-" in checklist_section, \
+            "Should use [x] for Epic decomposition"
+        assert "- [x] Features created:" in checklist_section, \
+            "Should use [x] for Features created"
+        assert "- [x] {total_tasks} Tasks created" in checklist_section, \
+            "Should use [x] for Tasks created"
+
+    def test_checklist_uses_empty_checkbox_for_incomplete_items(self, tmp_path, azure_config_yaml):
+        """Test that checklist uses [ ] for incomplete/skipped items."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get checklist section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        checklist_section = rendered[checklist_pos:checklist_pos + 2000]
+
+        # Should use [ ] for incomplete items
+        assert "- [ ] Story points validated (WARNING:" in checklist_section, \
+            "Should use [ ] for failed story points validation"
+        assert "- [ ] Acceptance criteria validated (0/" in checklist_section, \
+            "Should use [ ] for missing acceptance criteria"
+
+    def test_checklist_uses_partial_checkbox_for_partially_complete(self, tmp_path, azure_config_yaml):
+        """Test that checklist uses [~] for partially complete items."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get checklist section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        checklist_section = rendered[checklist_pos:checklist_pos + 2000]
+
+        # Should use [~] for partially complete acceptance criteria
+        assert "- [~] Acceptance criteria partially validated" in checklist_section, \
+            "Should use [~] for partially validated acceptance criteria"
+
+    def test_checklist_shows_na_for_story_points_when_not_configured(self, tmp_path, no_story_points_config_yaml):
+        """Test that checklist shows N/A for story points when not configured."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(no_story_points_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get checklist section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        checklist_section = rendered[checklist_pos:checklist_pos + 2000]
+
+        # Should show N/A when story points not configured
+        assert "- [ ] Story points validated (N/A - story points not configured)" in checklist_section, \
+            "Should show N/A for story points when not configured"
+
+    def test_checklist_format_matches_epic_requirements(self, tmp_path, azure_config_yaml):
+        """Test that checklist format matches example in Epic requirements."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get checklist section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        checklist_section = rendered[checklist_pos:checklist_pos + 2000]
+
+        # Should match format: "- [x] Epic WI-{id} decomposed into {count} Features"
+        assert "- [x] Epic WI-{epic_id} decomposed into {len(created_features)} Features" in checklist_section, \
+            "Format should match Epic requirements"
+
+    def test_human_approval_gate_exists(self, tmp_path, azure_config_yaml):
+        """Test that human approval gate is added after checklist."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get section after checklist
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        approval_section = rendered[checklist_pos:checklist_pos + 3000]
+
+        # Should have human approval gate
+        assert "HUMAN REVIEW REQUIRED" in approval_section, \
+            "Human approval gate missing"
+
+    def test_approval_gate_prompts_for_proceed_input(self, tmp_path, azure_config_yaml):
+        """Test that approval gate prompts for 'proceed' input."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get approval gate section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        approval_section = rendered[checklist_pos:checklist_pos + 3000]
+
+        # Should prompt for input
+        assert "input(" in approval_section, \
+            "Should prompt for user input"
+
+        # Should mention 'proceed'
+        assert "Type 'proceed' to continue" in approval_section, \
+            "Should mention 'proceed' in prompt"
+
+        # Should mention 'skip'
+        assert "or 'skip' to end grooming" in approval_section, \
+            "Should mention 'skip' in prompt"
+
+    def test_approval_gate_handles_proceed_input(self, tmp_path, azure_config_yaml):
+        """Test that approval gate handles 'proceed' input."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get approval gate section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        approval_section = rendered[checklist_pos:checklist_pos + 3000]
+
+        # Should check for 'proceed'
+        assert "approval = input(" in approval_section, \
+            "Should capture user input"
+        # Check logic: if skip, elif not proceed (invalid), else (proceed)
+        assert "elif approval != 'proceed':" in approval_section, \
+            "Should check for non-'proceed' input"
+
+        # Should continue on 'proceed'
+        assert "Continuing to next Epic" in approval_section, \
+            "Should continue on 'proceed'"
+
+    def test_approval_gate_handles_skip_input(self, tmp_path, azure_config_yaml):
+        """Test that approval gate handles 'skip' input."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get approval gate section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        approval_section = rendered[checklist_pos:checklist_pos + 3000]
+
+        # Should check for 'skip'
+        assert "approval == 'skip'" in approval_section, \
+            "Should check for 'skip' input"
+
+        # Should end grooming on 'skip'
+        assert "Backlog grooming ended by user" in approval_section, \
+            "Should end grooming on 'skip'"
+
+        # Should break out of Epic loop
+        assert "break" in approval_section, \
+            "Should break out of Epic loop on 'skip'"
+
+    def test_approval_gate_handles_invalid_input(self, tmp_path, azure_config_yaml):
+        """Test that approval gate handles invalid input."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get approval gate section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        approval_section = rendered[checklist_pos:checklist_pos + 3000]
+
+        # Should handle invalid input
+        assert "elif approval != 'proceed':" in approval_section, \
+            "Should check for invalid input"
+
+        # Should end with error on invalid input
+        assert "Invalid input. Backlog grooming ended." in approval_section, \
+            "Should end with error on invalid input"
+
+    def test_checklist_and_approval_gate_order(self, tmp_path, azure_config_yaml):
+        """Test that checklist comes before approval gate."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Find positions
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        approval_pos = rendered.find("HUMAN REVIEW REQUIRED")
+
+        # Checklist should come before approval gate
+        assert checklist_pos < approval_pos, \
+            "Checklist should come before approval gate"
+
+    def test_acceptance_criteria_validation_handles_errors(self, tmp_path, azure_config_yaml):
+        """Test that acceptance criteria validation handles errors gracefully."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get checklist section
+        checklist_pos = rendered.find("Epic Decomposition Verification Checklist")
+        checklist_section = rendered[checklist_pos:checklist_pos + 2000]
+
+        # Should use try-except for acceptance criteria queries
+        assert "try:" in checklist_section, \
+            "Should use try-except for acceptance criteria queries"
+        assert "except:" in checklist_section, \
+            "Should catch exceptions gracefully"
+        assert "pass" in checklist_section, \
+            "Should pass on exception (don't fail verification)"
