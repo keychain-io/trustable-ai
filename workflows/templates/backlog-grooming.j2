@@ -192,6 +192,9 @@ Return JSON with Epic decomposition:
 epic_id = epic['id']
 decomposition = agent_result  # JSON from agent
 
+# Track created Features for verification
+created_features = []
+
 # Create Features under Epic
 for feature_data in decomposition['features']:
     # Build comprehensive Feature description
@@ -226,6 +229,13 @@ WI-{epic_id}: {epic['title']}
     )
 
     print(f"  ✓ Created Feature WI-{feature['id']}: {feature_data['title']} ({feature_data['story_points']} pts)")
+
+    # Store Feature info for verification
+    created_features.append({
+        'id': feature['id'],
+        'title': feature_data['title'],
+        'expected_tasks': len(feature_data.get('tasks', []))
+    })
 
     # Create Tasks under Feature
     for task_data in feature_data.get('tasks', []):
@@ -270,33 +280,142 @@ print(f"✅ Epic WI-{epic_id} decomposed into {len(decomposition['features'])} F
 4. Verify hierarchy created correctly:
 
 ```python
-# Query children of Epic
-children = adapter.query_work_items(
-    filters={'System.Parent': epic_id}
-)
+import sys
 
-expected_count = len(decomposition['features'])
-actual_count = len(children)
+print("\n🔍 Verifying Epic Decomposition Hierarchy...")
+print("=" * 80)
+print("CRITICAL: Implementing External Source of Truth verification (VISION.md Pillar #2)")
+print("=" * 80)
 
-if actual_count != expected_count:
-    print(f"⚠️  Verification failed: Expected {expected_count} Features, got {actual_count}")
-else:
-    print(f"✅ Verification passed: All {expected_count} Features created")
+verification_failed = False
+childless_features = []
 
-# Verify story points sum
+# STEP 1: Verify each Feature has at least one Task
+print(f"\n🔍 Verifying each Feature has child Tasks...")
+
+for feature_info in created_features:
+    feature_id = feature_info['id']
+    feature_title = feature_info['title']
+    expected_tasks = feature_info['expected_tasks']
+
+    # Query Tasks under this Feature from adapter (external source of truth)
+    try:
+        feature_tasks = adapter.query_work_items(
+            work_item_type='{{ work_tracking.work_item_types.task }}',
+            # Note: Azure DevOps and file-based adapters handle parent filtering differently
+            # We'll query and filter in Python for cross-platform compatibility
+        )
+
+        # Filter for Tasks with this Feature as parent
+        feature_tasks = [
+            task for task in feature_tasks
+            if task.get('parent_id') == feature_id or
+               task.get('fields', {}).get('System.Parent') == feature_id
+        ]
+
+        task_count = len(feature_tasks)
+
+        if task_count == 0:
+            print(f"❌ ERROR: Feature {feature_id} '{feature_title}' has no Tasks - workflow incomplete")
+            childless_features.append({
+                'id': feature_id,
+                'title': feature_title
+            })
+            verification_failed = True
+        else:
+            print(f"✅ Feature {feature_id} has {task_count} Task(s) (expected {expected_tasks})")
+
+            # Verify each Task has correct parent
+            for task in feature_tasks:
+                task_id = task.get('id')
+                parent_id = task.get('parent_id') or task.get('fields', {}).get('System.Parent')
+                if parent_id != feature_id:
+                    print(f"⚠️  WARNING: Task {task_id} parent mismatch (expected {feature_id}, got {parent_id})")
+
+    except Exception as e:
+        print(f"❌ ERROR: Failed to query Tasks for Feature {feature_id}: {e}")
+        verification_failed = True
+
+# STEP 2: Verify all Features are linked to parent Epic
+print(f"\n🔍 Verifying Features linked to Epic {epic_id}...")
+
+try:
+    # Query Features under this Epic from adapter (external source of truth)
+    epic_features = adapter.query_work_items(
+        work_item_type='{{ work_tracking.work_item_types.feature }}',
+    )
+
+    # Filter for Features with this Epic as parent
+    epic_features = [
+        feature for feature in epic_features
+        if feature.get('parent_id') == epic_id or
+           feature.get('fields', {}).get('System.Parent') == epic_id
+    ]
+
+    expected_feature_count = len(created_features)
+    actual_feature_count = len(epic_features)
+
+    if actual_feature_count != expected_feature_count:
+        print(f"❌ ERROR: Epic has {actual_feature_count} Features, expected {expected_feature_count}")
+        verification_failed = True
+    else:
+        print(f"✅ All {expected_feature_count} Feature(s) linked to Epic")
+
+except Exception as e:
+    print(f"❌ ERROR: Failed to query Features for Epic {epic_id}: {e}")
+    verification_failed = True
+
+# STEP 3: Verify story points sum (optional)
 {% if work_tracking.custom_fields.story_points %}
-total_child_points = sum(
-    child.get('fields', {}).get('{{ work_tracking.custom_fields.story_points }}', 0) or 0
-    for child in children
-)
-epic_points = epic.get('fields', {}).get('{{ work_tracking.custom_fields.story_points }}', 0) or 0
-variance = abs(total_child_points - epic_points) / epic_points * 100 if epic_points > 0 else 0
+print(f"\n📊 Verifying story points alignment...")
 
-print(f"📊 Story Points - Epic: {epic_points}, Children: {total_child_points}, Variance: {variance:.1f}%")
+try:
+    epic_features_for_points = adapter.query_work_items(
+        work_item_type='{{ work_tracking.work_item_types.feature }}',
+    )
 
-if variance > 20:
-    print(f"⚠️  High variance - review decomposition")
+    # Filter for Features with this Epic as parent
+    epic_features_for_points = [
+        feature for feature in epic_features_for_points
+        if feature.get('parent_id') == epic_id or
+           feature.get('fields', {}).get('System.Parent') == epic_id
+    ]
+
+    total_child_points = sum(
+        feature.get('story_points', 0) or
+        feature.get('fields', {}).get('{{ work_tracking.custom_fields.story_points }}', 0) or 0
+        for feature in epic_features_for_points
+    )
+
+    epic_points = epic.get('fields', {}).get('{{ work_tracking.custom_fields.story_points }}', 0) or 0
+    variance = abs(total_child_points - epic_points) / epic_points * 100 if epic_points > 0 else 0
+
+    print(f"📊 Story Points - Epic: {epic_points}, Children: {total_child_points}, Variance: {variance:.1f}%")
+
+    if variance > 20:
+        print(f"⚠️  High variance - review decomposition")
+
+except Exception as e:
+    print(f"⚠️  WARNING: Failed to verify story points: {e}")
 {% endif %}
+
+print("=" * 80)
+
+# STEP 4: Exit with error code if verification failed
+if verification_failed:
+    print(f"\n❌ VERIFICATION FAILED - Hierarchy incomplete")
+    if childless_features:
+        print(f"   {len(childless_features)} Feature(s) have no Tasks:")
+        for f in childless_features:
+            print(f"     • {f['id']}: {f['title']}")
+    print(f"\n⚠️  Fix these issues before proceeding")
+    print(f"   Re-run decomposition or manually create Tasks for childless Features")
+    sys.exit(1)  # Exit with error code
+else:
+    print(f"\n✅ VERIFICATION PASSED - All hierarchy checks successful")
+    print(f"   • All Features have at least one Task")
+    print(f"   • All Features are linked to Epic {epic_id}")
+    print(f"   • Epic decomposition is complete and verified")
 ```
 
 {% endif %}
