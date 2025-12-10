@@ -72,6 +72,105 @@ current_sprint = "Sprint 1"  # Update this
    - 🚫 Blocked: Items marked as blocked
    - 💬 Discussed: Items with new comments
 
+### Step 1.5: Verify Work Item States Against External Source of Truth
+
+**CRITICAL**: This step implements the "External Source of Truth" pattern from VISION.md. AI agents often claim work is complete when it isn't. This verification step catches divergence immediately.
+
+1. **Query adapter for actual work item states:**
+   ```python
+   # Query adapter directly for items updated yesterday (external source of truth)
+   print("\n🔍 Verifying work item states against external source of truth...")
+
+   # Build map of actual current states from adapter
+   actual_state_map = {}
+   for item in recent_items:
+       item_id = item['id']
+       # Query adapter for current state (external truth)
+       current_item = adapter.get_work_item(item_id)
+       if current_item:
+           actual_state_map[item_id] = current_item.get('state', 'UNKNOWN')
+       else:
+           actual_state_map[item_id] = 'NOT_FOUND'
+   ```
+
+2. **Detect state divergences:**
+   ```python
+   # Terminal states that indicate completion
+   terminal_states = ['Done', 'Closed', 'Completed', 'Resolved']
+
+   # Track divergences between claimed state and actual state
+   divergences = []
+
+   for item in recent_items:
+       item_id = item['id']
+       item_title = item.get('title', 'Unknown')
+       claimed_state = item.get('state', 'Unknown')
+       actual_state = actual_state_map.get(item_id, 'NOT_FOUND')
+
+       # Divergence: claimed terminal but actually not terminal
+       if claimed_state in terminal_states and actual_state not in terminal_states:
+           if actual_state == 'NOT_FOUND':
+               divergences.append({
+                   'id': item_id,
+                   'title': item_title,
+                   'claimed_state': claimed_state,
+                   'actual_state': actual_state,
+                   'severity': 'ERROR',
+                   'message': f"Work item claimed to exist in state '{claimed_state}' but not found in {adapter.platform}"
+               })
+           else:
+               divergences.append({
+                   'id': item_id,
+                   'title': item_title,
+                   'claimed_state': claimed_state,
+                   'actual_state': actual_state,
+                   'severity': 'WARNING',
+                   'message': f"State mismatch: claimed '{claimed_state}' but adapter shows '{actual_state}'"
+               })
+
+       # Divergence: work item doesn't exist in adapter
+       elif actual_state == 'NOT_FOUND':
+           divergences.append({
+               'id': item_id,
+               'title': item_title,
+               'claimed_state': claimed_state,
+               'actual_state': actual_state,
+               'severity': 'ERROR',
+               'message': f"Work item not found in {adapter.platform}"
+           })
+   ```
+
+3. **Output divergence warnings (informational only - workflow continues):**
+   ```python
+   # Display divergence summary
+   if divergences:
+       print(f"\n⚠️ DIVERGENCE DETECTED: {len(divergences)} work item(s) need attention")
+       print("=" * 80)
+
+       for div in divergences:
+           if div['severity'] == 'ERROR':
+               print(f"  ❌ {div['id']}: {div['title']}")
+               print(f"     {div['message']}")
+           else:
+               print(f"  ⚠️ {div['id']}: {div['title']}")
+               print(f"     CLAIMED: {div['claimed_state']} | ACTUAL: {div['actual_state']}")
+
+       print(f"\n📊 Divergence Summary:")
+       print(f"   - {len([d for d in divergences if d['severity'] == 'ERROR'])} ERROR(s)")
+       print(f"   - {len([d for d in divergences if d['severity'] == 'WARNING'])} WARNING(s)")
+       print(f"   - Action: Review work items and sync states in {adapter.platform}")
+       print("=" * 80)
+   else:
+       print("✅ No divergence detected - all work item states match external source of truth")
+
+   # Store divergences for inclusion in report (Step 5)
+   divergence_summary = {
+       'count': len(divergences),
+       'errors': [d for d in divergences if d['severity'] == 'ERROR'],
+       'warnings': [d for d in divergences if d['severity'] == 'WARNING']
+   }
+   ```
+
 ### Step 2: Identify Today's Focus
 
 1. **Query active work items:**
@@ -117,16 +216,66 @@ current_sprint = "Sprint 1"  # Update this
    - Summarize yesterday's accomplishments
    - List today's planned work by team member
    - Highlight blockers requiring attention
+   - Include work item state verification results (divergences from Step 1.5)
    - Note sprint progress toward goal
    - Keep it brief and action-oriented"
 3. **Spawn agent** using Task tool with model `{{ config.get_agent_model('scrum-master') or 'haiku' }}`
-4. **Input:** Yesterday's activity, today's active items, blockers
+4. **Input:** Yesterday's activity, today's active items, blockers, divergence_summary
 5. **Display output** to user
 
 {% endif %}
 ### Step 5: Format and Distribute Report
 
 Generate report in markdown format (template shown below with placeholder data that would be filled at runtime).
+
+**IMPORTANT**: Include divergence summary section if any divergences were detected:
+
+```python
+# Generate report with divergence section
+report = f"""
+# Daily Standup Report
+**Date**: {datetime.now().strftime('%Y-%m-%d')}
+**Sprint**: {current_sprint}
+
+## Yesterday's Accomplishments
+[List completed work items from recent_items]
+
+## Work Item State Verification
+"""
+
+# Add divergence section
+if divergence_summary['count'] > 0:
+    report += f"⚠️ **DIVERGENCE DETECTED**: {divergence_summary['count']} work item(s) need attention\n\n"
+
+    if divergence_summary['errors']:
+        report += f"### Errors ({len(divergence_summary['errors'])})\n"
+        for error in divergence_summary['errors']:
+            report += f"- ❌ **{error['id']}**: {error['title']}\n"
+            report += f"  - {error['message']}\n"
+        report += "\n"
+
+    if divergence_summary['warnings']:
+        report += f"### Warnings ({len(divergence_summary['warnings'])})\n"
+        for warning in divergence_summary['warnings']:
+            report += f"- ⚠️ **{warning['id']}**: {warning['title']}\n"
+            report += f"  - Claimed: {warning['claimed_state']} | Actual: {warning['actual_state']}\n"
+        report += "\n"
+
+    report += f"**Action Required**: Review and sync work item states in {adapter.platform}\n\n"
+else:
+    report += "✅ **All work item states verified** - no divergence detected\n\n"
+
+report += """
+## Today's Focus
+[List planned work items from active_items]
+
+## Blockers
+[List blockers requiring attention]
+
+## Sprint Progress
+[Progress toward sprint goal]
+"""
+```
 
 ### Step 6: Distribute Report
 
