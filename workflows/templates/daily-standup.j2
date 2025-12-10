@@ -48,14 +48,6 @@ current_sprint = "Sprint 1"  # Update this
 
 ### Step 1: Gather Yesterday's Activity
 
-{% if work_tracking.platform == 'azure-devops' %}
-1. **Query completed work (last 24 hours):**
-   ```bash
-   # Get work items completed or updated yesterday
-   yesterday=$(date -d "yesterday" +%Y-%m-%d)
-   az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo] FROM WorkItems WHERE [System.TeamProject] = '{{ work_tracking.project }}' AND [System.IterationPath] UNDER '{{ work_tracking.iteration_format.format(project=work_tracking.project, sprint='CURRENT_SPRINT') }}' AND [System.ChangedDate] >= '$yesterday'" --output json
-   ```
-{% else %}
 1. **Query completed work (last 24 hours):**
    ```python
    # Get work items from the current sprint
@@ -72,7 +64,6 @@ current_sprint = "Sprint 1"  # Update this
    for item in recent_items:
        print(f"  WI-{item['id']}: {item['title']} [{item['state']}]")
    ```
-{% endif %}
 
 2. **Categorize changes:**
    - ✅ Completed: Items moved to "Done"/"Closed"
@@ -83,13 +74,6 @@ current_sprint = "Sprint 1"  # Update this
 
 ### Step 2: Identify Today's Focus
 
-{% if work_tracking.platform == 'azure-devops' %}
-1. **Query active work items:**
-   ```bash
-   # Get currently active work items
-   az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo], [{{ work_tracking.custom_fields.story_points or 'Microsoft.VSTS.Scheduling.StoryPoints' }}] FROM WorkItems WHERE [System.TeamProject] = '{{ work_tracking.project }}' AND [System.IterationPath] UNDER '{{ work_tracking.iteration_format.format(project=work_tracking.project, sprint='CURRENT_SPRINT') }}' AND [System.State] IN ('Active', 'In Progress', 'Doing')" --output json
-   ```
-{% else %}
 1. **Query active work items:**
    ```python
    # Get active work items for current sprint
@@ -106,7 +90,6 @@ current_sprint = "Sprint 1"  # Update this
        print(f"  WI-{item['id']}: {item['title']}")
        print(f"    State: {item['state']} | Points: {points} | Assigned: {assignee}")
    ```
-{% endif %}
 
 2. **Group by team member:**
    - List active items per person

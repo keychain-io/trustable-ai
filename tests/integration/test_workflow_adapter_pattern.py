@@ -276,3 +276,341 @@ class TestWorkflowAdapterErrorHandling:
             # Should print user-friendly error messages
             assert "Failed to" in rendered or "❌" in rendered, \
                 f"{workflow_name} missing user-friendly error messages"
+
+
+@pytest.mark.integration
+class TestBug1083WorkflowsUseAdapterNotAzBoards:
+    """
+    Test suite for Bug #1083 - Workflows use adapter pattern instead of direct az boards commands.
+
+    Verifies that daily-standup, backlog-grooming, and sprint-retrospective workflows:
+    1. Do NOT contain direct az boards CLI commands
+    2. Do NOT have platform-specific conditional logic
+    3. DO use the unified work tracking adapter for all operations
+    4. Work consistently across all platforms (azure-devops, file-based, etc.)
+    """
+
+    @pytest.fixture
+    def azure_config_yaml(self):
+        """Sample configuration with Azure DevOps platform."""
+        return """
+project:
+  name: "Test Project"
+  type: "web-application"
+  tech_stack:
+    languages: ["Python"]
+    frameworks: ["FastAPI"]
+    platforms: ["Azure"]
+
+work_tracking:
+  platform: "azure-devops"
+  organization: "https://dev.azure.com/testorg"
+  project: "TestProject"
+  credentials_source: "cli"
+
+  work_item_types:
+    epic: "Epic"
+    feature: "Feature"
+    story: "User Story"
+    task: "Task"
+    bug: "Bug"
+
+  custom_fields:
+    story_points: "Microsoft.VSTS.Scheduling.StoryPoints"
+    business_value: "Microsoft.VSTS.Common.BusinessValue"
+    technical_risk: "Custom.TechnicalRisk"
+
+  iteration_format: "{project}\\\\{sprint}"
+  sprint_naming: "Sprint {number}"
+
+quality_standards:
+  test_coverage_min: 80
+  critical_vulnerabilities_max: 0
+  high_vulnerabilities_max: 0
+  code_complexity_max: 10
+
+agent_config:
+  models:
+    architect: "claude-opus-4"
+    engineer: "claude-sonnet-4.5"
+    analyst: "claude-sonnet-4.5"
+  enabled_agents:
+    - business-analyst
+    - senior-engineer
+    - scrum-master
+    - security-specialist
+"""
+
+    @pytest.fixture
+    def filebased_config_yaml(self):
+        """Sample configuration with file-based platform."""
+        return """
+project:
+  name: "Test Project"
+  type: "web-application"
+  tech_stack:
+    languages: ["Python"]
+
+work_tracking:
+  platform: "file-based"
+  work_items_directory: ".claude/work-items"
+
+  work_item_types:
+    epic: "Epic"
+    feature: "Feature"
+    story: "User Story"
+    task: "Task"
+    bug: "Bug"
+
+quality_standards:
+  test_coverage_min: 80
+  critical_vulnerabilities_max: 0
+  high_vulnerabilities_max: 0
+  code_complexity_max: 10
+
+agent_config:
+  models:
+    architect: "claude-opus-4"
+    engineer: "claude-sonnet-4.5"
+  enabled_agents:
+    - business-analyst
+    - senior-engineer
+"""
+
+    def test_daily_standup_no_az_boards_commands(self, tmp_path, azure_config_yaml):
+        """Test that daily-standup workflow does NOT contain az boards commands."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml)
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("daily-standup")
+
+        # Should NOT have any az boards commands
+        assert "az boards" not in rendered, \
+            "daily-standup still contains direct az boards commands"
+        assert "az boards query" not in rendered, \
+            "daily-standup still contains az boards query commands"
+
+    def test_daily_standup_uses_adapter_pattern(self, tmp_path, azure_config_yaml):
+        """Test that daily-standup workflow uses adapter pattern."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml)
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("daily-standup")
+
+        # Should initialize adapter
+        assert "from work_tracking import get_adapter" in rendered, \
+            "daily-standup missing adapter import"
+        assert "adapter = get_adapter()" in rendered, \
+            "daily-standup missing adapter initialization"
+
+        # Should use adapter methods
+        assert "adapter.query_sprint_work_items(" in rendered, \
+            "daily-standup should use adapter.query_sprint_work_items()"
+
+    def test_daily_standup_no_platform_conditionals(self, tmp_path, azure_config_yaml):
+        """Test that daily-standup has NO platform-specific conditionals."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml)
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("daily-standup")
+
+        # Should NOT have platform conditionals
+        assert "{% if work_tracking.platform == 'azure-devops' %}" not in rendered, \
+            "daily-standup still has Azure DevOps platform conditionals"
+        assert "{% else %}" not in rendered or rendered.count("{% else %}") <= 2, \
+            "daily-standup has suspicious conditional logic (possible platform branching)"
+
+    def test_backlog_grooming_no_az_boards_commands(self, tmp_path, azure_config_yaml):
+        """Test that backlog-grooming workflow does NOT contain az boards commands."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml)
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Should NOT have any az boards commands
+        assert "az boards" not in rendered, \
+            "backlog-grooming still contains direct az boards commands"
+        assert "az boards query" not in rendered, \
+            "backlog-grooming still contains az boards query commands"
+
+    def test_backlog_grooming_uses_adapter_pattern(self, tmp_path, azure_config_yaml):
+        """Test that backlog-grooming workflow uses adapter pattern."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml)
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Should initialize adapter
+        assert "from work_tracking import get_adapter" in rendered, \
+            "backlog-grooming missing adapter import"
+        assert "adapter = get_adapter()" in rendered, \
+            "backlog-grooming missing adapter initialization"
+
+        # Should use adapter methods
+        assert "adapter.query_work_items(" in rendered, \
+            "backlog-grooming should use adapter.query_work_items()"
+        assert "adapter.create_work_item(" in rendered, \
+            "backlog-grooming should use adapter.create_work_item()"
+        assert "adapter.update_work_item(" in rendered, \
+            "backlog-grooming should use adapter.update_work_item()"
+
+    def test_backlog_grooming_no_platform_conditionals(self, tmp_path, azure_config_yaml):
+        """Test that backlog-grooming has NO platform-specific conditionals."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml)
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Should NOT have platform conditionals for work tracking operations
+        assert "{% if work_tracking.platform == 'azure-devops' %}" not in rendered, \
+            "backlog-grooming still has Azure DevOps platform conditionals"
+
+    def test_sprint_retrospective_no_az_boards_commands(self, tmp_path, azure_config_yaml):
+        """Test that sprint-retrospective workflow does NOT contain az boards commands."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml)
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("sprint-retrospective")
+
+        # Should NOT have any az boards commands
+        assert "az boards" not in rendered, \
+            "sprint-retrospective still contains direct az boards commands"
+        assert "az boards query" not in rendered, \
+            "sprint-retrospective still contains az boards query commands"
+
+    def test_sprint_retrospective_uses_adapter_pattern(self, tmp_path, azure_config_yaml):
+        """Test that sprint-retrospective workflow uses adapter pattern."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml)
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("sprint-retrospective")
+
+        # Should initialize adapter
+        assert "from work_tracking import get_adapter" in rendered, \
+            "sprint-retrospective missing adapter import"
+        assert "adapter = get_adapter()" in rendered, \
+            "sprint-retrospective missing adapter initialization"
+
+        # Should use adapter methods
+        assert "adapter.query_sprint_work_items(" in rendered, \
+            "sprint-retrospective should use adapter.query_sprint_work_items()"
+        assert "adapter.get_sprint_summary(" in rendered, \
+            "sprint-retrospective should use adapter.get_sprint_summary()"
+        assert "adapter.create_work_item_idempotent(" in rendered, \
+            "sprint-retrospective should use adapter.create_work_item_idempotent()"
+
+    def test_sprint_retrospective_no_platform_conditionals(self, tmp_path, azure_config_yaml):
+        """Test that sprint-retrospective has NO platform-specific conditionals."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml)
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("sprint-retrospective")
+
+        # Should NOT have platform conditionals for work tracking operations
+        assert "{% if work_tracking.platform == 'azure-devops' %}" not in rendered, \
+            "sprint-retrospective still has Azure DevOps platform conditionals"
+
+    def test_all_three_workflows_work_with_file_based_adapter(self, tmp_path, filebased_config_yaml):
+        """Test that all three fixed workflows work correctly with file-based adapter."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(filebased_config_yaml)
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        workflows_to_test = ["daily-standup", "backlog-grooming", "sprint-retrospective"]
+
+        for workflow_name in workflows_to_test:
+            rendered = registry.render_workflow(workflow_name)
+
+            # Should use adapter pattern
+            assert "adapter = get_adapter()" in rendered, \
+                f"{workflow_name} missing adapter initialization for file-based platform"
+
+            # Should NOT have Azure-specific commands
+            assert "az boards" not in rendered, \
+                f"{workflow_name} has az boards commands with file-based platform"
+
+    def test_all_three_workflows_consistent_across_platforms(self, tmp_path, azure_config_yaml, filebased_config_yaml):
+        """Test that all three workflows render consistently across platforms."""
+        workflows_to_test = ["daily-standup", "backlog-grooming", "sprint-retrospective"]
+
+        # Setup configs once before the loop
+        config_path_azure = tmp_path / "azure" / ".claude" / "config.yaml"
+        config_path_azure.parent.mkdir(parents=True, exist_ok=True)
+        config_path_azure.write_text(azure_config_yaml)
+        config_azure = load_config(config_path_azure)
+        registry_azure = WorkflowRegistry(config_azure)
+
+        config_path_file = tmp_path / "file" / ".claude" / "config.yaml"
+        config_path_file.parent.mkdir(parents=True, exist_ok=True)
+        config_path_file.write_text(filebased_config_yaml)
+        config_file = load_config(config_path_file)
+        registry_file = WorkflowRegistry(config_file)
+
+        for workflow_name in workflows_to_test:
+            # Render with Azure DevOps config
+            rendered_azure = registry_azure.render_workflow(workflow_name)
+
+            # Render with file-based config
+            rendered_file = registry_file.render_workflow(workflow_name)
+
+            # Both should use adapter pattern
+            assert "adapter = get_adapter()" in rendered_azure, \
+                f"{workflow_name} Azure config missing adapter"
+            assert "adapter = get_adapter()" in rendered_file, \
+                f"{workflow_name} file-based config missing adapter"
+
+            # Neither should have platform-specific CLI commands
+            assert "az boards" not in rendered_azure, \
+                f"{workflow_name} Azure config has az boards commands"
+            assert "az boards" not in rendered_file, \
+                f"{workflow_name} file-based config has az boards commands"
+
+            # Key adapter method calls should be present in both
+            if workflow_name == "daily-standup":
+                assert "adapter.query_sprint_work_items(" in rendered_azure
+                assert "adapter.query_sprint_work_items(" in rendered_file
+            elif workflow_name == "backlog-grooming":
+                assert "adapter.query_work_items(" in rendered_azure
+                assert "adapter.query_work_items(" in rendered_file
+            elif workflow_name == "sprint-retrospective":
+                assert "adapter.get_sprint_summary(" in rendered_azure
+                assert "adapter.get_sprint_summary(" in rendered_file

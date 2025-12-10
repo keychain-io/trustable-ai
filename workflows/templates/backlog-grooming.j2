@@ -360,12 +360,6 @@ if orphaned_features:
    - Recommend prioritization"
 3. **Spawn agent** using Task tool with model `{{ config.get_agent_model('analyst') }}`
 4. **Query backlog items:**
-{% if work_tracking.platform == 'azure-devops' %}
-   ```bash
-   # Get backlog items in New/Proposed state
-   az boards query --wiql "SELECT [System.Id], [System.Title], [System.State] FROM WorkItems WHERE [System.TeamProject] = '{{ work_tracking.project }}' AND [System.State] IN ('New', 'Proposed') AND [System.WorkItemType] = '{{ work_tracking.work_item_types.story }}' ORDER BY [System.ChangedDate] DESC" --output json
-   ```
-{% else %}
    ```python
    # Get backlog items in New/Proposed state
    all_items = adapter.query_work_items()
@@ -379,7 +373,6 @@ if orphaned_features:
    for item in backlog_items:
        print(f"  WI-{item['id']}: {item['title']} [{item['state']}]")
    ```
-{% endif %}
 5. **Display output** to user:
    - Read task result
    - Format business value assessments

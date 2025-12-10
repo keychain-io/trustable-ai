@@ -40,13 +40,6 @@ sprint_name = "Sprint X"  # Replace with actual sprint
 
 ### Step 1: Collect Sprint Metrics
 
-{% if work_tracking.platform == 'azure-devops' %}
-1. **Query sprint work items:**
-   ```bash
-   # Get all work items from the sprint
-   az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [{{ work_tracking.custom_fields.story_points or 'Microsoft.VSTS.Scheduling.StoryPoints' }}] FROM WorkItems WHERE [System.TeamProject] = '{{ work_tracking.project }}' AND [System.IterationPath] = '{{ work_tracking.iteration_format.format(project=work_tracking.project, sprint='SPRINT_NAME') }}'" --output json
-   ```
-{% else %}
 1. **Query sprint work items:**
    ```python
    # Get all work items from the sprint
@@ -74,7 +67,6 @@ sprint_name = "Sprint X"  # Replace with actual sprint
    for item in incomplete:
        print(f"  WI-{item['id']}: {item['title']} [{item['state']}]")
    ```
-{% endif %}
 
 2. **Calculate metrics:**
    - Planned vs. completed story points
