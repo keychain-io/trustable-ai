@@ -671,3 +671,572 @@ agent_config:
         # Should have visual separators (=== or ---)
         assert "=" * 80 in verification_section or "print(\"=\" * 80)" in verification_section, \
             "Should have visual separators for readability"
+
+
+@pytest.mark.integration
+class TestBacklogGroomingStoryPointVerification:
+    """Test suite for story point summation verification in backlog-grooming workflow."""
+
+    @pytest.fixture
+    def azure_config_yaml(self):
+        """Sample configuration with Azure DevOps adapter and story points."""
+        return """
+project:
+  name: "Test Project"
+  type: "web-application"
+  tech_stack:
+    languages: ["Python"]
+    frameworks: ["FastAPI"]
+  source_directory: "src"
+  test_directory: "tests"
+
+work_tracking:
+  platform: "azure-devops"
+  organization: "https://dev.azure.com/testorg"
+  project: "TestProject"
+  credentials_source: "cli"
+
+  work_item_types:
+    epic: "Epic"
+    feature: "Feature"
+    story: "User Story"
+    task: "Task"
+    bug: "Bug"
+
+  custom_fields:
+    story_points: "Microsoft.VSTS.Scheduling.StoryPoints"
+    business_value: "Microsoft.VSTS.Common.BusinessValue"
+
+  iteration_format: "{project}\\\\{sprint}"
+  sprint_naming: "Sprint {number}"
+
+quality_standards:
+  test_coverage_min: 80
+  critical_vulnerabilities_max: 0
+  high_vulnerabilities_max: 0
+  code_complexity_max: 10
+
+agent_config:
+  models:
+    senior-engineer: "claude-sonnet-4.5"
+  enabled_agents:
+    - senior-engineer
+"""
+
+    @pytest.fixture
+    def filebased_config_yaml(self):
+        """Sample configuration with file-based adapter and story points."""
+        return """
+project:
+  name: "Test Project"
+  type: "web-application"
+  tech_stack:
+    languages: ["Python"]
+  source_directory: "src"
+  test_directory: "tests"
+
+work_tracking:
+  platform: "file-based"
+  work_items_directory: ".claude/work-items"
+
+  work_item_types:
+    epic: "Epic"
+    feature: "Feature"
+    story: "User Story"
+    task: "Task"
+    bug: "Bug"
+
+  custom_fields:
+    story_points: "Microsoft.VSTS.Scheduling.StoryPoints"
+
+quality_standards:
+  test_coverage_min: 80
+  critical_vulnerabilities_max: 0
+  high_vulnerabilities_max: 0
+  code_complexity_max: 10
+
+agent_config:
+  models:
+    senior-engineer: "claude-sonnet-4.5"
+  enabled_agents:
+    - senior-engineer
+"""
+
+    def test_story_point_verification_section_exists(self, tmp_path, azure_config_yaml):
+        """Test that story point verification section is added in verification."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should have story point verification
+        assert "Verifying story point summation" in verification_section, \
+            "Story point verification section missing"
+
+    def test_story_point_field_variable_initialized(self, tmp_path, azure_config_yaml):
+        """Test that story_point_field variable is initialized from config."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should initialize story_point_field from config
+        assert "story_point_field = 'Microsoft.VSTS.Scheduling.StoryPoints'" in verification_section, \
+            "story_point_field should be initialized from config"
+
+    def test_story_point_mismatches_list_initialized(self, tmp_path, azure_config_yaml):
+        """Test that story_point_mismatches list is initialized."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should initialize story_point_mismatches list
+        assert "story_point_mismatches = []" in verification_section, \
+            "story_point_mismatches list should be initialized"
+
+    def test_calculates_sum_of_task_story_points(self, tmp_path, azure_config_yaml):
+        """Test that verification calculates sum of Task story points within each Feature."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should sum Task story points
+        assert "task_story_points_sum = sum(" in verification_section, \
+            "Should calculate sum of Task story points"
+
+        # Should use story_point_field from config
+        assert "task.get('fields', {}).get(story_point_field, 0)" in verification_section, \
+            "Should use story_point_field to get Task story points"
+
+    def test_compares_feature_story_points_to_task_sum(self, tmp_path, azure_config_yaml):
+        """Test that verification compares Feature story points to sum of child Tasks."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should get Feature story points
+        assert "feature_story_points = feature_full.get('fields', {}).get(story_point_field, 0)" in verification_section, \
+            "Should get Feature story points from adapter"
+
+        # Should compare Feature points to Task sum
+        assert "task_story_points_sum" in verification_section and "feature_story_points" in verification_section, \
+            "Should compare Feature story points to Task sum"
+
+    def test_calculates_variance_percentage(self, tmp_path, azure_config_yaml):
+        """Test that verification calculates variance percentage correctly."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should calculate variance percentage
+        assert "variance_pct" in verification_section, \
+            "Should calculate variance percentage"
+
+        # Should use formula: abs(actual - expected) / expected * 100
+        assert "abs(task_story_points_sum - feature_story_points)" in verification_section, \
+            "Variance calculation should use abs(actual - expected)"
+        assert "/ feature_story_points * 100" in verification_section, \
+            "Variance calculation should divide by expected and multiply by 100"
+
+    def test_handles_division_by_zero_in_variance_calculation(self, tmp_path, azure_config_yaml):
+        """Test that variance calculation handles division by zero when Feature has 0 points."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should handle division by zero
+        assert "if feature_story_points > 0:" in verification_section, \
+            "Should check for zero before division"
+
+        # Should have else case for zero points
+        assert "else:" in verification_section, \
+            "Should have else case for zero story points"
+
+    def test_outputs_variance_percentage_to_user(self, tmp_path, azure_config_yaml):
+        """Test that verification outputs variance percentage to user."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should print variance percentage
+        assert "variance: {variance_pct:.1f}%" in verification_section, \
+            "Should output variance percentage to user"
+
+    def test_fails_when_variance_exceeds_20_percent(self, tmp_path, azure_config_yaml):
+        """Test that verification fails with exit code 1 if variance >20%."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should check if variance exceeds 20%
+        assert "if variance_pct > 20:" in verification_section, \
+            "Should check if variance exceeds 20% threshold"
+
+        # Should set verification_failed flag
+        assert "verification_failed = True" in verification_section, \
+            "Should set verification_failed = True when variance >20%"
+
+    def test_prints_error_message_on_variance_failure(self, tmp_path, azure_config_yaml):
+        """Test that verification prints error message when variance exceeds threshold."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should print error message
+        assert "ERROR: Feature" in verification_section and "story point mismatch" in verification_section, \
+            "Should print error message for story point mismatch"
+
+        # Should include variance percentage in error
+        assert "variance {variance_pct:.1f}%" in verification_section, \
+            "Error message should include variance percentage"
+
+    def test_tracks_story_point_mismatches_in_list(self, tmp_path, azure_config_yaml):
+        """Test that verification tracks all story point mismatches in a list."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should append to story_point_mismatches list
+        assert "story_point_mismatches.append({" in verification_section, \
+            "Should append to story_point_mismatches list"
+
+        # Should store mismatch details
+        assert "'id': feature_id" in verification_section, \
+            "Should store feature_id in mismatch"
+        assert "'title': feature_title" in verification_section, \
+            "Should store feature_title in mismatch"
+        assert "'feature_points': feature_story_points" in verification_section, \
+            "Should store feature_points in mismatch"
+        assert "'tasks_sum': task_story_points_sum" in verification_section, \
+            "Should store tasks_sum in mismatch"
+        assert "'variance_pct': variance_pct" in verification_section, \
+            "Should store variance_pct in mismatch"
+
+    def test_verifies_epic_story_points_vs_features_sum(self, tmp_path, azure_config_yaml):
+        """Test that verification checks Epic story points vs sum of Features."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should verify Epic story points
+        assert "Verifying Epic story point summation" in verification_section, \
+            "Should have Epic story point verification step"
+
+        # Should get Epic story points
+        assert "epic_story_points = epic_full.get('fields', {}).get(story_point_field, 0)" in verification_section, \
+            "Should get Epic story points from adapter"
+
+        # Should sum Feature story points
+        assert "features_story_points_sum" in verification_section, \
+            "Should calculate sum of Feature story points"
+
+    def test_epic_variance_calculation(self, tmp_path, azure_config_yaml):
+        """Test that Epic variance is calculated correctly."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should calculate Epic variance
+        assert "epic_variance_pct" in verification_section, \
+            "Should calculate Epic variance percentage"
+
+        # Should use correct formula
+        assert "abs(features_story_points_sum - epic_story_points)" in verification_section, \
+            "Epic variance should use abs(actual - expected)"
+
+    def test_epic_variance_failure_sets_verification_failed(self, tmp_path, azure_config_yaml):
+        """Test that Epic variance >20% sets verification_failed flag."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should check Epic variance threshold
+        assert "if epic_variance_pct > 20:" in verification_section, \
+            "Should check if Epic variance exceeds 20%"
+
+        # Should print error for Epic variance
+        assert "ERROR: Epic story point variance" in verification_section, \
+            "Should print error for Epic variance failure"
+
+    def test_story_point_mismatches_included_in_failure_summary(self, tmp_path, azure_config_yaml):
+        """Test that story point mismatches are included in failure summary."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should include story point mismatches in failure summary
+        assert "if story_point_mismatches:" in verification_section, \
+            "Should check if there are story point mismatches"
+
+        # Should print mismatch count
+        assert "Feature(s) have story point mismatches" in verification_section, \
+            "Should print count of Features with story point mismatches"
+
+        # Should iterate over mismatches to print details
+        assert "for m in story_point_mismatches:" in verification_section, \
+            "Should iterate over story_point_mismatches to print details"
+
+    def test_story_point_mismatch_details_in_summary(self, tmp_path, azure_config_yaml):
+        """Test that story point mismatch details are printed in failure summary."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should print Feature ID and title
+        assert "WI-{m['id']}: {m['title']}" in verification_section, \
+            "Should print Feature ID and title in mismatch summary"
+
+        # Should print Feature points, Tasks sum, and variance
+        assert "Feature: {m['feature_points']} pts" in verification_section, \
+            "Should print Feature story points"
+        assert "Tasks sum: {m['tasks_sum']} pts" in verification_section, \
+            "Should print Tasks sum"
+        assert "Variance: {m['variance_pct']:.1f}%" in verification_section, \
+            "Should print variance percentage"
+
+    def test_success_message_includes_story_points(self, tmp_path, azure_config_yaml):
+        """Test that success message includes story points verification."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Success message should mention story points
+        assert "Story points sum correctly across hierarchy" in verification_section, \
+            "Success message should mention story points verification"
+
+    def test_story_point_verification_handles_missing_fields(self, tmp_path, azure_config_yaml):
+        """Test that story point verification handles missing story point fields gracefully."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should use .get() with default 0
+        assert ".get(story_point_field, 0) or 0" in verification_section, \
+            "Should use .get() with default 0 for missing story point fields"
+
+    def test_story_point_verification_uses_try_except(self, tmp_path, azure_config_yaml):
+        """Test that story point verification uses try-except for adapter queries."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+        story_points_pos = verification_section.find("Verifying story point summation")
+        story_points_section = verification_section[story_points_pos:story_points_pos + 3000]
+
+        # Should use try-except for adapter queries
+        assert "try:" in story_points_section, \
+            "Story point verification should use try-except"
+        assert "except Exception as e:" in story_points_section, \
+            "Should catch exceptions in story point verification"
+
+    def test_story_point_verification_works_with_file_based_adapter(self, tmp_path, filebased_config_yaml):
+        """Test that story point verification works with file-based adapter."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(filebased_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        rendered = registry.render_workflow("backlog-grooming")
+
+        # Get verification section
+        verification_pos = rendered.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = rendered[verification_pos:]
+
+        # Should have story point verification (even for file-based)
+        assert "Verifying story point summation" in verification_section, \
+            "Should have story point verification for file-based adapter"
+
+        # Should use generic adapter methods
+        assert "adapter.get_work_item(" in verification_section, \
+            "Should use generic adapter.get_work_item()"
+
+    def test_story_point_verification_wrapped_in_jinja_if(self, tmp_path, azure_config_yaml):
+        """Test that story point verification is wrapped in Jinja if statement."""
+        config_path = tmp_path / ".claude" / "config.yaml"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(azure_config_yaml, encoding='utf-8')
+
+        config = load_config(config_path)
+        registry = WorkflowRegistry(config)
+
+        # Read template source (not rendered)
+        template_path = Path(__file__).parent.parent.parent / "workflows" / "templates" / "backlog-grooming.j2"
+        template_source = template_path.read_text(encoding='utf-8')
+
+        # Get verification section from template
+        verification_pos = template_source.find("Verifying Epic Decomposition Hierarchy")
+        verification_section = template_source[verification_pos:verification_pos + 5000]
+
+        # Story point verification should be wrapped in Jinja if
+        assert "{% if work_tracking.custom_fields.story_points %}" in verification_section, \
+            "Story point verification should be wrapped in Jinja if statement"

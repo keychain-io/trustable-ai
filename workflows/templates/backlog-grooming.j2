@@ -365,56 +365,141 @@ except Exception as e:
     print(f"❌ ERROR: Failed to query Features for Epic {epic_id}: {e}")
     verification_failed = True
 
-# STEP 3: Verify story points sum (optional)
+# STEP 3: Verify story point summation within each Feature
 {% if work_tracking.custom_fields.story_points %}
-print(f"\n📊 Verifying story points alignment...")
+print(f"\n🔍 Verifying story point summation...")
+
+story_point_field = '{{ work_tracking.custom_fields.story_points }}'
+story_point_mismatches = []
+
+for feature_info in created_features:
+    feature_id = feature_info['id']
+    feature_title = feature_info['title']
+    expected_tasks = feature_info['expected_tasks']
+
+    # Get Feature story points from adapter (external source of truth)
+    try:
+        feature_full = adapter.get_work_item(feature_id)
+        feature_story_points = feature_full.get('fields', {}).get(story_point_field, 0) or 0
+    except Exception as e:
+        print(f"⚠️  WARNING: Could not get Feature WI-{feature_id} story points: {e}")
+        continue
+
+    # Query Tasks and sum their story points
+    try:
+        feature_tasks = adapter.query_work_items(
+            work_item_type='{{ work_tracking.work_item_types.task }}',
+        )
+        # Filter for this Feature's Tasks
+        feature_tasks = [
+            task for task in feature_tasks
+            if task.get('parent_id') == feature_id or
+               task.get('fields', {}).get('System.Parent') == feature_id
+        ]
+
+        # Sum Task story points
+        task_story_points_sum = sum(
+            task.get('fields', {}).get(story_point_field, 0) or 0
+            for task in feature_tasks
+        )
+
+        # Calculate variance
+        if feature_story_points > 0:
+            variance_pct = abs(task_story_points_sum - feature_story_points) / feature_story_points * 100
+        else:
+            variance_pct = 100 if task_story_points_sum > 0 else 0
+
+        # Check if variance exceeds threshold
+        if variance_pct > 20:
+            print(f"❌ ERROR: Feature WI-{feature_id} story point mismatch (variance {variance_pct:.1f}%)")
+            print(f"   Feature: {feature_story_points} pts, Tasks sum: {task_story_points_sum} pts")
+            story_point_mismatches.append({
+                'id': feature_id,
+                'title': feature_title,
+                'feature_points': feature_story_points,
+                'tasks_sum': task_story_points_sum,
+                'variance_pct': variance_pct
+            })
+            verification_failed = True
+        else:
+            print(f"✅ Feature WI-{feature_id}: {feature_story_points} pts (Tasks sum: {task_story_points_sum} pts, variance: {variance_pct:.1f}%)")
+
+    except Exception as e:
+        print(f"⚠️  WARNING: Could not verify story points for Feature WI-{feature_id}: {e}")
+
+# STEP 4: Verify Epic vs Features story point summation
+print(f"\n🔍 Verifying Epic story point summation...")
 
 try:
-    epic_features_for_points = adapter.query_work_items(
-        work_item_type='{{ work_tracking.work_item_types.feature }}',
-    )
+    # Get Epic story points
+    epic_full = adapter.get_work_item(epic_id)
+    epic_story_points = epic_full.get('fields', {}).get(story_point_field, 0) or 0
 
-    # Filter for Features with this Epic as parent
-    epic_features_for_points = [
-        feature for feature in epic_features_for_points
-        if feature.get('parent_id') == epic_id or
-           feature.get('fields', {}).get('System.Parent') == epic_id
-    ]
+    # Sum Feature story points (collect from all Features, using cached values where available)
+    features_story_points_sum = 0
+    for feature_info in created_features:
+        # Check if we already have this Feature's points from mismatch tracking
+        mismatch_entry = next((m for m in story_point_mismatches if m['id'] == feature_info['id']), None)
+        if mismatch_entry:
+            features_story_points_sum += mismatch_entry['feature_points']
+        else:
+            # Query for this Feature's points
+            try:
+                feature_full = adapter.get_work_item(feature_info['id'])
+                feature_points = feature_full.get('fields', {}).get(story_point_field, 0) or 0
+                features_story_points_sum += feature_points
+            except Exception as e:
+                print(f"⚠️  WARNING: Could not get Feature WI-{feature_info['id']} story points: {e}")
 
-    total_child_points = sum(
-        feature.get('story_points', 0) or
-        feature.get('fields', {}).get('{{ work_tracking.custom_fields.story_points }}', 0) or 0
-        for feature in epic_features_for_points
-    )
+    # Calculate variance
+    if epic_story_points > 0:
+        epic_variance_pct = abs(features_story_points_sum - epic_story_points) / epic_story_points * 100
+    else:
+        epic_variance_pct = 100 if features_story_points_sum > 0 else 0
 
-    epic_points = epic.get('fields', {}).get('{{ work_tracking.custom_fields.story_points }}', 0) or 0
-    variance = abs(total_child_points - epic_points) / epic_points * 100 if epic_points > 0 else 0
+    print(f"📊 Epic WI-{epic_id}: {epic_story_points} pts")
+    print(f"📊 Features sum: {features_story_points_sum} pts")
+    print(f"📊 Variance: {epic_variance_pct:.1f}%")
 
-    print(f"📊 Story Points - Epic: {epic_points}, Children: {total_child_points}, Variance: {variance:.1f}%")
-
-    if variance > 20:
-        print(f"⚠️  High variance - review decomposition")
+    if epic_variance_pct > 20:
+        print(f"❌ ERROR: Epic story point variance {epic_variance_pct:.1f}% exceeds 20% threshold")
+        verification_failed = True
+    else:
+        print(f"✅ Epic story points within acceptable range")
 
 except Exception as e:
-    print(f"⚠️  WARNING: Failed to verify story points: {e}")
+    print(f"⚠️  WARNING: Could not verify Epic story points: {e}")
 {% endif %}
 
 print("=" * 80)
 
-# STEP 4: Exit with error code if verification failed
+# STEP 5: Exit with error code if verification failed
 if verification_failed:
-    print(f"\n❌ VERIFICATION FAILED - Hierarchy incomplete")
+    print(f"\n❌ VERIFICATION FAILED - Issues detected:")
+
     if childless_features:
         print(f"   {len(childless_features)} Feature(s) have no Tasks:")
         for f in childless_features:
-            print(f"     • {f['id']}: {f['title']}")
+            print(f"     • WI-{f['id']}: {f['title']}")
+
+    {% if work_tracking.custom_fields.story_points %}
+    if story_point_mismatches:
+        print(f"   {len(story_point_mismatches)} Feature(s) have story point mismatches (variance >20%):")
+        for m in story_point_mismatches:
+            print(f"     • WI-{m['id']}: {m['title']}")
+            print(f"       Feature: {m['feature_points']} pts, Tasks sum: {m['tasks_sum']} pts, Variance: {m['variance_pct']:.1f}%")
+    {% endif %}
+
     print(f"\n⚠️  Fix these issues before proceeding")
-    print(f"   Re-run decomposition or manually create Tasks for childless Features")
+    print(f"   Re-run decomposition or manually adjust story points")
     sys.exit(1)  # Exit with error code
 else:
     print(f"\n✅ VERIFICATION PASSED - All hierarchy checks successful")
     print(f"   • All Features have at least one Task")
     print(f"   • All Features are linked to Epic {epic_id}")
+    {% if work_tracking.custom_fields.story_points %}
+    print(f"   • Story points sum correctly across hierarchy")
+    {% endif %}
     print(f"   • Epic decomposition is complete and verified")
 ```
 
