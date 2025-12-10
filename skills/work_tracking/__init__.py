@@ -89,7 +89,8 @@ class UnifiedWorkTrackingAdapter:
         """
         self.config_path = config_path or Path(".claude/config.yaml")
         self.config = self._load_config()
-        self.platform = self.config.get("work_tracking", {}).get("platform", "file-based")
+        # Don't default to file-based - let _create_adapter validate
+        self.platform = self.config.get("work_tracking", {}).get("platform")
         self._adapter = self._create_adapter()
 
     def _load_config(self) -> Dict[str, Any]:
@@ -104,10 +105,24 @@ class UnifiedWorkTrackingAdapter:
         """Create the appropriate backend adapter."""
         work_tracking = self.config.get("work_tracking", {})
 
+        # Validate platform is explicitly configured
+        if not self.platform:
+            raise ValueError(
+                "Work tracking platform not configured. "
+                "Set 'work_tracking.platform' in .claude/config.yaml to 'azure-devops' or 'file-based'"
+            )
+
+        # Strict platform matching - NO silent fallback
         if self.platform == "azure-devops":
             return self._create_azure_adapter(work_tracking)
-        else:
+        elif self.platform == "file-based":
             return self._create_file_adapter(work_tracking)
+        else:
+            raise ValueError(
+                f"Invalid work tracking platform: '{self.platform}'. "
+                f"Valid options: 'azure-devops', 'file-based'. "
+                f"Check 'work_tracking.platform' in .claude/config.yaml"
+            )
 
     def _create_azure_adapter(self, work_tracking: Dict[str, Any]):
         """Create Azure DevOps adapter."""

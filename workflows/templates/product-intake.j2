@@ -62,9 +62,26 @@ from work_tracking import get_adapter
 from pathlib import Path
 from datetime import datetime
 
-# Initialize
-adapter = get_adapter()
-print(f":clipboard: Work Tracking: {adapter.platform}")
+# Initialize and validate platform
+try:
+    adapter = get_adapter()
+    print(f":clipboard: Work Tracking: {adapter.platform}")
+except ValueError as e:
+    print(f":x: ERROR: {e}")
+    print("\n:arrow_right: Fix: Configure work tracking platform in .claude/config.yaml")
+    print("   Example:")
+    print("   work_tracking:")
+    print("     platform: 'azure-devops'  # or 'file-based'")
+    sys.exit(1)
+
+# Validate platform matches configuration
+configured_platform = "{{ work_tracking.platform }}"
+if adapter.platform != configured_platform:
+    print(f":warning: WARNING: Adapter platform mismatch!")
+    print(f"   Configured: {configured_platform}")
+    print(f"   Actual: {adapter.platform}")
+    print("\n:x: This indicates a configuration error. Aborting.")
+    sys.exit(1)
 
 # Initialize state
 intake_id = datetime.now().strftime("%Y%m%d-%H%M%S")
