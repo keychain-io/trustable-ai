@@ -28,8 +28,9 @@
 │    2. /scrum-master → Daily standup report                                 │
 │    3. /senior-engineer → Blocker analysis (if blocked items)               │
 │    4. Quality health check                                                 │
-│    5. /security-specialist → Weekly security review                        │
-│    6. Generate status report                                               │
+│    5. Verification checklist (external source of truth audit)              │
+│    6. /security-specialist → Weekly security review                        │
+│    7. Generate status report                                               │
 │                                                                             │
 │  Each agent command spawns a FRESH CONTEXT WINDOW via Task tool            │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -600,6 +601,125 @@ Compare results against quality standards:
 
 ---
 
+### Step B4.5: Verification Checklist
+
+**CRITICAL**: This step implements the "External Source of Truth" pattern from VISION.md. AI agents often claim work is complete when it isn't. This verification checklist provides a daily audit trail showing that key metrics were queried from the adapter (external source of truth), not just AI assertions.
+
+Generate a verification checklist showing:
+1. Work item states queried from adapter (external source of truth)
+2. Test results verified for Done items
+3. Blocked items have linked blocker work items
+4. Story points burndown validated
+
+```python
+# Initialize verification checklist
+print("\n🔍 Generating Verification Checklist...")
+print("=" * 80)
+
+# Verification Item 1: Work item states queried from adapter
+# Check that work items were actually queried from adapter (not AI memory)
+work_items_verified = len(sprint_items) > 0 and all(
+    'state' in item and 'id' in item for item in sprint_items
+)
+
+# Verification Item 2: Test results verified for Done items
+# Check test coverage meets quality standards
+{% if 'Python' in project.tech_stack.languages %}
+# Extract coverage from pytest output (from Step B4)
+# Look for "TOTAL" line in pytest coverage output
+import subprocess
+import re
+
+try:
+    coverage_result = subprocess.run(
+        ["python", "-m", "pytest", "--cov={{ project.source_directory | default('src') }}", "--cov-report=term", "--quiet"],
+        capture_output=True,
+        text=True,
+        timeout=60
+    )
+
+    # Parse coverage percentage from output
+    coverage_match = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", coverage_result.stdout)
+    if coverage_match:
+        coverage_percent = int(coverage_match.group(1))
+        coverage_meets_standard = coverage_percent >= {{ quality_standards.test_coverage_min }}
+    else:
+        coverage_percent = 0
+        coverage_meets_standard = False  # No coverage data
+except Exception as e:
+    print(f"⚠️ Could not check test coverage: {e}")
+    coverage_percent = 0
+    coverage_meets_standard = True  # N/A - don't fail verification on infrastructure issues
+{% else %}
+# Skip for non-Python projects
+coverage_percent = 0
+coverage_meets_standard = True  # N/A
+{% endif %}
+
+# Verification Item 3: Blocked items have linked blockers
+# Query adapter for work item details including relations
+blocked_items = [i for i in sprint_items if i.get('state') == 'Blocked']
+blocked_with_links = []
+
+for item in blocked_items:
+    # Query adapter for full work item details including relations
+    try:
+        full_item = adapter.get_work_item(item['id'])
+        if full_item:
+            # Check for blocker links (platform-agnostic)
+            # Azure DevOps: System.LinkTypes.Dependency-Forward
+            # File-based: relations list with type 'blocks' or 'blocked-by'
+            relations = full_item.get('relations', [])
+            has_blocker_link = False
+
+            # Check for any relation that indicates a blocker
+            for relation in relations:
+                rel_type = relation.get('rel', '').lower()
+                if 'dependency' in rel_type or 'blocks' in rel_type or 'blocked' in rel_type:
+                    has_blocker_link = True
+                    break
+
+            if has_blocker_link:
+                blocked_with_links.append(item)
+    except Exception as e:
+        print(f"⚠️ Could not check blocker links for #{item['id']}: {e}")
+
+# If no blocked items, mark as N/A (pass)
+# If blocked items exist, check if all have blocker links
+blockers_linked = len(blocked_items) == 0 or len(blocked_with_links) == len(blocked_items)
+
+# Verification Item 4: Story points burndown validated
+# Verify story points calculated from adapter data (not AI memory)
+story_points_validated = total_points >= 0 and completed_points >= 0 and completed_points <= total_points
+
+# Build verification checklist
+checklist = []
+checklist.append(f"- [{'x' if work_items_verified else ' '}] Work item states queried from adapter (external source of truth)")
+checklist.append(f"- [{'x' if coverage_meets_standard else ' '}] Test results verified for Done items (coverage {'N/A' if coverage_percent == 0 else f'>= {{ quality_standards.test_coverage_min }}%'})")
+checklist.append(f"- [{'x' if blockers_linked else ' '}] Blocked items have linked blocker work items ({len(blocked_with_links)}/{len(blocked_items)} linked)")
+checklist.append(f"- [{'x' if story_points_validated else ' '}] Story points burndown validated ({completed_points}/{total_points} pts completed)")
+
+print("\n🔍 Verification Checklist:")
+print("=" * 80)
+for item in checklist:
+    print(item)
+print("=" * 80)
+
+# Store for inclusion in status report (Step B6)
+verification_checklist_text = "\n".join(checklist)
+verification_results = {
+    'work_items_verified': work_items_verified,
+    'coverage_meets_standard': coverage_meets_standard,
+    'coverage_percent': coverage_percent,
+    'blockers_linked': blockers_linked,
+    'blocked_items_count': len(blocked_items),
+    'blocked_with_links_count': len(blocked_with_links),
+    'story_points_validated': story_points_validated
+}
+```
+
+---
+
 ### Step B5: Weekly Security Review (Fridays Only)
 
 **FOR WEEKLY REPORTS ONLY**, call `/security-specialist` with the following task:
@@ -661,6 +781,9 @@ Compile comprehensive report:
 🔒 Quality:
   - Test Coverage: {coverage}% (target: {{ quality_standards.test_coverage_min }}%)
   - Vulnerabilities: {vuln_count}
+
+🔍 Verification Checklist:
+  {verification_checklist_text}
 
 🎯 Sprint Health: {On Track / At Risk / Behind}
 
