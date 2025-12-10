@@ -188,6 +188,7 @@ class AzureCLI:
         area: Optional[str] = None,
         iteration: Optional[str] = None,
         fields: Optional[Dict[str, Any]] = None,
+        parent_id: Optional[int] = None,
         verify: bool = False
     ) -> Dict:
         """
@@ -198,6 +199,17 @@ class AzureCLI:
 
         Iteration path format: "ProjectName\\SprintName" (simplified, no \\Iteration\\)
         Example: "My Project\\Sprint 4"
+
+        Args:
+            work_item_type: Type of work item (Task, Bug, User Story, etc.)
+            title: Work item title
+            description: Work item description
+            assigned_to: User to assign the work item to
+            area: Area path
+            iteration: Iteration path
+            fields: Additional fields to set
+            parent_id: ID of parent work item (will create Parent link)
+            verify: Whether to verify the work item was created correctly
         """
         # Step 1: Create work item without iteration
         cmd = [
@@ -228,7 +240,23 @@ class AzureCLI:
                 )
                 result = self.get_work_item(work_item_id)
 
-        # Step 3: Verify if requested
+        # Step 3: If parent_id specified, link to parent work item
+        if parent_id:
+            work_item_id = result.get('id')
+            if work_item_id:
+                try:
+                    self.link_work_items(
+                        source_id=work_item_id,
+                        target_id=parent_id,
+                        relation_type="System.LinkTypes.Hierarchy-Reverse"
+                    )
+                    # Refresh result to include the new link
+                    result = self.get_work_item(work_item_id)
+                except Exception as e:
+                    # Don't fail the creation if linking fails, but include the error
+                    result['parent_link_error'] = str(e)
+
+        # Step 4: Verify if requested
         if verify:
             work_item_id = result.get('id')
             if work_item_id:
@@ -320,7 +348,19 @@ class AzureCLI:
         Create work item only if it doesn't already exist.
 
         Checks for existing work item with same title in current sprint.
+        If found, returns existing item. If not found, creates new item.
+
+        Args:
+            title: Work item title
+            work_item_type: Type (Task, Bug, Feature, etc.)
+            description: Description
+            sprint_name: Optional sprint name to check
+            **kwargs: Additional arguments for create_work_item
+
+        Returns:
+            Dict with keys: id, created (bool), existing (bool), work_item
         """
+        # Search for existing work item
         if sprint_name:
             project = self._config.get('project', '')
             iteration_path = f"{project}\\\\{sprint_name}"
@@ -336,6 +376,7 @@ class AzureCLI:
                 results = self.query_work_items(wiql)
                 if results:
                     work_item_id = results[0].get('id') or results[0].get('System.Id')
+                    print(f"ℹ️  Work item already exists: WI-{work_item_id} - {title}")
                     work_item = self.get_work_item(work_item_id)
                     return {
                         "id": work_item_id,
@@ -343,9 +384,10 @@ class AzureCLI:
                         "existing": True,
                         "work_item": work_item
                     }
-            except Exception:
-                pass  # Continue to create
+            except Exception as e:
+                print(f"Warning: Could not check for existing work item: {e}")
 
+        # Create new work item
         if sprint_name:
             project = self._config.get('project', '')
             kwargs['iteration'] = f"{project}\\{sprint_name}"
@@ -503,7 +545,8 @@ class AzureCLI:
                 title=item['title'],
                 description=item.get('description', ''),
                 iteration=iteration_path,
-                fields=item.get('fields')
+                fields=item.get('fields'),
+                parent_id=item.get('parent_id')
             )
             results.append(result)
 
@@ -638,6 +681,168 @@ class AzureCLI:
         return {
             "work_item_id": work_item_id,
             "file_name": file_path.name,
+            "file_path": str(file_path),
             "attachment_url": attachment_url,
+            "comment": comment,
             "success": True
         }
+
+    def verify_attachment_exists(
+        self,
+        work_item_id: int,
+        filename: str
+    ) -> bool:
+        """
+        Check if a file is attached to a work item.
+
+        Args:
+            work_item_id: Work item ID
+            filename: Name of file to check for
+
+        Returns:
+            True if attachment exists, False otherwise
+        """
+        try:
+            work_item = self.get_work_item(work_item_id)
+            relations = work_item.get('relations', [])
+
+            for relation in relations:
+                if relation.get('rel') == 'AttachedFile':
+                    # Extract filename from URL
+                    url = relation.get('url', '')
+                    if filename in url or relation.get('attributes', {}).get('name') == filename:
+                        return True
+
+            return False
+
+        except Exception as e:
+            print(f"Error checking attachment: {e}")
+            return False
+
+
+# Singleton instance
+azure_cli = AzureCLI()
+
+# Convenience functions for work items
+def query_work_items(wiql: str) -> List[Dict]:
+    """Query work items using WIQL"""
+    return azure_cli.query_work_items(wiql)
+
+def create_work_item(work_item_type: str, title: str, description: str = "", **kwargs) -> Dict:
+    """Create a work item with automatic iteration assignment"""
+    return azure_cli.create_work_item(work_item_type, title, description, **kwargs)
+
+def update_work_item(work_item_id: int, **kwargs) -> Dict:
+    """Update a work item"""
+    return azure_cli.update_work_item(work_item_id, **kwargs)
+
+def add_comment(work_item_id: int, comment: str, agent_name: str = None) -> Dict:
+    """Add a comment to a work item (optionally prefixed with agent name)"""
+    if agent_name:
+        comment = f"[{agent_name}] {comment}"
+    return azure_cli.add_comment(work_item_id, comment)
+
+# Convenience functions for pull requests
+def create_pull_request(source_branch: str, title: str, description: str, work_item_ids: List[int]) -> Dict:
+    """Create a pull request"""
+    return azure_cli.create_pull_request(source_branch, title, description, work_item_ids)
+
+def approve_pull_request(pr_id: int) -> Dict:
+    """Approve a pull request"""
+    return azure_cli.approve_pull_request(pr_id)
+
+# Convenience functions for iterations (NEW)
+def create_sprint(
+    sprint_name: str,
+    start_date: Optional[str] = None,
+    finish_date: Optional[str] = None,
+    project: Optional[str] = None
+) -> Dict:
+    """
+    Create a new sprint/iteration.
+
+    Args:
+        sprint_name: Sprint name (e.g., "Sprint 9")
+        start_date: Start date in YYYY-MM-DD format (optional)
+        finish_date: Finish date in YYYY-MM-DD format (optional)
+        project: Project name (optional)
+
+    Returns:
+        Created iteration details
+
+    Example:
+        create_sprint("Sprint 9", "2025-11-07", "2025-11-20")
+    """
+    return azure_cli.create_iteration(sprint_name, start_date, finish_date, project)
+
+def list_sprints(project: Optional[str] = None) -> List[Dict]:
+    """List all sprints/iterations"""
+    return azure_cli.list_iterations(project)
+
+def update_sprint_dates(
+    sprint_name: str,
+    start_date: str,
+    finish_date: str,
+    project: Optional[str] = None
+) -> Dict:
+    """
+    Update sprint dates using correct path format.
+
+    Args:
+        sprint_name: Sprint name (e.g., "Sprint 4")
+        start_date: Start date in YYYY-MM-DD format
+        finish_date: Finish date in YYYY-MM-DD format
+        project: Project name (optional)
+
+    Example:
+        update_sprint_dates("Sprint 4", "2025-11-07", "2025-11-20")
+    """
+    if not project:
+        project = azure_cli._config.get('project', '')
+
+    # Build full path for iteration update
+    path = f"\\{project}\\Iteration\\{sprint_name}"
+
+    return azure_cli.update_iteration(path, start_date, finish_date, project)
+
+def create_sprint_work_items(
+    sprint_name: str,
+    work_items: List[Dict[str, Any]],
+    project: Optional[str] = None
+) -> List[Dict]:
+    """
+    Create multiple work items for a sprint in batch.
+
+    Args:
+        sprint_name: Sprint name (e.g., "Sprint 4")
+        work_items: List of dicts with keys: type, title, description, fields
+        project: Project name (optional)
+
+    Example:
+        work_items = [
+            {
+                "type": "Task",
+                "title": "Implement feature X",
+                "description": "Details...",
+                "fields": {"Microsoft.VSTS.Scheduling.StoryPoints": 5}
+            }
+        ]
+        results = create_sprint_work_items("Sprint 4", work_items)
+    """
+    return azure_cli.create_sprint_work_items_batch(sprint_name, work_items, project)
+
+def query_sprint_work_items(
+    sprint_name: str,
+    project: Optional[str] = None
+) -> List[Dict]:
+    """
+    Query all work items in a sprint.
+
+    Args:
+        sprint_name: Sprint name (e.g., "Sprint 4")
+        project: Project name (optional)
+
+    Returns:
+        List of work items with Id, Title, State, and Story Points
+    """
+    return azure_cli.query_sprint_work_items(sprint_name, project)

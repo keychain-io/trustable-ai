@@ -22,15 +22,10 @@ Usage:
     results = bulk.batch_close_work_items([771, 772, 773])
 """
 
-import sys
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# Add azure-cli-wrapper to path
-skill_dir = Path(__file__).parent.parent / "azure-cli-wrapper"
-sys.path.insert(0, str(skill_dir))
-
-from azure_cli import AzureCLI
+# Import from canonical skills implementation
+from skills.azure_devops.cli_wrapper import AzureCLI
 
 
 class AzureBulkOps:
