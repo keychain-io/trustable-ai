@@ -107,8 +107,11 @@ class AzureDevOpsSkill(VerifiableSkill):
         work_item_type: str,
         title: str,
         description: str = "",
+        assigned_to: Optional[str] = None,
+        area: Optional[str] = None,
         iteration: Optional[str] = None,
         fields: Optional[Dict[str, Any]] = None,
+        parent_id: Optional[int] = None,
         verify: bool = True
     ) -> Dict[str, Any]:
         """
@@ -120,8 +123,11 @@ class AzureDevOpsSkill(VerifiableSkill):
             work_item_type: Type (Task, Bug, Feature, etc.)
             title: Work item title
             description: Description
+            assigned_to: User to assign the work item to
+            area: Area path
             iteration: Iteration path (e.g., "Project\\Sprint 1")
             fields: Additional fields
+            parent_id: ID of parent work item to link to
             verify: Whether to verify creation
 
         Returns:
@@ -131,8 +137,11 @@ class AzureDevOpsSkill(VerifiableSkill):
             work_item_type=work_item_type,
             title=title,
             description=description,
+            assigned_to=assigned_to,
+            area=area,
             iteration=iteration,
             fields=fields,
+            parent_id=parent_id,
             verify=verify
         )
 
