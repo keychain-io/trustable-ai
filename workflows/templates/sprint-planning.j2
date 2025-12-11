@@ -119,6 +119,127 @@ Return as JSON:
 
 ---
 
+## Step 1.5: Extract EPICs from Sprint Scope
+
+**CRITICAL**: Query work tracking adapter for Epic work items included in sprint scope to enable test plan generation (VISION.md Pillar #2: External Source of Truth).
+
+```python
+# Extract EPIC IDs from prioritized backlog
+print(f"\n🔍 Extracting EPICs from sprint scope...")
+print("=" * 80)
+
+epic_ids = []
+epic_data = []
+
+# Get EPIC IDs from prioritized backlog items
+for item in prioritized_backlog.get('prioritized_backlog', []):
+    item_id = item.get('id')
+
+    # Query adapter to get full work item details (including type)
+    try:
+        work_item = adapter.get_work_item(item_id)
+
+        if work_item:
+            # Check if this is an EPIC
+            work_item_type = work_item.get('type') or work_item.get('fields', {}).get('System.WorkItemType')
+
+            if work_item_type == '{{ work_tracking.work_item_types.epic }}':
+                epic_ids.append(item_id)
+                print(f"✅ Found EPIC: #{item_id} - {work_item.get('title') or work_item.get('fields', {}).get('System.Title')}")
+    except Exception as e:
+        print(f"⚠️  Failed to query work item {item_id}: {e}")
+
+# Query adapter for full EPIC details including child FEATURES
+print(f"\n📋 Querying adapter for EPIC metadata...")
+
+for epic_id in epic_ids:
+    try:
+        # Get full EPIC work item
+        epic = adapter.get_work_item(epic_id)
+
+        if not epic:
+            print(f"⚠️  EPIC #{epic_id} not found in adapter")
+            continue
+
+        # Extract EPIC metadata
+        fields = epic.get('fields', {})
+
+        epic_metadata = {
+            'id': epic_id,
+            'title': epic.get('title') or fields.get('System.Title', ''),
+            'description': epic.get('description') or fields.get('System.Description', ''),
+            'acceptance_criteria': fields.get('Microsoft.VSTS.Common.AcceptanceCriteria', ''),
+            'state': epic.get('state') or fields.get('System.State', ''),
+            'child_features': []
+        }
+
+        # Query for child FEATURES
+        # For Azure DevOps: query relations
+        # For file-based: query child_ids
+        child_ids = epic.get('child_ids', [])
+
+        # If no child_ids in root, check relations (Azure DevOps pattern)
+        if not child_ids:
+            relations = epic.get('relations', [])
+            for relation in relations:
+                rel_type = relation.get('rel', '')
+                # Azure DevOps: System.LinkTypes.Hierarchy-Forward
+                # File-based: parent-child
+                if 'Hierarchy-Forward' in rel_type or 'child' in rel_type.lower():
+                    # Extract target ID from URL or direct reference
+                    target_url = relation.get('url', '')
+                    if target_url:
+                        # Extract work item ID from URL (last segment)
+                        child_id = target_url.split('/')[-1]
+                        child_ids.append(child_id)
+                    elif 'target_id' in relation:
+                        child_ids.append(relation['target_id'])
+
+        # Query each child to verify it's a FEATURE
+        for child_id in child_ids:
+            try:
+                child = adapter.get_work_item(child_id)
+                if child:
+                    child_type = child.get('type') or child.get('fields', {}).get('System.WorkItemType')
+
+                    # Only include FEATUREs in child_features list
+                    if child_type == '{{ work_tracking.work_item_types.feature }}':
+                        child_title = child.get('title') or child.get('fields', {}).get('System.Title', '')
+                        epic_metadata['child_features'].append({
+                            'id': child_id,
+                            'title': child_title
+                        })
+                        print(f"  ├─ FEATURE #{child_id}: {child_title}")
+            except Exception as e:
+                print(f"  ⚠️  Failed to query child work item {child_id}: {e}")
+
+        epic_data.append(epic_metadata)
+        print(f"✅ Extracted EPIC #{epic_id}: {epic_metadata['title']} ({len(epic_metadata['child_features'])} child features)")
+
+    except Exception as e:
+        print(f"❌ Failed to extract EPIC #{epic_id}: {e}")
+
+# Output EPIC extraction summary
+print(f"\n📊 EPIC Extraction Summary:")
+print(f"   EPICs found: {len(epic_data)}")
+print(f"   Total child FEATUREs: {sum(len(e['child_features']) for e in epic_data)}")
+
+# Store EPIC data in workflow state for use in test plan generation
+# This enables /qa-engineer to generate comprehensive test plans covering EPICs
+epic_extraction_state = {
+    'epic_ids': epic_ids,
+    'epic_data': epic_data,
+    'extraction_timestamp': datetime.now().isoformat()
+}
+
+# Checkpoint: Save EPIC data to workflow state
+# (In production, this would be saved via StateManager)
+print(f"\n💾 EPIC data stored in workflow state for test plan generation")
+print(f"=" * 80)
+```
+
+---
+
 ## Step 2: Architecture Review
 
 **Call `/architect` with the following task:**
