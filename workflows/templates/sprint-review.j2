@@ -1263,6 +1263,32 @@ Based on sprint metrics, acceptance tests, security review, and deployment readi
 ### Acceptance Test Results
 {acceptance test summary from Step 2}
 
+### EPIC Acceptance Test Execution Results
+{From Step 1.7 test_execution_state:
+
+Total EPICs Tested: {len(test_execution_results_all)}
+Successful Executions: {test_execution_state['successful_executions']}
+Failed Executions: {test_execution_state['failed_executions']}
+
+Per-EPIC Results:
+{for result in test_execution_results_all:
+- EPIC #{result['epic_id']}: {result['epic_title']}
+  - Overall Status: {result['overall_status'].upper()}
+  - Pass Rate: {result['pass_rate'] * 100:.1f}%
+  - Deployment Ready: {'✅ YES' if result['deployment_ready'] else '❌ NO'}
+  - Test Report: {result['report_filepath']}
+}
+
+Execution Failures:
+{if test_execution_state['execution_failures']:
+  for failure in test_execution_state['execution_failures']:
+  - EPIC #{failure['epic_id']}: {failure['epic_title']}
+    - Reason: {failure['reason']}
+else:
+  - None
+}
+}
+
 ### Security Review
 {security review summary from Step 3}
 
@@ -1334,6 +1360,12 @@ Return sprint closure recommendation:
   - Tests Run: {tests_run}
   - Passed: {tests_passed}
   - Failed: {tests_failed}
+
+📝 EPIC Acceptance Tests:
+  - EPICs Tested: {test_execution_state['successful_executions']}/{len(testable_epics)}
+  - Execution Failures: {test_execution_state['failed_executions']}
+  - Test Reports Generated: {len(test_execution_state['test_report_files'])}
+  - Reports Attached: {report_attachment_state['attached_count']}
 
 🔒 Security: {security_status}
   - Critical Vulns: {critical_count} (Max: {{ quality_standards.critical_vulnerabilities_max }})
