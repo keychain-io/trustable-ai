@@ -17,6 +17,7 @@
 │  SPRINT REVIEW - Acceptance & Deployment Readiness                          │
 │                                                                             │
 │  Step 1: Collect sprint completion metrics                                 │
+│  Step 1.5: Identify EPICs for testing                                      │
 │  Step 2: /tester → Run acceptance tests                                    │
 │  Step 3: /security-specialist → Final security review                      │
 │  Step 4: /engineer → Deployment readiness assessment                       │
@@ -34,6 +35,7 @@
 ```python
 # Initialize work tracking adapter
 import sys
+from datetime import datetime
 sys.path.insert(0, ".claude/skills")
 from work_tracking import get_adapter
 
@@ -83,6 +85,192 @@ print(f"  ✅ Completed: {len(completed)} ({completed_points} pts)")
 print(f"  🔄 In Progress: {len(in_progress)}")
 print(f"  ⬜ Not Done: {len(not_done)}")
 print(f"  📈 Completion Rate: {completion_rate:.1f}%")
+```
+
+---
+
+## Step 1.5: Identify EPICs for Testing
+
+**CRITICAL**: Query work tracking adapter for Epic work items scheduled for review in current sprint. Extract EPICs and verify each has attached/linked acceptance test plan. Only EPICs with test plans proceed to acceptance testing (VISION.md Pillar #2: External Source of Truth).
+
+```python
+import os
+from pathlib import Path
+
+# Identify EPICs in sprint scope
+print(f"\n🔍 Identifying EPICs for acceptance testing...")
+print("=" * 80)
+print("CRITICAL: Querying work tracking adapter for Epic work items in sprint scope")
+print("=" * 80)
+
+epic_ids = []
+epic_data = []
+
+# Query adapter for Epic work items in sprint
+try:
+    epic_items = adapter.query_work_items(
+        filters={
+            'System.WorkItemType': '{{ work_tracking.work_item_types.epic }}',
+            'System.IterationPath': f'{{ work_tracking.project }}\\{sprint_name}'
+        }
+    )
+    print(f"📋 Found {len(epic_items)} EPIC(s) in {sprint_name}")
+except Exception as e:
+    print(f"⚠️  Failed to query Epic work items: {e}")
+    epic_items = []
+
+# Extract EPIC IDs and metadata
+for item in epic_items:
+    try:
+        epic_id = item.get('id')
+        fields = item.get('fields', {})
+
+        epic_metadata = {
+            'id': epic_id,
+            'title': item.get('title') or fields.get('System.Title', ''),
+            'state': item.get('state') or fields.get('System.State', ''),
+            'description': item.get('description') or fields.get('System.Description', '')
+        }
+
+        epic_ids.append(epic_id)
+        epic_data.append(epic_metadata)
+        print(f"✅ Found EPIC #{epic_id}: {epic_metadata['title']}")
+
+    except Exception as e:
+        print(f"⚠️  Failed to extract EPIC metadata: {e}")
+
+# Verify each EPIC has attached test plan
+print(f"\n📋 Verifying test plans for {len(epic_data)} EPIC(s)...")
+print("=" * 80)
+
+testable_epics = []
+epics_without_test_plans = []
+
+for epic in epic_data:
+    epic_id = epic['id']
+    epic_title = epic['title']
+    test_plan_found = False
+
+    print(f"\n🔍 Checking EPIC #{epic_id}: {epic_title}")
+
+    try:
+        # Platform-specific test plan verification
+        if adapter.platform == 'azure-devops':
+            # Azure DevOps: Check work item attachments for test plan file
+            print(f"   🔗 Checking Azure DevOps attachments...")
+
+            # Import Azure CLI wrapper (canonical source)
+            import sys
+            sys.path.insert(0, ".claude/skills")
+            from azure_devops.cli_wrapper import azure_cli
+
+            # Query work item for attachments
+            work_item = adapter.get_work_item(epic_id)
+
+            if work_item:
+                # Check relations for attachments
+                relations = work_item.get('relations', [])
+
+                for relation in relations:
+                    rel_type = relation.get('rel', '')
+
+                    # Azure DevOps: AttachedFile relation type
+                    if 'AttachedFile' in rel_type:
+                        # Get attachment URL
+                        attachment_url = relation.get('url', '')
+
+                        # Check if attachment is a test plan (contains 'test-plan' in name)
+                        if 'test-plan' in attachment_url.lower():
+                            test_plan_found = True
+                            print(f"   ✅ Test plan attachment found: {attachment_url}")
+                            break
+
+                if not test_plan_found:
+                    # Also check for test plan file by expected name pattern
+                    expected_filename = f"epic-{epic_id}-test-plan.md"
+                    test_plan_found = azure_cli.verify_attachment_exists(
+                        work_item_id=int(epic_id) if isinstance(epic_id, int) else int(str(epic_id).split('-')[-1]),
+                        filename=expected_filename
+                    )
+
+                    if test_plan_found:
+                        print(f"   ✅ Test plan file verified: {expected_filename}")
+
+        elif adapter.platform == 'file-based':
+            # File-based: Check work item comments for test plan path
+            print(f"   📝 Checking file-based work item comments...")
+
+            work_item = adapter.get_work_item(epic_id)
+
+            if work_item:
+                comments = work_item.get('comments', [])
+
+                # Check if any comment contains test plan path
+                for comment in comments:
+                    comment_text = comment.get('text', '')
+
+                    # Look for test plan path in comment
+                    if 'Test Plan:' in comment_text or 'test-plan' in comment_text.lower():
+                        test_plan_found = True
+                        print(f"   ✅ Test plan reference found in comments")
+                        break
+
+                if not test_plan_found:
+                    # Also check if test plan file exists at expected location
+                    test_plan_path = Path(f".claude/acceptance-tests/epic-{epic_id}-test-plan.md")
+
+                    if test_plan_path.exists():
+                        test_plan_found = True
+                        print(f"   ✅ Test plan file exists: {test_plan_path}")
+
+        else:
+            # Unsupported platform - check local file system
+            print(f"   📁 Checking local file system...")
+            test_plan_path = Path(f".claude/acceptance-tests/epic-{epic_id}-test-plan.md")
+
+            if test_plan_path.exists():
+                test_plan_found = True
+                print(f"   ✅ Test plan file exists: {test_plan_path}")
+
+        # Add EPIC to appropriate list
+        if test_plan_found:
+            testable_epics.append(epic)
+            print(f"   ✅ EPIC #{epic_id} eligible for acceptance testing")
+        else:
+            epics_without_test_plans.append(epic)
+            print(f"   ⚠️  WARNING: EPIC #{epic_id} has no test plan - excluded from acceptance testing")
+
+    except Exception as e:
+        print(f"   ❌ ERROR: Failed to verify test plan for EPIC #{epic_id}: {e}")
+        epics_without_test_plans.append(epic)
+
+# Output EPIC identification summary
+print(f"\n📊 EPIC Identification Summary:")
+print(f"   Total EPICs found: {len(epic_data)}")
+print(f"   EPICs with test plans: {len(testable_epics)}")
+print(f"   EPICs without test plans: {len(epics_without_test_plans)}")
+
+# Log warnings for EPICs without test plans
+if epics_without_test_plans:
+    print(f"\n⚠️  WARNING: {len(epics_without_test_plans)} EPIC(s) excluded from acceptance testing due to missing test plans:")
+    for epic in epics_without_test_plans:
+        print(f"     • EPIC #{epic['id']}: {epic['title']}")
+    print(f"\n   These EPICs will be skipped during acceptance testing.")
+    print(f"   To include them, attach/link test plans to the EPIC work items.")
+
+# Store testable EPICs in workflow state
+testable_epics_state = {
+    'testable_epics': testable_epics,
+    'epics_without_test_plans': epics_without_test_plans,
+    'total_epics_found': len(epic_data),
+    'testable_count': len(testable_epics),
+    'identification_timestamp': datetime.now().isoformat()
+}
+
+# Checkpoint: Save testable EPICs to workflow state
+# (In production, this would be saved via StateManager)
+print(f"\n💾 Testable EPICs stored in workflow state for acceptance testing")
+print(f"=" * 80)
 ```
 
 ---
