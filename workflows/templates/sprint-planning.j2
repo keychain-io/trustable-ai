@@ -461,6 +461,95 @@ else:
 
 ---
 
+## Step 7.6: Validate Work Item Content Quality
+
+Validate work items have sufficient detail for implementation:
+
+```python
+# Validate work item content quality (description and acceptance criteria)
+print(f"\n🔍 Validating content quality for {len(verified_items)} work items...")
+
+quality_issues = []
+
+for item_id in verified_items:
+    try:
+        # Query full work item details (reuse from Step 7.5)
+        work_item = adapter.get_work_item(item_id)
+
+        if not work_item:
+            continue  # Already failed in Step 7.5
+
+        fields = work_item.get('fields', {})
+        title = fields.get('System.Title', f'Work Item #{item_id}')
+
+        # Validate description length (>= 500 characters)
+        description = fields.get('System.Description', '')
+        # Strip HTML tags for character count
+        import re
+        description_text = re.sub('<[^<]+?>', '', description)
+        description_length = len(description_text.strip())
+
+        # Validate acceptance criteria (>= 3 criteria)
+        acceptance_criteria = fields.get('Microsoft.VSTS.Common.AcceptanceCriteria', '')
+        # Count criteria (lines starting with "- [ ]" or numbered)
+        criteria_lines = [
+            line for line in acceptance_criteria.split('\n')
+            if line.strip().startswith('- [ ]') or
+               line.strip().startswith('- [x]') or
+               re.match(r'^\d+\.', line.strip())
+        ]
+        criteria_count = len(criteria_lines)
+
+        # Check quality thresholds
+        issues = []
+        if description_length < 500:
+            issues.append(f"description too short ({description_length} chars, need 500+)")
+        if criteria_count < 3:
+            issues.append(f"insufficient acceptance criteria ({criteria_count} criteria, need 3+)")
+
+        if issues:
+            quality_issues.append({
+                'id': item_id,
+                'title': title,
+                'issues': issues
+            })
+            print(f"❌ Work Item #{item_id}: {', '.join(issues)}")
+        else:
+            print(f"✅ Work Item #{item_id}: Sufficient detail (desc: {description_length} chars, AC: {criteria_count} criteria)")
+
+    except Exception as e:
+        quality_issues.append({
+            'id': item_id,
+            'title': f'Work Item #{item_id}',
+            'issues': [f"validation error: {e}"]
+        })
+        print(f"❌ Work Item #{item_id}: Validation error: {e}")
+
+# Output quality validation summary
+print(f"\n📊 Content Quality Summary:")
+print(f"   Validated: {len(verified_items)}")
+print(f"   Sufficient Quality: {len(verified_items) - len(quality_issues)}")
+print(f"   Quality Issues: {len(quality_issues)}")
+
+if quality_issues:
+    print(f"\n❌ CONTENT QUALITY VALIDATION FAILED")
+    print(f"   {len(quality_issues)} work item(s) have insufficient detail:")
+    for issue in quality_issues:
+        print(f"     • #{issue['id']} - {issue['title']}")
+        for problem in issue['issues']:
+            print(f"       - {problem}")
+    print(f"\n⚠️  Work items must have:")
+    print(f"   • Description: >= 500 characters (excluding HTML tags)")
+    print(f"   • Acceptance Criteria: >= 3 criteria")
+    print(f"\n   Update work items in {adapter.platform} and re-run sprint planning.")
+    import sys
+    sys.exit(1)
+else:
+    print(f"\n✅ All {len(verified_items)} work items have sufficient detail")
+```
+
+---
+
 ## Step 8: Completion Summary
 
 ```
