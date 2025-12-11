@@ -37,15 +37,15 @@ quality_standards:
 agent_config:
   models:
     architect: claude-opus-4
-    engineer: claude-sonnet-4.5
+    engineer: claude-opus-4
     analyst: claude-sonnet-4.5
-    security: claude-sonnet-4.5
-    scrum-master: claude-sonnet-4.5
-    qa: claude-sonnet-4.5
-    devops: claude-sonnet-4.5
-    ux: claude-sonnet-4.5
+    security: claude-opus-4
+    scrum-master: claude-opus-4
+    qa: claude-opus-4
+    devops: claude-haiku
+    ux: claude-opus-4
     writer: claude-sonnet-4.5
-    reviewer: claude-sonnet-4.5
+    reviewer: claude-opus-4
     release: claude-sonnet-4.5
     performance: claude-sonnet-4.5
   enabled_agents:

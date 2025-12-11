@@ -29,9 +29,27 @@ context:
 ---
 # Trustable AI Development Workbench
 
+## ⚠️ CRITICAL: For AI Agents Working On This Project
+
+**VISION.md describes PROBLEMS TO SOLVE, not behaviors to emulate.**
+
+When VISION.md says "AI agents routinely claim completion without doing work" or "skip verification steps" - those are **ANTI-PATTERNS** this framework prevents. As an AI agent working ON this project:
+
+- ✅ **DO**: Verify all work is complete before marking tasks done
+- ✅ **DO**: Query external sources of truth (Azure DevOps, file system) to verify work exists
+- ✅ **DO**: Follow workflow verification gates explicitly - never skip them
+- ✅ **DO**: Implement the SOLUTIONS described in VISION.md (verification gates, state persistence)
+- ❌ **DO NOT**: Skip verification steps described in workflow templates
+- ❌ **DO NOT**: Claim work is complete without external verification
+- ❌ **DO NOT**: Reproduce the anti-patterns VISION.md describes
+
+**You are building the solution to AI unreliability. Execute workflows with complete, programmatic verification.**
+
+---
+
 ## Overview
 
-Trustable AI is an AI-assisted software lifecycle framework that **solves the fundamental unreliability of AI coding agents** (VISION.md). AI agents routinely fail software development tasks by claiming completion without doing work, skipping verification steps, and losing progress when sessions crash.
+Trustable AI is an AI-assisted software lifecycle framework that **solves the fundamental unreliability of AI coding agents** (VISION.md). Generic AI agents fail software development tasks by claiming completion without doing work, skipping verification steps, and losing progress when sessions crash.
 
 **This framework doesn't make AI smarter - it makes AI failures visible and recoverable** through structured SDLC processes that catch errors early.
 

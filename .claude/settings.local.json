@@ -66,7 +66,10 @@
       "Bash(az devops configure:*)",
       "Bash(trustable-ai agent render-all:*)",
       "Bash(trustable-ai workflow:*)",
-      "Bash(trustable-ai agent render:*)"
+      "Bash(trustable-ai agent render:*)",
+      "Bash(tee:*)",
+      "Bash(for id in 1109 1110)",
+      "Bash(do echo \"Updating #$id...\" az boards work-item update --id $id --state Done --output table)"
     ],
     "deny": [
       "Bash(az boards work-item delete:*)",

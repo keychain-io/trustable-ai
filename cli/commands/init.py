@@ -948,18 +948,36 @@ def init_command(
             click.echo(f"      trustable-ai agent render-all")
             click.echo(f"      trustable-ai workflow render-all")
 
-    # Copy skills directory to .claude/skills/ (silently, non-critical)
+    # Copy skills directory to .claude/skills/
     # Done at the end to avoid interfering with context generation
+    click.echo("\n📦 Installing skills...")
     try:
         skills_src = Path(__file__).parent.parent.parent / "skills"
         skills_dest = claude_dir / "skills"
-        if skills_src.exists() and skills_src.is_dir():
+
+        if not skills_src.exists() or not skills_src.is_dir():
+            click.echo(f"   ⚠️  Warning: Skills source directory not found at {skills_src}")
+        else:
             if skills_dest.exists():
                 shutil.rmtree(skills_dest)
             shutil.copytree(skills_src, skills_dest)
-    except Exception:
-        # Skills copying is non-critical, fail silently
-        pass
+
+            # Count skills installed
+            skill_dirs = [d for d in skills_dest.iterdir() if d.is_dir() and not d.name.startswith('__')]
+            click.echo(f"   ✓ Installed {len(skill_dirs)} skills to {skills_dest.relative_to(Path.cwd())}")
+
+            # Verify skills can be imported
+            test_import_cmd = f'python -c "import sys; sys.path.insert(0, \\"{skills_dest}\\"); from work_tracking import get_adapter"'
+            import subprocess
+            test_result = subprocess.run(test_import_cmd, shell=True, capture_output=True, text=True)
+            if test_result.returncode != 0:
+                click.echo(f"   ⚠️  Warning: Skills import test failed: {test_result.stderr}")
+            else:
+                click.echo(f"   ✓ Skills import verified")
+    except Exception as e:
+        # Skills copying is important but not critical enough to fail init
+        click.echo(f"   ⚠️  Warning: Could not install skills: {e}")
+        click.echo("   Skills can be manually copied from the skills/ directory if needed")
 
     # Summary
     action = "updated" if existing_config else "complete"

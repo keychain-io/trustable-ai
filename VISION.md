@@ -1,5 +1,23 @@
 # Trustable AI Workbench: Vision & Problem Statement
 
+## ⚠️ IMPORTANT: For AI Agents Reading This Document
+
+**This document describes PROBLEMS TO SOLVE, not behaviors to emulate.**
+
+The failures described below (tasks not done, verification skipped, work claimed complete but incomplete) are **ANTI-PATTERNS** that this framework exists to prevent. If you are an AI agent working on this project:
+
+- ✅ **DO**: Implement verification gates that catch these failures
+- ✅ **DO**: Query external sources of truth (work tracking systems) to verify work
+- ✅ **DO**: Fail workflows loudly when verification fails
+- ✅ **DO**: Follow all workflow completion criteria explicitly
+- ❌ **DO NOT**: Skip verification steps described in workflows
+- ❌ **DO NOT**: Claim work is complete without verifying it
+- ❌ **DO NOT**: Treat descriptions of past AI failures as prescriptive behaviors
+
+**This framework exists because generic AI agents fail in predictable ways. You are working ON the solution, not reproducing the problem.**
+
+---
+
 ## The Problem We Solve
 
 **AI agents fail to reliably complete software development tasks.**

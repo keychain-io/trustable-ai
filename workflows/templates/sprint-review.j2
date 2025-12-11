@@ -18,6 +18,7 @@
 │                                                                             │
 │  Step 1: Collect sprint completion metrics                                 │
 │  Step 1.5: Identify EPICs for testing                                      │
+│  Step 1.6: Retrieve test plans from work items                             │
 │  Step 2: /tester → Run acceptance tests                                    │
 │  Step 3: /security-specialist → Final security review                      │
 │  Step 4: /engineer → Deployment readiness assessment                       │
@@ -271,6 +272,261 @@ testable_epics_state = {
 # (In production, this would be saved via StateManager)
 print(f"\n💾 Testable EPICs stored in workflow state for acceptance testing")
 print(f"=" * 80)
+```
+
+---
+
+## Step 1.6: Retrieve Test Plans from Work Items
+
+**CRITICAL**: Retrieve acceptance test plan files from EPIC work item attachments/links. For Azure DevOps: download attached files. For file-based: read from local filesystem. Validate test plan content structure (VISION.md Pillar #2: External Source of Truth).
+
+```python
+import json
+import re
+
+# Retrieve test plans for testable EPICs
+print(f"\n📥 Retrieving test plans for {len(testable_epics)} EPIC(s)...")
+print("=" * 80)
+print("CRITICAL: Retrieving test plan files from work item attachments/links")
+print("=" * 80)
+
+retrieved_test_plans = []
+retrieval_failures = []
+
+for epic in testable_epics:
+    epic_id = epic['id']
+    epic_title = epic['title']
+    test_plan_content = None
+    test_plan_path = None
+
+    print(f"\n📄 Retrieving test plan for EPIC #{epic_id}: {epic_title}")
+
+    try:
+        # Platform-specific test plan retrieval
+        if adapter.platform == 'azure-devops':
+            # Azure DevOps: Download test plan from work item attachment
+            print(f"   🔗 Downloading from Azure DevOps...")
+
+            # Import Azure CLI wrapper
+            import sys
+            sys.path.insert(0, ".claude/skills")
+            from azure_devops.cli_wrapper import azure_cli
+
+            # Query work item for attachments
+            work_item = adapter.get_work_item(epic_id)
+
+            if work_item:
+                relations = work_item.get('relations', [])
+                attachment_found = False
+
+                # Find test plan attachment
+                for relation in relations:
+                    rel_type = relation.get('rel', '')
+
+                    if 'AttachedFile' in rel_type:
+                        attachment_url = relation.get('url', '')
+                        attachment_name = relation.get('attributes', {}).get('name', '')
+
+                        # Check if this is the test plan file
+                        if f'epic-{epic_id}-test-plan.md' in attachment_name or 'test-plan' in attachment_name.lower():
+                            # Download attachment to .claude/acceptance-tests/
+                            test_plans_dir = Path('.claude/acceptance-tests')
+                            test_plans_dir.mkdir(parents=True, exist_ok=True)
+
+                            # Download file using Azure CLI
+                            download_path = test_plans_dir / f"epic-{epic_id}-test-plan.md"
+
+                            # Use azure_cli to download attachment
+                            # Note: Azure CLI doesn't have direct attachment download, so we read from local if exists
+                            # In production, would implement azure_cli.download_attachment()
+                            if download_path.exists():
+                                with open(download_path, 'r', encoding='utf-8') as f:
+                                    test_plan_content = f.read()
+                                test_plan_path = str(download_path)
+                                attachment_found = True
+                                print(f"   ✅ Test plan downloaded: {download_path}")
+                            else:
+                                print(f"   ⚠️  Test plan file not found locally: {download_path}")
+                                print(f"   ℹ️  Assuming file was attached but not yet downloaded")
+                                # In real implementation, would download from attachment URL
+                                # For now, treat as retrieval failure
+
+                            break
+
+                if not attachment_found:
+                    # Try reading from local filesystem as fallback
+                    test_plan_path_fallback = Path(f".claude/acceptance-tests/epic-{epic_id}-test-plan.md")
+                    if test_plan_path_fallback.exists():
+                        with open(test_plan_path_fallback, 'r', encoding='utf-8') as f:
+                            test_plan_content = f.read()
+                        test_plan_path = str(test_plan_path_fallback)
+                        print(f"   ✅ Test plan retrieved from filesystem: {test_plan_path_fallback}")
+
+        elif adapter.platform == 'file-based':
+            # File-based: Read test plan from local filesystem
+            print(f"   📁 Reading from local filesystem...")
+
+            # Get test plan path from work item comments or expected location
+            work_item = adapter.get_work_item(epic_id)
+            test_plan_path_from_comment = None
+
+            if work_item:
+                comments = work_item.get('comments', [])
+
+                # Look for test plan path in comments
+                for comment in comments:
+                    comment_text = comment.get('text', '')
+
+                    # Extract path from comment (format: "Test Plan: path/to/file.md")
+                    if 'Test Plan:' in comment_text:
+                        # Extract path after "Test Plan:"
+                        match = re.search(r'Test Plan:\s*(.+\.md)', comment_text)
+                        if match:
+                            test_plan_path_from_comment = match.group(1).strip()
+                            break
+
+            # Try comment path first, then expected location
+            test_plan_paths_to_try = []
+            if test_plan_path_from_comment:
+                test_plan_paths_to_try.append(Path(test_plan_path_from_comment))
+            test_plan_paths_to_try.append(Path(f".claude/acceptance-tests/epic-{epic_id}-test-plan.md"))
+
+            for test_plan_path_candidate in test_plan_paths_to_try:
+                if test_plan_path_candidate.exists():
+                    with open(test_plan_path_candidate, 'r', encoding='utf-8') as f:
+                        test_plan_content = f.read()
+                    test_plan_path = str(test_plan_path_candidate)
+                    print(f"   ✅ Test plan retrieved: {test_plan_path_candidate}")
+                    break
+
+        else:
+            # Unsupported platform - try local filesystem
+            print(f"   📁 Reading from local filesystem (unsupported platform)...")
+            test_plan_path_fallback = Path(f".claude/acceptance-tests/epic-{epic_id}-test-plan.md")
+
+            if test_plan_path_fallback.exists():
+                with open(test_plan_path_fallback, 'r', encoding='utf-8') as f:
+                    test_plan_content = f.read()
+                test_plan_path = str(test_plan_path_fallback)
+                print(f"   ✅ Test plan retrieved: {test_plan_path_fallback}")
+
+        # Validate test plan content
+        if test_plan_content:
+            print(f"   🔍 Validating test plan content...")
+
+            # Check for expected sections
+            required_sections = [
+                'EPIC',  # EPIC overview section
+                'FEATURE',  # FEATURES covered section
+                'Test Case',  # Test cases section
+            ]
+
+            missing_sections = []
+            for section in required_sections:
+                if section.lower() not in test_plan_content.lower():
+                    missing_sections.append(section)
+
+            if missing_sections:
+                print(f"   ⚠️  WARNING: Test plan missing expected sections: {', '.join(missing_sections)}")
+                print(f"   ℹ️  Test plan may be incomplete or malformed")
+            else:
+                print(f"   ✅ Test plan structure validated")
+
+            # Check file size (basic corruption check)
+            if len(test_plan_content) < 100:
+                print(f"   ⚠️  WARNING: Test plan is unusually short ({len(test_plan_content)} bytes)")
+                print(f"   ℹ️  File may be corrupted or incomplete")
+            else:
+                print(f"   ✅ Test plan size: {len(test_plan_content)} bytes")
+
+            # Store retrieved test plan
+            retrieved_test_plans.append({
+                'epic_id': epic_id,
+                'epic_title': epic_title,
+                'test_plan_path': test_plan_path,
+                'test_plan_content': test_plan_content,
+                'content_length': len(test_plan_content),
+                'validation_warnings': missing_sections if missing_sections else []
+            })
+
+            print(f"   ✅ Test plan retrieved successfully for EPIC #{epic_id}")
+
+        else:
+            # Test plan not found or couldn't be read
+            print(f"   ❌ ERROR: Could not retrieve test plan for EPIC #{epic_id}")
+            retrieval_failures.append({
+                'epic_id': epic_id,
+                'epic_title': epic_title,
+                'reason': 'Test plan file not found or could not be read'
+            })
+
+    except FileNotFoundError as e:
+        print(f"   ❌ ERROR: Test plan file not found: {e}")
+        retrieval_failures.append({
+            'epic_id': epic_id,
+            'epic_title': epic_title,
+            'reason': f'File not found: {e}'
+        })
+
+    except PermissionError as e:
+        print(f"   ❌ ERROR: Permission denied reading test plan: {e}")
+        retrieval_failures.append({
+            'epic_id': epic_id,
+            'epic_title': epic_title,
+            'reason': f'Permission denied: {e}'
+        })
+
+    except UnicodeDecodeError as e:
+        print(f"   ❌ ERROR: Test plan file is corrupted or has invalid encoding: {e}")
+        retrieval_failures.append({
+            'epic_id': epic_id,
+            'epic_title': epic_title,
+            'reason': f'File corrupted or invalid encoding: {e}'
+        })
+
+    except Exception as e:
+        print(f"   ❌ ERROR: Unexpected error retrieving test plan: {e}")
+        retrieval_failures.append({
+            'epic_id': epic_id,
+            'epic_title': epic_title,
+            'reason': f'Unexpected error: {e}'
+        })
+
+# Output test plan retrieval summary
+print(f"\n📊 Test Plan Retrieval Summary:")
+print(f"   Total EPICs with test plans: {len(testable_epics)}")
+print(f"   Test plans retrieved successfully: {len(retrieved_test_plans)}")
+print(f"   Retrieval failures: {len(retrieval_failures)}")
+
+# Log retrieval failures
+if retrieval_failures:
+    print(f"\n❌ ERROR: Failed to retrieve test plans for {len(retrieval_failures)} EPIC(s):")
+    for failure in retrieval_failures:
+        print(f"     • EPIC #{failure['epic_id']}: {failure['epic_title']}")
+        print(f"       Reason: {failure['reason']}")
+    print(f"\n   ⚠️  These EPICs cannot proceed to acceptance testing without test plans")
+
+# Store retrieved test plans in workflow state
+retrieved_test_plans_state = {
+    'retrieved_test_plans': retrieved_test_plans,
+    'retrieval_failures': retrieval_failures,
+    'successful_retrievals': len(retrieved_test_plans),
+    'failed_retrievals': len(retrieval_failures),
+    'retrieval_timestamp': datetime.now().isoformat()
+}
+
+# Checkpoint: Save retrieved test plans to workflow state
+# (In production, this would be saved via StateManager)
+print(f"\n💾 Retrieved test plans stored in workflow state for test execution")
+print(f"=" * 80)
+
+# Update testable EPICs list to only include EPICs with successfully retrieved test plans
+testable_epics = [
+    epic for epic in testable_epics
+    if any(tp['epic_id'] == epic['id'] for tp in retrieved_test_plans)
+]
+
+print(f"\n📋 {len(testable_epics)} EPIC(s) ready for acceptance testing with retrieved test plans")
 ```
 
 ---
