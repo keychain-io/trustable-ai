@@ -43,11 +43,11 @@ Breaks Features into User Stories with acceptance criteria, estimates, and depen
 **Real Failure Prevented**: Feature "Add authentication" groomed without details. Engineer implements basic auth instead of OAuth. With workflow: backlog grooming clarifies auth method, API provider, token storage - engineer builds correct solution.
 
 ### sprint-execution.md
-**Problem Solved**: Sprints run without daily verification of progress against external source of truth
+**Problem Solved**: Tasks claimed complete without implementation, tests, or commits. AI agents skip verification steps.
 
-Queries work tracking system (not AI memory) to get actual sprint status. Identifies blockers, stale items, verification failures.
+Primary purpose: Implements sprint-assigned tasks using /engineer agent for code + unit tests, /tester agent for validation and integration tests, automated test runs, and auto-commit on high-confidence pass. Secondary: Queries work tracking system (not AI memory) to monitor sprint status, identify blockers, and generate daily reports.
 
-**Real Failure Prevented**: AI claims 5 tasks complete. Sprint execution queries Azure DevOps: only 2 tasks in "Done" state. 3 tasks stuck in "In Progress" with no commits. Catch divergence early, not at sprint end.
+**Real Failure Prevented**: AI claims "implemented authentication" but no code written, no tests, no commit. With workflow: /engineer implements code + tests → unit tests run → /tester validates + integration tests → auto-commit only on high confidence pass → work item updated to "Done" with commit hash. Implementation verified at every step, not just claimed.
 
 ### daily-standup.md
 **Problem Solved**: Progress tracking relies on AI assertions instead of verified work item state
