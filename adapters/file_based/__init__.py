@@ -55,6 +55,7 @@ class FileBasedAdapter:
         """
         self.work_items_dir = work_items_dir or Path(".claude/work-items")
         self.project_name = project_name
+        self.platform = "file-based"  # Platform identifier for workflow detection
         self._ensure_directories()
         # Track next ID per type prefix
         self._next_ids = self._get_next_ids()

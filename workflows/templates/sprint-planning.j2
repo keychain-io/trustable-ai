@@ -19,6 +19,7 @@
 │  Step 1: /business-analyst → Prioritized backlog                           │
 │  Step 1.5: Extract EPICs from sprint scope                                 │
 │  Step 1.6: /qa-tester → Generate test plans for EPICs                      │
+│  Step 1.7: Attach test plans to EPIC work items                            │
 │  Step 2: /architect → Architecture review                                  │
 │  Step 3: /security-specialist → Security review                            │
 │  Step 4: /senior-engineer → Estimation & breakdown                         │
@@ -383,6 +384,159 @@ test_plan_state = {
 # Checkpoint: Save test plan data to workflow state
 # (In production, this would be saved via StateManager)
 print(f"\n💾 Test plan file paths stored in workflow state for work item attachment")
+print(f"=" * 80)
+```
+
+---
+
+## Step 1.7: Attach Test Plans to EPIC Work Items
+
+**CRITICAL**: Attach or link test plan files to EPIC work items in the work tracking platform (VISION.md Pillar #2: External Source of Truth).
+
+```python
+# Attach/link test plans to EPICs based on platform
+print(f"\n📎 Attaching test plans to {len(test_plan_files)} EPIC work items...")
+print("=" * 80)
+print(f"Platform: {adapter.platform}")
+print("=" * 80)
+
+attached_count = 0
+failed_attachments = []
+
+for test_plan_entry in test_plan_files:
+    epic_id = test_plan_entry['epic_id']
+    epic_title = test_plan_entry['epic_title']
+    file_path = test_plan_entry['file_path']
+
+    print(f"\n📋 Processing EPIC #{epic_id}: {epic_title}")
+    print(f"   Test plan file: {file_path}")
+
+    try:
+        # Platform-specific attachment/linking
+        if adapter.platform == 'azure-devops':
+            # Azure DevOps: Attach file using attach_file_to_work_item()
+            from pathlib import Path
+
+            print(f"   🔗 Attaching file to Azure DevOps work item...")
+
+            # Import Azure CLI wrapper (canonical source)
+            import sys
+            sys.path.insert(0, ".claude/skills")
+            from azure_devops.cli_wrapper import azure_cli
+
+            # Attach file
+            attach_result = azure_cli.attach_file_to_work_item(
+                work_item_id=int(epic_id.split('-')[-1]) if isinstance(epic_id, str) else epic_id,
+                file_path=Path(file_path),
+                comment=f"EPIC Acceptance Test Plan - Generated {test_plan_entry['generated_at']}"
+            )
+
+            if attach_result.get('success'):
+                print(f"   ✅ File attached successfully")
+
+                # Verify attachment exists
+                filename = Path(file_path).name
+                attachment_exists = azure_cli.verify_attachment_exists(
+                    work_item_id=int(epic_id.split('-')[-1]) if isinstance(epic_id, str) else epic_id,
+                    filename=filename
+                )
+
+                if attachment_exists:
+                    print(f"   ✅ Attachment verified: {filename}")
+                    attached_count += 1
+                else:
+                    print(f"   ❌ ERROR: Attachment verification failed for {filename}")
+                    failed_attachments.append({
+                        'epic_id': epic_id,
+                        'file_path': file_path,
+                        'error': 'Attachment not found after upload'
+                    })
+            else:
+                print(f"   ❌ ERROR: Failed to attach file")
+                failed_attachments.append({
+                    'epic_id': epic_id,
+                    'file_path': file_path,
+                    'error': 'Attachment upload failed'
+                })
+
+        elif adapter.platform == 'file-based':
+            # File-based: Add comment with file path
+            print(f"   📝 Recording test plan path in EPIC metadata...")
+
+            comment_text = f"""Test Plan: {file_path}
+
+EPIC Acceptance Test Plan generated on {test_plan_entry['generated_at']}.
+Test plan file: {file_path}
+"""
+
+            adapter.add_comment(
+                work_item_id=epic_id,
+                comment=comment_text,
+                author="sprint-planning-workflow"
+            )
+
+            print(f"   ✅ Test plan path recorded in EPIC comments")
+
+            # Verify comment was added
+            epic = adapter.get_work_item(epic_id)
+            comments = epic.get('comments', [])
+
+            # Check if our comment is present
+            comment_found = any(file_path in c.get('text', '') for c in comments)
+
+            if comment_found:
+                print(f"   ✅ Comment verified in EPIC #{epic_id}")
+                attached_count += 1
+            else:
+                print(f"   ❌ ERROR: Comment verification failed for EPIC #{epic_id}")
+                failed_attachments.append({
+                    'epic_id': epic_id,
+                    'file_path': file_path,
+                    'error': 'Comment not found after creation'
+                })
+        else:
+            # Unsupported platform
+            print(f"   ⚠️  WARNING: Platform {adapter.platform} not supported for test plan attachment")
+            print(f"   Test plan available at: {file_path}")
+
+    except Exception as e:
+        print(f"   ❌ ERROR: Failed to attach/link test plan for EPIC #{epic_id}: {e}")
+        failed_attachments.append({
+            'epic_id': epic_id,
+            'file_path': file_path,
+            'error': str(e)
+        })
+
+# Output attachment summary
+print(f"\n📊 Test Plan Attachment Summary:")
+print(f"   Total test plans: {len(test_plan_files)}")
+print(f"   Successfully attached/linked: {attached_count}")
+print(f"   Failed: {len(failed_attachments)}")
+
+# CRITICAL: Halt workflow if any attachments failed
+if failed_attachments:
+    print(f"\n❌ TEST PLAN ATTACHMENT VERIFICATION FAILED")
+    print(f"   {len(failed_attachments)} test plan(s) failed to attach/link:")
+    for failure in failed_attachments:
+        print(f"     • EPIC #{failure['epic_id']}: {failure['error']}")
+        print(f"       File: {failure['file_path']}")
+    print(f"\n⚠️  Workflow cannot proceed without verified test plan attachments.")
+    print(f"   Fix attachment issues and re-run sprint planning from Step 1.7.")
+    import sys
+    sys.exit(1)
+else:
+    print(f"\n✅ All {attached_count} test plans attached/linked and verified successfully")
+
+# Store attachment results in workflow state
+attachment_state = {
+    'attached_count': attached_count,
+    'failed_count': len(failed_attachments),
+    'test_plan_files': test_plan_files,
+    'failed_attachments': failed_attachments,
+    'attachment_timestamp': datetime.now().isoformat()
+}
+
+print(f"\n💾 Test plan attachment state stored for workflow verification")
 print(f"=" * 80)
 ```
 
@@ -930,6 +1084,7 @@ Sprint {sprint_number} is ready!
 | 1 | `/business-analyst` | Prioritize backlog |
 | 1.5 | N/A (Direct adapter query) | Extract EPICs from sprint scope |
 | 1.6 | `/qa-tester` | Generate acceptance test plans for EPICs |
+| 1.7 | N/A (Direct adapter operation) | Attach test plans to EPIC work items |
 | 2 | `/architect` | Architecture review |
 | 3 | `/security-specialist` | Security review |
 | 4 | `/senior-engineer` | Estimation & breakdown |
