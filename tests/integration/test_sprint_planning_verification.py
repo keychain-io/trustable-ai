@@ -927,7 +927,8 @@ agent_config:
 
         rendered = registry.render_workflow("sprint-planning")
 
-        quality_section = rendered[rendered.find("Step 7.6"):rendered.find("Step 8")]
+        # Step 7.6 now ends at Step 7.7 (not Step 8)
+        quality_section = rendered[rendered.find("Step 7.6"):rendered.find("Step 7.7")]
 
         # Should have else block for success case
         assert "else:" in quality_section, \
@@ -938,9 +939,9 @@ agent_config:
         assert "work items have sufficient detail" in success_section, \
             "Validation should print success message when all items pass"
 
-        # Step 8 should exist after Step 7.6
+        # Step 8 should exist after Step 7.6 (now after Step 7.7)
         assert "Step 8: Completion Summary" in rendered, \
-            "Step 8 should exist after Step 7.6"
+            "Step 8 should exist after Step 7.7"
 
     def test_specifies_quality_thresholds_in_error_message(self, tmp_path, azure_config_yaml):
         """Test that validation error message specifies quality thresholds."""

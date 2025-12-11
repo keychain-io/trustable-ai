@@ -550,6 +550,79 @@ else:
 
 ---
 
+## Step 7.7: Verification Checklist
+
+Display verification results:
+
+```python
+# Output sprint planning verification checklist
+print(f"\n{'='*80}")
+print(f"📋 Sprint Planning Verification Checklist")
+print(f"{'='*80}\n")
+
+# Count Features and Tasks from approved_work_items
+# Track work item types during creation
+feature_count = sum(1 for item in approved_work_items if item['type'] == '{{ work_tracking.work_item_types.feature }}')
+task_count = sum(1 for item in approved_work_items if item['type'] == '{{ work_tracking.work_item_types.task }}')
+
+# Item 1: Features created
+print(f"- [x] Features created: {feature_count}")
+
+# Item 2: Tasks created
+print(f"- [x] Tasks created: {task_count}")
+
+# Item 3: All items exist in platform (from Step 7.5)
+if len(verified_items) == len(created_items):
+    print(f"- [x] All {len(created_items)} work items exist in {adapter.platform}")
+else:
+    print(f"- [ ] All work items exist in {adapter.platform} (WARNING: {len(created_items) - len(verified_items)} missing)")
+
+# Item 4: Descriptions validated (from Step 7.6)
+if len(quality_issues) == 0:
+    print(f"- [x] All descriptions validated (>= 500 characters)")
+else:
+    print(f"- [ ] All descriptions validated (WARNING: {len(quality_issues)} items have quality issues)")
+
+# Item 5: Sprint assignments verified
+# Check that all items have correct iteration path
+sprint_assignment_issues = 0
+for item_id in verified_items:
+    try:
+        work_item = adapter.get_work_item(item_id)
+        iteration_path = work_item.get('fields', {}).get('System.IterationPath', '')
+        expected_path = f'{{ work_tracking.project }}\\{sprint_number}'
+        if iteration_path != expected_path:
+            sprint_assignment_issues += 1
+    except:
+        sprint_assignment_issues += 1
+
+if sprint_assignment_issues == 0:
+    print(f"- [x] Sprint assignments verified (all items in Sprint {sprint_number})")
+else:
+    print(f"- [ ] Sprint assignments verified (WARNING: {sprint_assignment_issues} items not in correct sprint)")
+
+# Item 6: Story points within capacity
+{% if work_tracking.custom_fields.story_points %}
+# Calculate total story points from approved_work_items
+total_points = sum(item.get('story_points', 0) for item in approved_work_items)
+# team_capacity should be defined earlier in workflow
+if total_points <= team_capacity:
+    utilization_pct = int((total_points / team_capacity) * 100) if team_capacity > 0 else 0
+    print(f"- [x] Story points within capacity ({total_points}/{team_capacity} points, {utilization_pct}% utilization)")
+else:
+    over_pct = int(((total_points - team_capacity) / team_capacity) * 100) if team_capacity > 0 else 0
+    print(f"- [ ] Story points within capacity (WARNING: {total_points}/{team_capacity} points, {over_pct}% over capacity)")
+{% else %}
+print(f"- [ ] Story points within capacity (N/A - story points not configured)")
+{% endif %}
+
+print(f"\n{'='*80}")
+print(f"✅ Sprint planning verification complete")
+print(f"{'='*80}\n")
+```
+
+---
+
 ## Step 8: Completion Summary
 
 ```
