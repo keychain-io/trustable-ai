@@ -20,6 +20,7 @@
 │  Step 1.5: Identify EPICs for testing                                      │
 │  Step 1.6: Retrieve test plans from work items                             │
 │  Step 1.7: Execute tests and generate reports                              │
+│  Step 1.8: Attach test reports to EPIC work items                          │
 │  Step 2: /tester → Run acceptance tests                                    │
 │  Step 3: /security-specialist → Final security review                      │
 │  Step 4: /engineer → Deployment readiness assessment                       │
@@ -856,6 +857,163 @@ print(f"\n💾 Test execution results stored in workflow state for attachment st
 print(f"=" * 80)
 
 print(f"\n📋 {len(test_report_files)} test report(s) ready for attachment to EPIC work items")
+```
+
+---
+
+## Step 1.8: Attach Test Reports to EPIC Work Items
+
+**CRITICAL**: Attach or link test report files to EPIC work items in the work tracking platform (VISION.md Pillar #2: External Source of Truth).
+
+```python
+# Attach/link test reports to EPICs based on platform
+print(f"\n📎 Attaching test reports to {len(test_execution_results_all)} EPIC work items...")
+print("=" * 80)
+print(f"Platform: {adapter.platform}")
+print("=" * 80)
+
+attached_count = 0
+failed_attachments = []
+
+for test_result_entry in test_execution_results_all:
+    epic_id = test_result_entry['epic_id']
+    epic_title = test_result_entry['epic_title']
+    report_filepath = test_result_entry['report_filepath']
+    report_filename = test_result_entry['report_filename']
+
+    print(f"\n📋 Processing EPIC #{epic_id}: {epic_title}")
+    print(f"   Test report file: {report_filepath}")
+
+    try:
+        # Platform-specific attachment/linking
+        if adapter.platform == 'azure-devops':
+            # Azure DevOps: Attach file using attach_file_to_work_item()
+            from pathlib import Path
+
+            print(f"   🔗 Attaching file to Azure DevOps work item...")
+
+            # Import Azure CLI wrapper (canonical source)
+            import sys
+            sys.path.insert(0, ".claude/skills")
+            from azure_devops.cli_wrapper import azure_cli
+
+            # Attach file
+            attach_result = azure_cli.attach_file_to_work_item(
+                work_item_id=int(epic_id.split('-')[-1]) if isinstance(epic_id, str) else epic_id,
+                file_path=Path(report_filepath),
+                comment=f"EPIC Acceptance Test Execution Report - Generated {test_execution_state['execution_timestamp']}"
+            )
+
+            if attach_result.get('success'):
+                print(f"   ✅ File attached successfully")
+
+                # Verify attachment exists
+                attachment_exists = azure_cli.verify_attachment_exists(
+                    work_item_id=int(epic_id.split('-')[-1]) if isinstance(epic_id, str) else epic_id,
+                    filename=report_filename
+                )
+
+                if attachment_exists:
+                    print(f"   ✅ Attachment verified: {report_filename}")
+                    attached_count += 1
+                else:
+                    print(f"   ❌ ERROR: Attachment verification failed for {report_filename}")
+                    failed_attachments.append({
+                        'epic_id': epic_id,
+                        'report_filepath': report_filepath,
+                        'error': 'Attachment not found after upload'
+                    })
+            else:
+                print(f"   ❌ ERROR: Failed to attach file")
+                failed_attachments.append({
+                    'epic_id': epic_id,
+                    'report_filepath': report_filepath,
+                    'error': 'Attachment upload failed'
+                })
+
+        elif adapter.platform == 'file-based':
+            # File-based: Add comment with file path
+            print(f"   📝 Recording test report path in EPIC metadata...")
+
+            comment_text = f"""Test Report: {report_filepath}
+
+EPIC Acceptance Test Execution Report generated on {test_execution_state['execution_timestamp']}.
+Overall Status: {test_result_entry['overall_status'].upper()}
+Pass Rate: {test_result_entry['pass_rate'] * 100:.1f}%
+Deployment Ready: {'✅ YES' if test_result_entry['deployment_ready'] else '❌ NO'}
+
+Test report file: {report_filepath}
+"""
+
+            adapter.add_comment(
+                work_item_id=epic_id,
+                comment=comment_text,
+                author="sprint-review-workflow"
+            )
+
+            print(f"   ✅ Test report path recorded in EPIC comments")
+
+            # Verify comment was added
+            epic = adapter.get_work_item(epic_id)
+            comments = epic.get('comments', [])
+
+            # Check if our comment is present
+            comment_found = any(report_filepath in c.get('text', '') for c in comments)
+
+            if comment_found:
+                print(f"   ✅ Comment verified in EPIC #{epic_id}")
+                attached_count += 1
+            else:
+                print(f"   ❌ ERROR: Comment verification failed for EPIC #{epic_id}")
+                failed_attachments.append({
+                    'epic_id': epic_id,
+                    'report_filepath': report_filepath,
+                    'error': 'Comment not found after creation'
+                })
+        else:
+            # Unsupported platform
+            print(f"   ⚠️  WARNING: Platform {adapter.platform} not supported for test report attachment")
+            print(f"   Test report available at: {report_filepath}")
+
+    except Exception as e:
+        print(f"   ❌ ERROR: Failed to attach/link test report for EPIC #{epic_id}: {e}")
+        failed_attachments.append({
+            'epic_id': epic_id,
+            'report_filepath': report_filepath,
+            'error': str(e)
+        })
+
+# Output attachment summary
+print(f"\n📊 Test Report Attachment Summary:")
+print(f"   Total test reports: {len(test_execution_results_all)}")
+print(f"   Successfully attached/linked: {attached_count}")
+print(f"   Failed: {len(failed_attachments)}")
+
+# CRITICAL: Halt workflow if any attachments failed
+if failed_attachments:
+    print(f"\n❌ TEST REPORT ATTACHMENT VERIFICATION FAILED")
+    print(f"   {len(failed_attachments)} test report(s) failed to attach/link:")
+    for failure in failed_attachments:
+        print(f"     • EPIC #{failure['epic_id']}: {failure['error']}")
+        print(f"       File: {failure['report_filepath']}")
+    print(f"\n⚠️  Workflow cannot proceed without verified test report attachments.")
+    print(f"   Fix attachment issues and re-run sprint review from Step 1.8.")
+    import sys
+    sys.exit(1)
+else:
+    print(f"\n✅ All {attached_count} test reports attached/linked and verified successfully")
+
+# Store attachment results in workflow state
+report_attachment_state = {
+    'attached_count': attached_count,
+    'failed_count': len(failed_attachments),
+    'test_report_files': test_report_files,
+    'failed_attachments': failed_attachments,
+    'attachment_timestamp': datetime.now().isoformat()
+}
+
+print(f"\n💾 Test report attachment state stored for workflow verification")
+print(f"=" * 80)
 ```
 
 ---
