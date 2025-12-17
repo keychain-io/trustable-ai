@@ -191,7 +191,11 @@ class TestPATAuthenticationErrorHandling:
         """Test that missing token raises AuthenticationError."""
         from skills.azure_devops.cli_wrapper import AzureCLI, AuthenticationError
 
-        with patch.dict(os.environ, {}, clear=True):
+        # Provide organization/project config but no PAT token
+        with patch.dict(os.environ, {
+            'AZURE_DEVOPS_ORG': 'https://dev.azure.com/test',
+            'AZURE_DEVOPS_PROJECT': 'TestProject'
+        }, clear=True):
             with patch('pathlib.Path.exists', return_value=False):
                 cli = AzureCLI()
 
