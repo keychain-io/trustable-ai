@@ -25,7 +25,6 @@ REST API Operations:
 """
 
 import json
-import subprocess
 import base64
 import os
 import yaml
@@ -129,18 +128,6 @@ class AzureCLI:
         config['organization'] = org_url.rstrip('/')
 
         return config
-
-    def _run_command(self, cmd: List[str]) -> Dict[str, Any]:
-        """Execute Azure CLI command and return JSON result."""
-        if '--output' not in cmd and '-o' not in cmd:
-            cmd.extend(['--output', 'json'])
-
-        result = subprocess.run(cmd, capture_output=True, text=True)
-
-        if result.returncode == 0:
-            return json.loads(result.stdout) if result.stdout else {}
-        else:
-            raise Exception(f"Command failed: {' '.join(cmd)}\nError: {result.stderr}")
 
     def _verify_operation(
         self,

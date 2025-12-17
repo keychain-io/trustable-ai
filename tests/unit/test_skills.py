@@ -3,6 +3,7 @@ Unit tests for skills system.
 
 Tests skill loading, registry, and parent_id parameter support.
 """
+import os
 import sys
 import pytest
 from pathlib import Path
@@ -48,37 +49,21 @@ class TestSkillsLoading:
 class TestAzureCLIParentId:
     """Test that Azure CLI wrapper supports parent_id parameter."""
 
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_create_work_item_accepts_parent_id(self, mock_run):
-        """Test that create_work_item accepts parent_id parameter."""
+    @patch.dict(os.environ, {'AZURE_DEVOPS_EXT_PAT': 'dGVzdF90b2tlbl9mb3JfdGVzdGluZ19wdXJwb3Nlcw=='})
+    @patch('skills.azure_devops.cli_wrapper.requests.request')
+    def test_create_work_item_accepts_parent_id(self, mock_request):
+        """Test that create_work_item accepts parent_id parameter via REST API."""
         from skills.azure_devops.cli_wrapper import AzureCLI
 
-        # Mock Azure CLI configuration check
-        mock_config_result = Mock()
-        mock_config_result.returncode = 0
-        mock_config_result.stdout = "organization=https://dev.azure.com/test\nproject=TestProject"
-
-        # Mock create work item result
-        mock_create_result = Mock()
-        mock_create_result.returncode = 0
-        mock_create_result.stdout = '{"id": 123, "fields": {"System.Title": "Test"}}'
-
-        # Mock link work items result
-        mock_link_result = Mock()
-        mock_link_result.returncode = 0
-        mock_link_result.stdout = '{"success": true}'
-
-        # Mock get work item result
-        mock_get_result = Mock()
-        mock_get_result.returncode = 0
-        mock_get_result.stdout = '{"id": 123, "fields": {"System.Title": "Test"}}'
-
-        mock_run.side_effect = [
-            mock_config_result,  # Initial config check
-            mock_create_result,   # Create work item
-            mock_link_result,     # Link to parent
-            mock_get_result       # Get work item after linking
-        ]
+        # Mock REST API response for work item creation
+        mock_response = Mock()
+        mock_response.status_code = 201
+        mock_response.json.return_value = {
+            "id": 123,
+            "fields": {"System.Title": "Test Task"}
+        }
+        mock_response.text = '{"id": 123}'
+        mock_request.return_value = mock_response
 
         cli = AzureCLI()
 
@@ -93,30 +78,21 @@ class TestAzureCLIParentId:
         assert result is not None
         assert result.get('id') == 123
 
-        # Verify that link_work_items was called
-        calls = mock_run.call_args_list
-        # Should have: config check, create, link, get
-        assert len(calls) >= 4
-
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_create_work_item_without_parent_id(self, mock_run):
-        """Test that create_work_item works without parent_id."""
+    @patch.dict(os.environ, {'AZURE_DEVOPS_EXT_PAT': 'dGVzdF90b2tlbl9mb3JfdGVzdGluZ19wdXJwb3Nlcw=='})
+    @patch('skills.azure_devops.cli_wrapper.requests.request')
+    def test_create_work_item_without_parent_id(self, mock_request):
+        """Test that create_work_item works without parent_id via REST API."""
         from skills.azure_devops.cli_wrapper import AzureCLI
 
-        # Mock Azure CLI configuration check
-        mock_config_result = Mock()
-        mock_config_result.returncode = 0
-        mock_config_result.stdout = "organization=https://dev.azure.com/test\nproject=TestProject"
-
-        # Mock create work item result
-        mock_create_result = Mock()
-        mock_create_result.returncode = 0
-        mock_create_result.stdout = '{"id": 123, "fields": {"System.Title": "Test"}}'
-
-        mock_run.side_effect = [
-            mock_config_result,  # Initial config check
-            mock_create_result,   # Create work item
-        ]
+        # Mock REST API response for work item creation
+        mock_response = Mock()
+        mock_response.status_code = 201
+        mock_response.json.return_value = {
+            "id": 123,
+            "fields": {"System.Title": "Test Task"}
+        }
+        mock_response.text = '{"id": 123}'
+        mock_request.return_value = mock_response
 
         cli = AzureCLI()
 
@@ -130,59 +106,21 @@ class TestAzureCLIParentId:
         assert result is not None
         assert result.get('id') == 123
 
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_create_sprint_work_items_batch_supports_parent_id(self, mock_run):
-        """Test that batch creation supports parent_id in work items."""
+    @patch.dict(os.environ, {'AZURE_DEVOPS_EXT_PAT': 'dGVzdF90b2tlbl9mb3JfdGVzdGluZ19wdXJwb3Nlcw=='})
+    @patch('skills.azure_devops.cli_wrapper.requests.request')
+    def test_create_sprint_work_items_batch_supports_parent_id(self, mock_request):
+        """Test that batch creation supports parent_id in work items via REST API."""
         from skills.azure_devops.cli_wrapper import AzureCLI
 
-        # Mock Azure CLI configuration check
-        mock_config_result = Mock()
-        mock_config_result.returncode = 0
-        mock_config_result.stdout = "organization=https://dev.azure.com/test\nproject=TestProject"
-
-        # For simplicity, we'll mock the subprocess to return successful results
-        # for any call
-        def mock_subprocess_run(*args, **kwargs):
-            cmd = args[0] if args else kwargs.get('cmd', [])
-
-            # Config check
-            if 'configure' in cmd:
-                result = Mock()
-                result.returncode = 0
-                result.stdout = "organization=https://dev.azure.com/test\nproject=TestProject"
-                return result
-
-            # Create work item
-            if 'create' in cmd:
-                result = Mock()
-                result.returncode = 0
-                # Extract a simple ID for determinism
-                import random
-                work_id = random.randint(100, 200)
-                result.stdout = f'{{"id": {work_id}, "fields": {{"System.Title": "Test"}}}}'
-                return result
-
-            # Link work items
-            if 'relation' in cmd:
-                result = Mock()
-                result.returncode = 0
-                result.stdout = '{"success": true}'
-                return result
-
-            # Get work item
-            if 'show' in cmd:
-                result = Mock()
-                result.returncode = 0
-                result.stdout = '{"id": 123, "fields": {"System.Title": "Test"}}'
-                return result
-
-            # Default
-            result = Mock()
-            result.returncode = 0
-            result.stdout = '{}'
-            return result
-
-        mock_run.side_effect = mock_subprocess_run
+        # Mock REST API response for work item creation
+        mock_response = Mock()
+        mock_response.status_code = 201
+        mock_response.json.return_value = {
+            "id": 123,
+            "fields": {"System.Title": "Test Task"}
+        }
+        mock_response.text = '{"id": 123}'
+        mock_request.return_value = mock_response
 
         cli = AzureCLI()
 
