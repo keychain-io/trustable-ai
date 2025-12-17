@@ -32,6 +32,11 @@ import yaml
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# Import config loader for pure Python config loading
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from config.loader import load_config
+
 # Optional requests import for file attachments
 try:
     import requests
@@ -49,24 +54,80 @@ class AzureCLI:
     """Wrapper for Azure CLI DevOps operations."""
 
     def __init__(self):
-        self._config = self._ensure_configured()
+        self._config = self._load_configuration()
         self._cached_token: Optional[str] = None
 
-    def _ensure_configured(self) -> Dict[str, str]:
-        """Verify Azure CLI is configured and return config."""
-        result = subprocess.run(
-            ['az', 'devops', 'configure', '--list'],
-            capture_output=True,
-            text=True
-        )
-        if result.returncode != 0:
-            raise Exception("Azure CLI not configured. Run: az devops configure --defaults organization=<url> project=<name>")
+    def _load_configuration(self) -> Dict[str, str]:
+        """
+        Load Azure DevOps configuration from .claude/config.yaml or environment variables.
 
+        Configuration sources (in order of precedence):
+        1. .claude/config.yaml (work_tracking.organization and work_tracking.project)
+        2. Environment variables (AZURE_DEVOPS_ORG and AZURE_DEVOPS_PROJECT)
+
+        Returns:
+            Dict with 'organization' and 'project' keys
+
+        Raises:
+            Exception: If configuration is missing or invalid
+        """
         config = {}
-        for line in result.stdout.strip().split('\n'):
-            if '=' in line:
-                key, value = line.split('=', 1)
-                config[key.strip()] = value.strip()
+
+        # Try loading from .claude/config.yaml
+        try:
+            framework_config = load_config()
+
+            # Extract work tracking configuration
+            if framework_config.work_tracking.organization:
+                config['organization'] = framework_config.work_tracking.organization
+            if framework_config.work_tracking.project:
+                config['project'] = framework_config.work_tracking.project
+
+        except FileNotFoundError:
+            # Config file doesn't exist, will fall back to environment variables
+            pass
+        except Exception as e:
+            # Config file exists but has errors - log warning but continue
+            print(f"Warning: Could not load configuration from .claude/config.yaml: {e}")
+
+        # Fall back to environment variables if not in config
+        if 'organization' not in config:
+            org = os.environ.get('AZURE_DEVOPS_ORG', '').strip()
+            if org:
+                config['organization'] = org
+
+        if 'project' not in config:
+            project = os.environ.get('AZURE_DEVOPS_PROJECT', '').strip()
+            if project:
+                config['project'] = project
+
+        # Validate configuration
+        if 'organization' not in config or not config['organization']:
+            raise Exception(
+                "Azure DevOps organization not configured. "
+                "Set in .claude/config.yaml (work_tracking.organization) "
+                "or environment variable AZURE_DEVOPS_ORG"
+            )
+
+        if 'project' not in config or not config['project']:
+            raise Exception(
+                "Azure DevOps project not configured. "
+                "Set in .claude/config.yaml (work_tracking.project) "
+                "or environment variable AZURE_DEVOPS_PROJECT"
+            )
+
+        # Validate organization URL format
+        org_url = config['organization']
+        if not org_url.startswith('https://dev.azure.com/'):
+            raise Exception(
+                f"Invalid Azure DevOps organization URL: {org_url}. "
+                f"Must start with 'https://dev.azure.com/'. "
+                f"Update in .claude/config.yaml or AZURE_DEVOPS_ORG environment variable."
+            )
+
+        # Normalize organization URL (remove trailing slash)
+        config['organization'] = org_url.rstrip('/')
+
         return config
 
     def _run_command(self, cmd: List[str]) -> Dict[str, Any]:
