@@ -1185,29 +1185,163 @@ class AzureCLI:
         finish_date: Optional[str] = None,
         project: Optional[str] = None
     ) -> Dict:
-        """Create a new iteration/sprint."""
+        """
+        Create a new iteration/sprint using REST API.
+
+        Args:
+            name: Iteration name (e.g., "Sprint 6")
+            start_date: Start date in YYYY-MM-DD format (converted to ISO 8601)
+            finish_date: Finish date in YYYY-MM-DD format (converted to ISO 8601)
+            project: Project name (optional, uses config if not provided)
+
+        Returns:
+            Dict containing:
+            - id: Iteration ID
+            - identifier: GUID identifier
+            - name: Iteration name
+            - structureType: "iteration"
+            - path: Full iteration path
+            - attributes: Dict with startDate and finishDate if provided
+
+        Raises:
+            Exception: If iteration already exists (400), authentication fails (401/403),
+                      project not found (404), or other API errors (500)
+
+        Example:
+            >>> cli.create_iteration("Sprint 6", "2025-01-01", "2025-01-14")
+            {'id': 12345, 'name': 'Sprint 6', 'attributes': {'startDate': '2025-01-01T00:00:00Z', ...}}
+        """
         if not project:
-            project = self._config.get('project', '')
+            project = self._get_project()
 
-        path = f"{project}\\Iteration\\{name}"
+        # Build request body
+        body: Dict[str, Any] = {"name": name}
 
-        cmd = ['az', 'boards', 'iteration', 'project', 'create', '--name', name, '--path', path]
+        # Add attributes if dates provided
+        if start_date or finish_date:
+            attributes = {}
+            if start_date:
+                # Convert YYYY-MM-DD to ISO 8601 format
+                attributes["startDate"] = self._format_date_iso8601(start_date)
+            if finish_date:
+                attributes["finishDate"] = self._format_date_iso8601(finish_date)
+            body["attributes"] = attributes
 
-        if start_date:
-            cmd.extend(['--start-date', start_date])
-        if finish_date:
-            cmd.extend(['--finish-date', finish_date])
-        if project:
-            cmd.extend(['--project', project])
+        # REST API endpoint for iteration creation
+        endpoint = f"{project}/_apis/wit/classificationnodes/Iterations"
+        params = {"api-version": "7.1"}
 
-        return self._run_command(cmd)
+        try:
+            result = self._make_request("POST", endpoint, data=body, params=params)
+            return result
+        except Exception as e:
+            error_msg = str(e)
+            if "400" in error_msg:
+                raise Exception(
+                    f"Failed to create iteration '{name}'. "
+                    f"The iteration may already exist or the request is invalid. "
+                    f"Error: {error_msg}"
+                ) from e
+            elif "401" in error_msg or "403" in error_msg:
+                raise AuthenticationError(
+                    f"Authentication failed when creating iteration '{name}'. "
+                    f"Verify your Azure DevOps PAT token is valid and has Work Items (Read & Write) scope."
+                ) from e
+            elif "404" in error_msg:
+                raise Exception(
+                    f"Project '{project}' not found when creating iteration '{name}'. "
+                    f"Verify the project name is correct."
+                ) from e
+            elif "500" in error_msg:
+                raise Exception(
+                    f"Azure DevOps server error when creating iteration '{name}'. "
+                    f"The service may be temporarily unavailable. Error: {error_msg}"
+                ) from e
+            else:
+                raise Exception(
+                    f"Failed to create iteration '{name}': {error_msg}"
+                ) from e
 
-    def list_iterations(self, project: Optional[str] = None) -> List[Dict]:
-        """List all iterations/sprints."""
-        cmd = ['az', 'boards', 'iteration', 'project', 'list']
-        if project:
-            cmd.extend(['--project', project])
-        return self._run_command(cmd)
+    def list_iterations(
+        self,
+        project: Optional[str] = None,
+        depth: int = 10
+    ) -> List[Dict]:
+        """
+        List all iterations/sprints using REST API.
+
+        Args:
+            project: Project name (optional, uses config if not provided)
+            depth: Depth of iteration hierarchy to fetch (default: 10)
+
+        Returns:
+            List of iteration dicts, each containing:
+            - id: Iteration ID
+            - identifier: GUID identifier
+            - name: Iteration name
+            - structureType: "iteration"
+            - path: Full iteration path
+            - attributes: Dict with startDate and finishDate if set
+            - hasChildren: Boolean indicating if iteration has children
+            - children: List of child iterations (if depth > 0)
+
+        Raises:
+            Exception: If project not found (404), authentication fails (401/403),
+                      or other API errors (500)
+
+        Example:
+            >>> cli.list_iterations()
+            [
+                {
+                    'id': 12345,
+                    'name': 'Sprint 6',
+                    'path': '\\\\Project\\\\Iteration\\\\Sprint 6',
+                    'attributes': {'startDate': '2025-01-01T00:00:00Z', ...}
+                }
+            ]
+        """
+        if not project:
+            project = self._get_project()
+
+        # REST API endpoint for listing iterations
+        endpoint = f"{project}/_apis/wit/classificationnodes/Iterations"
+        params = {
+            "api-version": "7.1",
+            "$depth": str(depth)
+        }
+
+        try:
+            result = self._make_request("GET", endpoint, params=params)
+
+            # Extract children (iterations) from the root node
+            # The API returns a single root node with children representing actual iterations
+            children = result.get("children", [])
+
+            # Flatten the hierarchy into a list for backward compatibility
+            iterations = self._flatten_iteration_hierarchy(children)
+
+            return iterations
+        except Exception as e:
+            error_msg = str(e)
+            if "404" in error_msg:
+                raise Exception(
+                    f"Project '{project}' not found when listing iterations. "
+                    f"Verify the project name is correct."
+                ) from e
+            elif "401" in error_msg or "403" in error_msg:
+                raise AuthenticationError(
+                    f"Authentication failed when listing iterations for project '{project}'. "
+                    f"Verify your Azure DevOps PAT token is valid and has Work Items (Read) scope."
+                ) from e
+            elif "500" in error_msg:
+                raise Exception(
+                    f"Azure DevOps server error when listing iterations. "
+                    f"The service may be temporarily unavailable. Error: {error_msg}"
+                ) from e
+            else:
+                raise Exception(
+                    f"Failed to list iterations for project '{project}': {error_msg}"
+                ) from e
 
     def update_iteration(
         self,
@@ -1217,19 +1351,88 @@ class AzureCLI:
         project: Optional[str] = None
     ) -> Dict:
         """
-        Update iteration dates.
+        Update iteration dates using REST API.
 
-        LEARNING: Use --path parameter with FULL path including \\Iteration\\
-        Example: "\\Keychain Gateway\\Iteration\\Sprint 4"
+        Args:
+            path: Iteration path. Can be:
+                  - Simple name: "Sprint 6" (will construct full path)
+                  - Full path: "\\Project\\Iteration\\Sprint 6"
+            start_date: New start date in YYYY-MM-DD format (converted to ISO 8601)
+            finish_date: New finish date in YYYY-MM-DD format (converted to ISO 8601)
+            project: Project name (optional, uses config if not provided)
+
+        Returns:
+            Dict containing updated iteration:
+            - id: Iteration ID
+            - identifier: GUID identifier
+            - name: Iteration name
+            - structureType: "iteration"
+            - path: Full iteration path
+            - attributes: Dict with updated startDate and finishDate
+
+        Raises:
+            Exception: If iteration not found (404), authentication fails (401/403),
+                      invalid parameters (400), or other API errors (500)
+
+        Example:
+            >>> cli.update_iteration("Sprint 6", "2025-01-01", "2025-01-14")
+            {'id': 12345, 'name': 'Sprint 6', 'attributes': {'startDate': '2025-01-01T00:00:00Z', ...}}
+
+        Note:
+            At least one of start_date or finish_date must be provided.
         """
-        cmd = ['az', 'boards', 'iteration', 'project', 'update', '--path', path]
+        if not start_date and not finish_date:
+            raise ValueError("At least one of start_date or finish_date must be provided")
+
+        if not project:
+            project = self._get_project()
+
+        # Normalize path - remove leading/trailing backslashes and "Iteration" if present
+        normalized_path = self._normalize_iteration_path(path, project)
+
+        # Build request body with attributes
+        attributes = {}
         if start_date:
-            cmd.extend(['--start-date', start_date])
+            attributes["startDate"] = self._format_date_iso8601(start_date)
         if finish_date:
-            cmd.extend(['--finish-date', finish_date])
-        if project:
-            cmd.extend(['--project', project])
-        return self._run_command(cmd)
+            attributes["finishDate"] = self._format_date_iso8601(finish_date)
+
+        body = {"attributes": attributes}
+
+        # REST API endpoint for iteration update
+        endpoint = f"{project}/_apis/wit/classificationnodes/Iterations/{normalized_path}"
+        params = {"api-version": "7.1"}
+
+        try:
+            result = self._make_request("PATCH", endpoint, data=body, params=params)
+            return result
+        except Exception as e:
+            error_msg = str(e)
+            if "404" in error_msg:
+                raise Exception(
+                    f"Iteration not found at path '{path}'. "
+                    f"Verify the iteration exists in Azure DevOps. "
+                    f"Use list_iterations() to see available iterations."
+                ) from e
+            elif "401" in error_msg or "403" in error_msg:
+                raise AuthenticationError(
+                    f"Authentication failed when updating iteration '{path}'. "
+                    f"Verify your Azure DevOps PAT token is valid and has Work Items (Read & Write) scope."
+                ) from e
+            elif "400" in error_msg:
+                raise Exception(
+                    f"Invalid parameters when updating iteration '{path}'. "
+                    f"Check date formats and iteration path. Error: {error_msg}"
+                ) from e
+            elif "500" in error_msg:
+                raise Exception(
+                    f"Azure DevOps server error when updating iteration '{path}'. "
+                    f"The service may be temporarily unavailable. Error: {error_msg}"
+                ) from e
+            else:
+                raise Exception(
+                    f"Failed to update iteration '{path}': {error_msg}"
+                ) from e
 
     def create_sprint_work_items_batch(
         self,
@@ -1504,6 +1707,94 @@ class AzureCLI:
             "Microsoft.VSTS.TCM.ReproSteps"
         ]
         return any(field in fields for field in markdown_fields)
+
+    def _format_date_iso8601(self, date_str: str) -> str:
+        """
+        Convert date string to ISO 8601 format for Azure DevOps API.
+
+        Args:
+            date_str: Date in YYYY-MM-DD format
+
+        Returns:
+            ISO 8601 formatted string (YYYY-MM-DDTHH:MM:SSZ)
+
+        Example:
+            >>> _format_date_iso8601("2025-01-01")
+            "2025-01-01T00:00:00Z"
+        """
+        from datetime import datetime
+
+        # Parse YYYY-MM-DD format
+        try:
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            # Return ISO 8601 format with UTC timezone
+            return date_obj.strftime("%Y-%m-%dT%H:%M:%SZ")
+        except ValueError as e:
+            raise ValueError(
+                f"Invalid date format: '{date_str}'. Expected YYYY-MM-DD format."
+            ) from e
+
+    def _normalize_iteration_path(self, path: str, project: str) -> str:
+        """
+        Normalize iteration path for Azure DevOps REST API.
+
+        Handles various path formats and converts them to the format expected
+        by the classification nodes API (just the iteration name without project prefix).
+
+        Args:
+            path: Iteration path in various formats:
+                  - "Sprint 6"
+                  - "\\Project\\Iteration\\Sprint 6"
+                  - "Project\\Iteration\\Sprint 6"
+            project: Project name
+
+        Returns:
+            Normalized path for REST API (e.g., "Sprint 6")
+
+        Example:
+            >>> _normalize_iteration_path("Sprint 6", "MyProject")
+            "Sprint 6"
+            >>> _normalize_iteration_path("\\MyProject\\Iteration\\Sprint 6", "MyProject")
+            "Sprint 6"
+        """
+        # Remove leading/trailing backslashes
+        normalized = path.strip("\\")
+
+        # Remove project prefix if present (case-insensitive)
+        if normalized.lower().startswith(project.lower() + "\\"):
+            normalized = normalized[len(project) + 1:]
+
+        # Remove "Iteration\\" prefix if present (case-insensitive)
+        if normalized.lower().startswith("iteration\\"):
+            normalized = normalized[10:]  # len("iteration\\") = 10
+
+        return normalized
+
+    def _flatten_iteration_hierarchy(self, nodes: List[Dict]) -> List[Dict]:
+        """
+        Flatten nested iteration hierarchy into a flat list.
+
+        Args:
+            nodes: List of iteration nodes with potential children
+
+        Returns:
+            Flat list of all iterations (including nested children)
+
+        Example:
+            Input: [{'name': 'Sprint 1', 'children': [{'name': 'Sub-Sprint'}]}]
+            Output: [{'name': 'Sprint 1', ...}, {'name': 'Sub-Sprint', ...}]
+        """
+        result = []
+
+        for node in nodes:
+            # Add current node
+            result.append(node)
+
+            # Recursively add children
+            if node.get("hasChildren") and node.get("children"):
+                result.extend(self._flatten_iteration_hierarchy(node["children"]))
+
+        return result
 
     # File Attachments (requires requests library)
 
