@@ -504,13 +504,118 @@ class AzureCLI:
         return result
 
     def add_comment(self, work_item_id: int, comment: str) -> Dict:
-        """Add comment to work item."""
-        cmd = [
-            'az', 'boards', 'work-item', 'comment', 'add',
-            '--id', str(work_item_id),
-            '--comment', comment
-        ]
-        return self._run_command(cmd)
+        """
+        Add comment to work item using REST API.
+
+        Supports both plain text and markdown formatting. Markdown formatting
+        is preserved in the comment text.
+
+        Args:
+            work_item_id: ID of work item to add comment to
+            comment: Comment text (supports markdown formatting)
+
+        Returns:
+            Dict containing comment details:
+            - id: Comment ID
+            - workItemId: Work item ID
+            - text: Comment text
+            - createdDate: Creation timestamp
+            - createdBy: User who created the comment
+
+        Raises:
+            Exception: If work item not found (404), authentication fails (401),
+                      or other API errors occur
+
+        Example:
+            >>> cli.add_comment(1234, "This is a **markdown** comment")
+            {'id': 5678, 'workItemId': 1234, 'text': 'This is a **markdown** comment', ...}
+        """
+        project = self._get_project()
+
+        # Build REST API endpoint for comments
+        endpoint = f"{project}/_apis/wit/workitems/{work_item_id}/comments"
+        params = {"api-version": "7.1-preview"}
+
+        # Comment body - text field supports markdown
+        data = {"text": comment}
+
+        try:
+            return self._make_comment_request("POST", endpoint, data=data, params=params)
+        except Exception as e:
+            error_msg = str(e)
+            # Provide clearer error messages for common failures
+            if "404" in error_msg:
+                raise Exception(
+                    f"Work item {work_item_id} not found. "
+                    f"Verify the work item ID exists in Azure DevOps."
+                ) from e
+            elif "401" in error_msg or "403" in error_msg:
+                raise AuthenticationError(
+                    f"Authentication failed when adding comment to work item {work_item_id}. "
+                    f"Verify your Azure DevOps PAT token is valid and has Work Items (Read & Write) scope."
+                ) from e
+            else:
+                raise Exception(
+                    f"Failed to add comment to work item {work_item_id}: {error_msg}"
+                ) from e
+
+    def _make_comment_request(
+        self,
+        method: str,
+        endpoint: str,
+        data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Make authenticated REST API request for work item comments.
+
+        This is a specialized version of _make_request() for the Comments API,
+        which uses application/json Content-Type (not JSON Patch).
+
+        Args:
+            method: HTTP method (GET, POST)
+            endpoint: API endpoint (e.g., "Project/_apis/wit/workitems/1234/comments")
+            data: Request body as dict
+            params: Query parameters (e.g., {"api-version": "7.1"})
+
+        Returns:
+            Response JSON as dict
+
+        Raises:
+            ImportError: If requests library not available
+            Exception: If request fails with status code and error details
+        """
+        if not HAS_REQUESTS:
+            raise ImportError("requests library required for REST API operations. Install with: pip install requests")
+
+        url = f"{self._get_base_url()}/{endpoint}"
+        token = self._get_auth_token()
+        auth = base64.b64encode(f":{token}".encode()).decode()
+
+        # Comments API uses standard application/json (not JSON Patch)
+        headers = {
+            "Authorization": f"Basic {auth}",
+            "Content-Type": "application/json"
+        }
+
+        response = requests.request(
+            method=method,
+            url=url,
+            json=data,
+            params=params,
+            headers=headers
+        )
+
+        if response.status_code not in [200, 201]:
+            raise Exception(
+                f"Azure DevOps REST API request failed:\n"
+                f"  Method: {method}\n"
+                f"  URL: {url}\n"
+                f"  Status: {response.status_code}\n"
+                f"  Error: {response.text}"
+            )
+
+        return response.json() if response.text else {}
 
     def link_work_items(self, source_id: int, target_id: int, relation_type: str) -> Dict:
         """
