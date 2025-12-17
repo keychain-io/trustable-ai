@@ -979,29 +979,202 @@ class AzureCLI:
 
     # Pipelines
 
+    def _get_pipeline_id(self, pipeline_name: str) -> int:
+        """
+        Get pipeline ID by name using REST API.
+
+        Args:
+            pipeline_name: Pipeline name
+
+        Returns:
+            Pipeline ID
+
+        Raises:
+            Exception: If pipeline not found (404) or request fails
+        """
+        project = self._get_project()
+
+        endpoint = f"{project}/_apis/pipelines"
+        params = {"api-version": "7.1"}
+
+        try:
+            result = self._make_request("GET", endpoint, params=params)
+            pipelines = result.get("value", [])
+
+            for pipeline in pipelines:
+                if pipeline.get("name") == pipeline_name:
+                    return pipeline.get("id")
+
+            raise Exception(
+                f"Pipeline '{pipeline_name}' not found in project '{project}'. "
+                f"Available pipelines: {[p.get('name') for p in pipelines]}"
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if "404" in error_msg:
+                raise Exception(
+                    f"Pipelines API not accessible in project '{project}'. "
+                    f"Verify the project name is correct."
+                ) from e
+            elif "401" in error_msg or "403" in error_msg:
+                raise AuthenticationError(
+                    f"Authentication failed when getting pipeline '{pipeline_name}'. "
+                    f"Verify your Azure DevOps PAT token is valid and has Build (Read) scope."
+                ) from e
+            else:
+                raise
+
     def trigger_pipeline(
         self,
         pipeline_id: int,
         branch: str,
         variables: Optional[Dict[str, str]] = None
     ) -> Dict:
-        """Trigger a pipeline run."""
-        cmd = [
-            'az', 'pipelines', 'run',
-            '--id', str(pipeline_id),
-            '--branch', branch
-        ]
+        """
+        Trigger a pipeline run using Azure DevOps REST API.
 
+        Args:
+            pipeline_id: Pipeline ID (use _get_pipeline_id to resolve from name)
+            branch: Branch to build (e.g., "main", "refs/heads/feature-branch")
+            variables: Optional dictionary of pipeline variables/parameters
+
+        Returns:
+            Dict containing:
+            - id: Run ID
+            - state: Run state (e.g., "inProgress", "completed")
+            - result: Run result (e.g., "succeeded", "failed", "canceled")
+            - url: Run URL
+            - pipeline: Pipeline details
+            - createdDate: Creation timestamp
+
+        Raises:
+            Exception: If pipeline not found (404)
+            AuthenticationError: If authentication fails (401/403)
+            Exception: For other API errors (400, 500)
+
+        Example:
+            >>> cli.trigger_pipeline(
+            ...     pipeline_id=42,
+            ...     branch="main",
+            ...     variables={"environment": "production"}
+            ... )
+            {'id': 123, 'state': 'inProgress', 'url': 'https://...', ...}
+        """
+        project = self._get_project()
+
+        # Build run request body
+        # Branch refs must be in format "refs/heads/{branch_name}"
+        if not branch.startswith("refs/"):
+            branch = f"refs/heads/{branch}"
+
+        run_body: Dict[str, Any] = {
+            "resources": {
+                "repositories": {
+                    "self": {
+                        "refName": branch
+                    }
+                }
+            }
+        }
+
+        # Add variables/parameters if provided
         if variables:
-            for key, value in variables.items():
-                cmd.extend(['--variables', f"{key}={value}"])
+            run_body["variables"] = {
+                key: {"value": value}
+                for key, value in variables.items()
+            }
 
-        return self._run_command(cmd)
+        # REST API endpoint for pipeline run
+        endpoint = f"{project}/_apis/pipelines/{pipeline_id}/runs"
+        params = {"api-version": "7.1"}
 
-    def get_pipeline_run(self, run_id: int) -> Dict:
-        """Get pipeline run details."""
-        cmd = ['az', 'pipelines', 'runs', 'show', '--id', str(run_id)]
-        return self._run_command(cmd)
+        try:
+            result = self._make_request("POST", endpoint, data=run_body, params=params)
+            return result
+        except Exception as e:
+            error_msg = str(e)
+            if "404" in error_msg:
+                raise Exception(
+                    f"Pipeline {pipeline_id} not found in project '{project}'. "
+                    f"Verify the pipeline ID is correct."
+                ) from e
+            elif "401" in error_msg or "403" in error_msg:
+                raise AuthenticationError(
+                    f"Authentication failed when triggering pipeline {pipeline_id}. "
+                    f"Verify your Azure DevOps PAT token is valid and has Build (Read & Execute) scope."
+                ) from e
+            elif "400" in error_msg:
+                raise Exception(
+                    f"Invalid pipeline run parameters for pipeline {pipeline_id}. "
+                    f"Check branch '{branch}' and variables. Error: {error_msg}"
+                ) from e
+            elif "500" in error_msg:
+                raise Exception(
+                    f"Azure DevOps server error when triggering pipeline {pipeline_id}. "
+                    f"The service may be temporarily unavailable. Error: {error_msg}"
+                ) from e
+            else:
+                raise Exception(
+                    f"Failed to trigger pipeline {pipeline_id}: {error_msg}"
+                ) from e
+
+    def get_pipeline_run(self, pipeline_id: int, run_id: int) -> Dict:
+        """
+        Get pipeline run details using Azure DevOps REST API.
+
+        Args:
+            pipeline_id: Pipeline ID
+            run_id: Run ID
+
+        Returns:
+            Dict containing:
+            - id: Run ID
+            - state: Run state (e.g., "inProgress", "completed")
+            - result: Run result (e.g., "succeeded", "failed", "canceled", None if in progress)
+            - finishedDate: Completion timestamp (None if in progress)
+            - url: Run URL
+            - pipeline: Pipeline details
+            - createdDate: Creation timestamp
+
+        Raises:
+            Exception: If pipeline or run not found (404)
+            AuthenticationError: If authentication fails (401/403)
+            Exception: For other API errors (500)
+
+        Example:
+            >>> cli.get_pipeline_run(pipeline_id=42, run_id=123)
+            {'id': 123, 'state': 'completed', 'result': 'succeeded', ...}
+        """
+        project = self._get_project()
+
+        # REST API endpoint for pipeline run
+        endpoint = f"{project}/_apis/pipelines/{pipeline_id}/runs/{run_id}"
+        params = {"api-version": "7.1"}
+
+        try:
+            result = self._make_request("GET", endpoint, params=params)
+            return result
+        except Exception as e:
+            error_msg = str(e)
+            if "404" in error_msg:
+                raise Exception(
+                    f"Pipeline run {run_id} not found for pipeline {pipeline_id} in project '{project}'. "
+                    f"Verify the pipeline ID and run ID are correct."
+                ) from e
+            elif "401" in error_msg or "403" in error_msg:
+                raise AuthenticationError(
+                    f"Authentication failed when getting pipeline run {run_id}. "
+                    f"Verify your Azure DevOps PAT token is valid and has Build (Read) scope."
+                ) from e
+            elif "500" in error_msg:
+                raise Exception(
+                    f"Azure DevOps server error when getting pipeline run {run_id}. "
+                    f"The service may be temporarily unavailable. Error: {error_msg}"
+                ) from e
+            else:
+                raise Exception(
+                    f"Failed to get pipeline run {run_id}: {error_msg}"
+                ) from e
 
     # Iterations (Sprints)
 
