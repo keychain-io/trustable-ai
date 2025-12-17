@@ -27,11 +27,11 @@ AI agents claim success while delivering nothing:
 ## Key Components
 
 ### cli_wrapper.py
-**Problem Solved**: Direct Azure CLI invocation is error-prone and platform-dependent
+**Problem Solved**: Direct REST API calls need error handling, authentication, and markdown format support
 
-Wraps Azure CLI (`az boards`) commands with proper error handling, credential management, and response parsing.
+Wraps Azure DevOps REST API v7.1 operations with proper error handling, PAT token authentication, markdown format support, and response parsing.
 
-**Real Failure Prevented**: Workflow calls `az boards work-item create` but Azure CLI not authenticated. Command fails silently, workflow continues thinking item created. With cli_wrapper: authentication checked first, clear error if credentials missing, workflow halts instead of proceeding with bad state.
+**Real Failure Prevented**: Workflow calls REST API to create work item but PAT token expired. API returns 401, workflow continues thinking item created. With cli_wrapper: authentication checked first via token validation, clear error if credentials invalid, workflow halts instead of proceeding with bad state.
 
 ### field_mapper.py
 **Problem Solved**: Azure DevOps uses platform-specific field names that differ from generic framework fields
@@ -176,39 +176,44 @@ work_tracking:
 
 ## Authentication
 
-This adapter uses Azure CLI authentication:
+This adapter uses Personal Access Token (PAT) authentication via Azure DevOps REST API v7.1:
 
-```bash
-# Login to Azure DevOps
-az login
+```python
+# PAT token retrieved from environment or Azure CLI credential cache
+# Set via environment variable:
+export AZURE_DEVOPS_EXT_PAT="your_pat_token_here"
 
-# Set default organization (optional)
-az devops configure --defaults organization=https://dev.azure.com/myorg project="My Project"
+# Or via Azure CLI credential cache (adapter auto-retrieves)
 ```
 
 **Credential Source**: Configured in `.claude/config.yaml`:
 
 ```yaml
 work_tracking:
-  credentials_source: "cli"  # Use Azure CLI credentials
+  platform: "azure-devops"
+  organization: "https://dev.azure.com/myorg"
+  project: "My Project"
+  credentials_source: "env:AZURE_DEVOPS_EXT_PAT"  # or "cli" for Azure CLI cache
 ```
 
 **Verification**: Adapter checks authentication before operations:
 
 ```python
-# Check auth status
+# Check auth status via REST API
 if not adapter.is_authenticated():
-    raise AuthenticationError("Azure CLI not authenticated. Run 'az login'")
+    raise AuthenticationError("Azure DevOps PAT token not found or expired. Set AZURE_DEVOPS_EXT_PAT environment variable")
 ```
 
 ## Important Notes
 
 - **This adapter is the source of truth**: Workflows query this adapter, not internal state, to verify claims
+- **REST API v7.1**: Uses Azure DevOps REST API directly with HTTP requests (no CLI dependency)
+- **Markdown format support**: Automatically sets HTML format for description fields
+- **PAT token authentication**: Secure, programmatic authentication via Personal Access Tokens
 - **Team iteration paths**: Work items must be assigned to team iteration paths (e.g., `Project\Sprint 1`), not project iteration paths (e.g., `Project\Iteration\Sprint 1`). See `skills/azure_devops/README.md` for details.
-- **Authentication required**: Azure CLI must be authenticated (`az login`) before workflows run
 - **Field mappings configurable**: Custom fields can be mapped in config.yaml
 - **Batch operations preferred**: Use bulk operations for creating/updating multiple items (faster, more reliable)
-- **Error handling**: Adapter returns structured errors, not cryptic Azure CLI messages
+- **Error handling**: Adapter returns structured errors with HTTP status codes and JSON error details
 
 ## Real Failure Scenarios Prevented
 

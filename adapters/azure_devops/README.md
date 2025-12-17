@@ -2,32 +2,32 @@
 
 ## Purpose
 
-Azure DevOps platform adapter for TAID. Provides a comprehensive wrapper around Azure CLI for work item management, sprint operations, and DevOps workflows. Includes battle-tested patterns, verification support, and idempotent operations.
+Azure DevOps platform adapter for TAID. Provides a comprehensive wrapper around Azure DevOps REST API v7.1 for work item management, sprint operations, and DevOps workflows. Includes battle-tested patterns, markdown format support, verification support, and idempotent operations.
 
 ## Key Components
 
-- **cli_wrapper.py**: `AzureCLI` class wrapping Azure CLI commands with verification and error handling
+- **cli_wrapper.py**: REST API wrapper class for Azure DevOps operations with PAT authentication and error handling
 - **field_mapper.py**: Maps generic field names to Azure DevOps-specific field names
 - **type_mapper.py**: Maps generic work item types to Azure DevOps work item types
-- **bulk_operations.py**: Efficient bulk work item creation and updates
+- **bulk_operations.py**: Efficient bulk work item creation and updates via REST API
 - **__init__.py**: Module exports
 
 ## Architecture
 
 The adapter provides a platform-agnostic interface for work item management:
 
-### AzureCLI Class
+### AzureCLI Class (REST API Wrapper)
 
-Main wrapper for Azure DevOps operations:
+Main wrapper for Azure DevOps REST API v7.1 operations:
 
 **Work Item Operations**:
-- `create_work_item()`: Create work item with two-step iteration assignment
-- `update_work_item()`: Update work item fields
-- `get_work_item()`: Retrieve work item by ID
-- `query_work_items()`: Query using WIQL
-- `add_comment()`: Add comment to work item
-- `link_work_items()`: Link work items with relationships
-- `attach_file_to_work_item()`: Attach files using REST API
+- `create_work_item()`: Create work item via REST API with markdown format support
+- `update_work_item()`: Update work item fields via PATCH request
+- `get_work_item()`: Retrieve work item by ID via GET request
+- `query_work_items()`: Query using WIQL via POST request
+- `add_comment()`: Add comment to work item via REST API
+- `link_work_items()`: Link work items with relationships via REST API
+- `attach_file_to_work_item()`: Attach files using REST API multipart upload
 
 **Sprint/Iteration Operations**:
 - `create_iteration()`: Create new sprint/iteration
@@ -56,16 +56,19 @@ Main wrapper for Azure DevOps operations:
 
 Based on battle-tested Azure DevOps integration:
 
-### 1. Two-Step Work Item Creation
-**Learning**: The `--iteration` parameter in `az boards work-item create` is unreliable.
+### 1. Single-Step Work Item Creation with Markdown
+**Learning**: REST API v7.1 supports setting all fields including iteration in one request, and markdown format for descriptions.
 
-**Solution**: Create work item first, then update with iteration path:
+**Solution**: Create work item with all fields in single REST API call:
 ```python
-# Step 1: Create without iteration
-result = create_work_item(type, title, description)
-
-# Step 2: Update with iteration
-update_work_item(work_item_id, fields={"System.IterationPath": iteration})
+# Single-step creation with markdown description
+result = create_work_item(
+    type=type,
+    title=title,
+    description="# Overview\n\nMarkdown formatted description",
+    iteration=iteration,
+    markdown_format=True  # Sets System.Description to HTML format
+)
 ```
 
 ### 2. Iteration Path Formats
@@ -85,16 +88,17 @@ update_work_item(work_item_id, fields={"System.IterationPath": iteration})
 - `Microsoft.VSTS.Scheduling.StoryPoints` (correct)
 
 ### 4. Project Names with Spaces
-**Learning**: Project names with spaces must be quoted in CLI commands.
+**Learning**: Project names with spaces must be properly URL-encoded in REST API requests.
 
-**Solution**: CLI wrapper handles quoting automatically.
+**Solution**: REST API wrapper handles URL encoding automatically.
 
-### 5. File Attachments
-**Learning**: Azure CLI doesn't support file attachments directly.
+### 5. File Attachments and Markdown
+**Learning**: File attachments and markdown descriptions require REST API endpoints.
 
-**Solution**: Use Azure DevOps REST API via `attach_file_to_work_item()`:
-1. Upload file to attachments endpoint
-2. Link attachment to work item via PATCH operation
+**Solution**: Use Azure DevOps REST API via wrapper methods:
+1. `attach_file_to_work_item()`: Upload file to attachments endpoint, link to work item
+2. `create_work_item(markdown_format=True)`: Sets HTML format for description fields
+3. Both operations use direct REST API calls with proper content-type headers
 
 ## Usage Examples
 
@@ -271,18 +275,25 @@ Generic work item types map to Azure DevOps types:
 
 ## Authentication
 
-Uses Azure CLI credentials:
-```bash
-# Login to Azure
-az login
+Uses Personal Access Token (PAT) for Azure DevOps REST API v7.1:
 
-# Configure Azure DevOps
-az devops configure --defaults organization=https://dev.azure.com/myorg project=MyProject
+```bash
+# Set PAT token as environment variable
+export AZURE_DEVOPS_EXT_PAT=your_personal_access_token
 ```
 
-Or set environment variable:
-```bash
-export AZURE_DEVOPS_EXT_PAT=your_personal_access_token
+**PAT Token Creation:**
+1. Go to Azure DevOps → User Settings → Personal Access Tokens
+2. Create new token with scopes: Work Items (Read, Write, Manage)
+3. Copy token and set as environment variable
+
+**Configuration in `.claude/config.yaml`:**
+```yaml
+work_tracking:
+  platform: "azure-devops"
+  organization: "https://dev.azure.com/myorg"
+  project: "MyProject"
+  credentials_source: "env:AZURE_DEVOPS_EXT_PAT"
 ```
 
 ## Testing

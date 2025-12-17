@@ -403,12 +403,72 @@ agent_config:
 4. Use `trustable-ai validate` to check configuration
 5. Test individual agents before running full workflows
 
+## Work Tracking Adapter Usage (CRITICAL)
+
+**⚠️ MANDATORY: Always use the work tracking adapter, NEVER use `az boards` CLI directly**
+
+### Why Use the Adapter
+- **Platform abstraction**: Works with Azure DevOps, file-based, Jira, GitHub Issues
+- **Type safety**: Consistent interface across all platforms
+- **Testability**: Mockable for unit tests
+- **REST API**: Direct API calls, no CLI subprocess overhead
+- **Error handling**: Unified error handling and retry logic
+- **Programmatic**: Python-native, not shell commands
+
+### Correct Usage Pattern
+
+```python
+# ✅ CORRECT: Use the adapter
+import sys
+sys.path.insert(0, '.claude/skills')
+from work_tracking import get_adapter
+from workflows.utilities import (
+    analyze_sprint,
+    verify_work_item_states,
+    get_recent_activity,
+    identify_blockers
+)
+
+adapter = get_adapter()
+items = adapter.query_sprint_work_items("Sprint 6")
+sprint_stats = analyze_sprint(adapter, "Sprint 6")
+```
+
+```bash
+# ❌ INCORRECT: Do not use az boards CLI
+az boards work-item show --id 1234  # DEPRECATED
+az boards query                      # DEPRECATED
+```
+
+### Available Adapter Methods
+- `create_work_item()`: Create work items
+- `get_work_item()`: Get work item by ID
+- `update_work_item()`: Update work item fields
+- `query_work_items()`: Query with filters
+- `query_sprint_work_items()`: Get all items in sprint
+- `list_sprints()`: List available sprints
+- `link_work_items()`: Create parent-child relationships
+
+### Available Workflow Utilities
+- `analyze_sprint(adapter, sprint_name)`: Comprehensive sprint analysis
+- `verify_work_item_states(adapter, items)`: External source of truth verification
+- `get_recent_activity(adapter, sprint_name, hours)`: Recent changes
+- `identify_blockers(adapter, sprint_name, stale_threshold_days)`: Blocker detection
+
+### Exception: Pre-Approved Commands Only
+The only `az boards` commands allowed are those explicitly listed in `.claude/settings.local.json` under approved commands. These are limited to:
+- Read-only operations: `az boards work-item show`, `az boards query`
+- Status checks: `az boards work-item list`
+
+**Even for these, prefer the adapter when possible.**
+
 ## Important Notes
 
 - **Work Tracking Platforms:** Framework supports multiple platforms (Azure DevOps, file-based, extensible to Jira/GitHub)
-  - Azure DevOps: Uses Azure CLI credentials (`az login` required)
+  - Azure DevOps: Adapter uses REST API v7.1 with PAT token authentication (no CLI required)
   - File-based: Zero dependencies, local YAML files
   - Platform-specific configuration in `.claude/config.yaml`
+  - **Always use the adapter**, not direct CLI commands
 - **State Persistence:** Workflow state is persisted to disk. Clean up old state files periodically with `trustable-ai state cleanup`.
 - **Token Budgets:** Context loaders respect token budgets. Adjust `max_tokens` parameter based on workflow needs.
 - **Template Customization:** After `trustable-ai init`, templates are copied to project's `.claude/` directory for customization.
