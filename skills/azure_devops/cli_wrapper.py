@@ -720,38 +720,262 @@ class AzureCLI:
 
     # Pull Requests
 
+    def _get_repository_id(self, repository_name: Optional[str] = None) -> str:
+        """
+        Get repository ID by name using REST API.
+
+        Args:
+            repository_name: Repository name. If not provided, uses project name.
+
+        Returns:
+            Repository ID (GUID)
+
+        Raises:
+            Exception: If repository not found (404) or request fails
+        """
+        project = self._get_project()
+        repo_name = repository_name or project
+
+        endpoint = f"{project}/_apis/git/repositories/{repo_name}"
+        params = {"api-version": "7.1"}
+
+        try:
+            result = self._make_request("GET", endpoint, params=params)
+            return result.get("id")
+        except Exception as e:
+            error_msg = str(e)
+            if "404" in error_msg:
+                raise Exception(
+                    f"Repository '{repo_name}' not found in project '{project}'. "
+                    f"Verify the repository name exists in Azure DevOps."
+                ) from e
+            elif "401" in error_msg or "403" in error_msg:
+                raise AuthenticationError(
+                    f"Authentication failed when getting repository '{repo_name}'. "
+                    f"Verify your Azure DevOps PAT token is valid and has Code (Read) scope."
+                ) from e
+            else:
+                raise Exception(
+                    f"Failed to get repository '{repo_name}': {error_msg}"
+                ) from e
+
+    def _get_current_user_id(self) -> str:
+        """
+        Get the current authenticated user's ID for use as reviewer.
+
+        Returns:
+            User ID (GUID) of the authenticated user
+
+        Raises:
+            AuthenticationError: If authentication fails or user info unavailable
+        """
+        # Use the Connection Data API to get current user info
+        # This endpoint returns information about the authenticated user
+        endpoint = "_apis/connectionData"
+        params = {"api-version": "7.1-preview"}
+
+        try:
+            result = self._make_request("GET", endpoint, params=params)
+            authenticated_user = result.get("authenticatedUser", {})
+            user_id = authenticated_user.get("id")
+
+            if not user_id:
+                raise AuthenticationError(
+                    "Could not determine authenticated user ID. "
+                    "Verify your Azure DevOps PAT token is valid."
+                )
+
+            return user_id
+        except Exception as e:
+            if isinstance(e, AuthenticationError):
+                raise
+            error_msg = str(e)
+            if "401" in error_msg or "403" in error_msg:
+                raise AuthenticationError(
+                    "Authentication failed when getting current user info. "
+                    "Verify your Azure DevOps PAT token is valid."
+                ) from e
+            else:
+                raise AuthenticationError(
+                    f"Failed to get current user info: {error_msg}"
+                ) from e
+
     def create_pull_request(
         self,
         source_branch: str,
         title: str,
         description: str,
         work_item_ids: Optional[List[int]] = None,
-        reviewers: Optional[List[str]] = None
+        reviewers: Optional[List[str]] = None,
+        target_branch: str = "main",
+        repository_name: Optional[str] = None
     ) -> Dict:
-        """Create a pull request."""
-        cmd = [
-            'az', 'repos', 'pr', 'create',
-            '--source-branch', source_branch,
-            '--target-branch', 'main',
-            '--title', title,
-            '--description', description
-        ]
+        """
+        Create a pull request using Azure DevOps REST API.
 
+        Args:
+            source_branch: Source branch name (e.g., "feature/my-feature")
+            title: Pull request title
+            description: Pull request description (supports markdown)
+            work_item_ids: List of work item IDs to link to the PR
+            reviewers: List of reviewer IDs (GUIDs) or email addresses
+            target_branch: Target branch name (default: "main")
+            repository_name: Repository name. If not provided, uses project name.
+
+        Returns:
+            Dict containing:
+            - id: Pull request ID
+            - url: Pull request URL
+            - status: PR status (e.g., "active")
+            - sourceRefName: Source branch ref
+            - targetRefName: Target branch ref
+            - title: PR title
+            - description: PR description
+            - createdBy: User who created the PR
+            - creationDate: Creation timestamp
+
+        Raises:
+            Exception: If repository or branch not found (404)
+            AuthenticationError: If authentication fails (401/403)
+            Exception: For other API errors (400, etc.)
+
+        Example:
+            >>> cli.create_pull_request(
+            ...     source_branch="feature/new-feature",
+            ...     title="Add new feature",
+            ...     description="This PR adds...",
+            ...     work_item_ids=[1234, 1235],
+            ...     reviewers=["user@example.com"]
+            ... )
+            {'id': 42, 'url': 'https://dev.azure.com/org/project/_git/repo/pullrequest/42', ...}
+        """
+        project = self._get_project()
+
+        # Get repository ID
+        repository_id = self._get_repository_id(repository_name)
+
+        # Build PR creation body
+        # Branch refs must be in format "refs/heads/{branch_name}"
+        source_ref = source_branch if source_branch.startswith("refs/") else f"refs/heads/{source_branch}"
+        target_ref = target_branch if target_branch.startswith("refs/") else f"refs/heads/{target_branch}"
+
+        pr_body: Dict[str, Any] = {
+            "sourceRefName": source_ref,
+            "targetRefName": target_ref,
+            "title": title,
+            "description": description
+        }
+
+        # Add work item references if provided
         if work_item_ids:
-            cmd.extend(['--work-items'] + [str(wid) for wid in work_item_ids])
+            pr_body["workItemRefs"] = [{"id": str(wid)} for wid in work_item_ids]
+
+        # Add reviewers if provided
         if reviewers:
-            cmd.extend(['--reviewers'] + reviewers)
+            pr_body["reviewers"] = [{"id": reviewer} for reviewer in reviewers]
 
-        return self._run_command(cmd)
+        # REST API endpoint for PR creation
+        endpoint = f"{project}/_apis/git/repositories/{repository_id}/pullrequests"
+        params = {"api-version": "7.1"}
 
-    def approve_pull_request(self, pr_id: int) -> Dict:
-        """Approve a pull request."""
-        cmd = [
-            'az', 'repos', 'pr', 'set-vote',
-            '--id', str(pr_id),
-            '--vote', 'approve'
-        ]
-        return self._run_command(cmd)
+        try:
+            result = self._make_request("POST", endpoint, data=pr_body, params=params)
+            return result
+        except Exception as e:
+            error_msg = str(e)
+            if "404" in error_msg:
+                raise Exception(
+                    f"Repository or branch not found. "
+                    f"Verify repository '{repository_name or project}' exists and "
+                    f"branches '{source_branch}' and '{target_branch}' are valid."
+                ) from e
+            elif "401" in error_msg or "403" in error_msg:
+                raise AuthenticationError(
+                    f"Authentication failed when creating pull request. "
+                    f"Verify your Azure DevOps PAT token is valid and has Code (Read & Write) scope."
+                ) from e
+            elif "400" in error_msg:
+                raise Exception(
+                    f"Invalid pull request parameters. "
+                    f"Check source branch '{source_branch}', target branch '{target_branch}', "
+                    f"and reviewer IDs. Error: {error_msg}"
+                ) from e
+            else:
+                raise Exception(
+                    f"Failed to create pull request: {error_msg}"
+                ) from e
+
+    def approve_pull_request(
+        self,
+        pr_id: int,
+        repository_name: Optional[str] = None
+    ) -> Dict:
+        """
+        Approve a pull request using Azure DevOps REST API.
+
+        Sets the current authenticated user's vote to 10 (Approved).
+
+        Vote values:
+        - 10: Approved
+        - 5: Approved with suggestions
+        - 0: No vote
+        - -5: Waiting for author
+        - -10: Rejected
+
+        Args:
+            pr_id: Pull request ID
+            repository_name: Repository name. If not provided, uses project name.
+
+        Returns:
+            Dict containing reviewer vote details:
+            - id: Reviewer ID
+            - vote: Vote value (10 for Approved)
+            - displayName: Reviewer display name
+            - uniqueName: Reviewer unique name
+
+        Raises:
+            Exception: If PR not found (404)
+            AuthenticationError: If authentication fails (401/403)
+            Exception: For other API errors
+
+        Example:
+            >>> cli.approve_pull_request(pr_id=42)
+            {'id': 'user-guid', 'vote': 10, 'displayName': 'User Name', ...}
+        """
+        project = self._get_project()
+
+        # Get repository ID
+        repository_id = self._get_repository_id(repository_name)
+
+        # Get current user ID for reviewer
+        reviewer_id = self._get_current_user_id()
+
+        # Build approval body - vote 10 = Approved
+        vote_body = {"vote": 10}
+
+        # REST API endpoint for setting reviewer vote
+        endpoint = f"{project}/_apis/git/repositories/{repository_id}/pullrequests/{pr_id}/reviewers/{reviewer_id}"
+        params = {"api-version": "7.1"}
+
+        try:
+            result = self._make_request("PUT", endpoint, data=vote_body, params=params)
+            return result
+        except Exception as e:
+            error_msg = str(e)
+            if "404" in error_msg:
+                raise Exception(
+                    f"Pull request {pr_id} not found in repository '{repository_name or project}'. "
+                    f"Verify the pull request ID exists."
+                ) from e
+            elif "401" in error_msg or "403" in error_msg:
+                raise AuthenticationError(
+                    f"Authentication failed when approving pull request {pr_id}. "
+                    f"Verify your Azure DevOps PAT token is valid and has Code (Read & Write) scope."
+                ) from e
+            else:
+                raise Exception(
+                    f"Failed to approve pull request {pr_id}: {error_msg}"
+                ) from e
 
     # Pipelines
 
