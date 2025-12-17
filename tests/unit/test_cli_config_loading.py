@@ -379,12 +379,11 @@ class TestConfigErrorHandling:
 
 @pytest.mark.unit
 class TestNoSubprocessCalls:
-    """Test that no subprocess calls to 'az devops configure' are made."""
+    """Test that no subprocess calls to 'az devops configure' are made (subprocess removed in Sprint 7)."""
 
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
     @patch('skills.azure_devops.cli_wrapper.load_config')
-    def test_no_subprocess_calls_during_init(self, mock_load_config, mock_subprocess):
-        """Test that AzureCLI.__init__() does not call subprocess for config."""
+    def test_no_subprocess_calls_during_init(self, mock_load_config):
+        """Test that AzureCLI.__init__() uses pure Python config loading (no subprocess)."""
         from skills.azure_devops.cli_wrapper import AzureCLI
 
         # Mock framework config
@@ -396,17 +395,16 @@ class TestNoSubprocessCalls:
         # Create AzureCLI instance
         cli = AzureCLI()
 
-        # Verify subprocess.run was NOT called
-        mock_subprocess.assert_not_called()
-
-        # Verify configuration loaded correctly
+        # Verify configuration loaded correctly via Python (not subprocess)
         assert cli._config['organization'] == "https://dev.azure.com/testorg"
         assert cli._config['project'] == "TestProject"
 
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
+        # Verify load_config was called (Python-based config loading)
+        mock_load_config.assert_called_once()
+
     @patch('skills.azure_devops.cli_wrapper.load_config')
-    def test_no_az_devops_configure_calls(self, mock_load_config, mock_subprocess):
-        """Test that 'az devops configure' is never called."""
+    def test_no_az_devops_configure_calls(self, mock_load_config):
+        """Test that 'az devops configure' is never called (pure Python config)."""
         from skills.azure_devops.cli_wrapper import AzureCLI
 
         # Mock framework config
@@ -415,13 +413,15 @@ class TestNoSubprocessCalls:
         mock_config.work_tracking.project = "TestProject"
         mock_load_config.return_value = mock_config
 
-        # Create instance and call some methods
+        # Create instance - should use Python config loading only
         cli = AzureCLI()
 
-        # Verify no subprocess calls were made with 'az devops configure'
-        for call in mock_subprocess.call_args_list:
-            args = call[0][0] if call[0] else []
-            assert 'configure' not in args, "Found subprocess call with 'configure' command"
+        # Verify configuration loaded via Python (load_config called)
+        mock_load_config.assert_called_once()
+
+        # Verify config values match expected
+        assert cli._config['organization'] == "https://dev.azure.com/testorg"
+        assert cli._config['project'] == "TestProject"
 
 
 @pytest.mark.unit

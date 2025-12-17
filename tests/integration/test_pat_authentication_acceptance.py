@@ -22,19 +22,12 @@ import base64
 class TestAcceptanceCriteria:
     """Test all acceptance criteria for Feature #1136."""
 
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_ac1_pat_token_loading_functions_implemented(self, mock_run):
+    def test_ac1_pat_token_loading_functions_implemented(self):
         """
         AC1: PAT token loading functions implemented:
         _load_pat_from_env(), _load_pat_from_config(), _validate_pat_token()
         """
         from skills.azure_devops.cli_wrapper import AzureCLI
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         cli = AzureCLI()
 
@@ -58,19 +51,12 @@ class TestAcceptanceCriteria:
         assert cli._validate_pat_token(test_token) is True
         assert cli._validate_pat_token("short") is False
 
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_ac2_token_caching_implemented(self, mock_run):
+    def test_ac2_token_caching_implemented(self):
         """
         AC2: Token caching implemented with _cached_token attribute
         and _get_cached_or_load_token() method
         """
         from skills.azure_devops.cli_wrapper import AzureCLI
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         cli = AzureCLI()
 
@@ -94,19 +80,13 @@ class TestAcceptanceCriteria:
                 cached_token = cli._get_cached_or_load_token()
                 assert cached_token == test_token
 
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_ac3_get_auth_token_uses_pat_not_subprocess(self, mock_run):
+    def test_ac3_get_auth_token_uses_pat_not_subprocess(self):
         """
         AC3: _get_auth_token() method modified to remove subprocess call
         and use PAT authentication
         """
         from skills.azure_devops.cli_wrapper import AzureCLI
 
-        # Mock config check only
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         test_token = "abcd1234efgh5678ijkl9012mnop3456qrst7890uvwx1234yzab"
 
@@ -127,19 +107,13 @@ class TestAcceptanceCriteria:
                 call_args = call[0][0] if call[0] else []
                 assert 'get-access-token' not in call_args
 
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_ac4_authentication_error_implemented(self, mock_run):
+    def test_ac4_authentication_error_implemented(self):
         """
         AC4: AuthenticationError exception implemented with user-friendly
         message and PAT generation link
         """
         from skills.azure_devops.cli_wrapper import AzureCLI, AuthenticationError
 
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/myorg\nproject=Test"
-        mock_run.return_value = mock_config
 
         # Verify AuthenticationError exists
         assert AuthenticationError is not None
@@ -164,19 +138,12 @@ class TestAcceptanceCriteria:
                 assert "https://dev.azure.com/myorg" in error_msg
 
     @patch('skills.azure_devops.cli_wrapper.requests.request')
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_ac5_all_rest_api_calls_use_pat_auth(self, mock_run, mock_request):
+    def test_ac5_all_rest_api_calls_use_pat_auth(self, mock_request):
         """
         AC5: All REST API calls in AzureDevOpsAdapter use PAT authentication
         (Authorization: Basic header)
         """
         from skills.azure_devops.cli_wrapper import AzureCLI
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         # Mock API responses
         def create_mock_response(data):
@@ -269,18 +236,11 @@ class TestEndToEndPATAuthentication:
     """End-to-end tests for PAT authentication flow."""
 
     @patch('skills.azure_devops.cli_wrapper.requests.request')
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_e2e_environment_variable_authentication(self, mock_run, mock_request):
+    def test_e2e_environment_variable_authentication(self, mock_request):
         """
         End-to-end test: Load PAT from environment variable and make API call.
         """
         from skills.azure_devops.cli_wrapper import AzureCLI
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         # Mock successful API response
         mock_response = Mock()
@@ -305,21 +265,14 @@ class TestEndToEndPATAuthentication:
             assert auth_header == expected_auth
 
     @patch('skills.azure_devops.cli_wrapper.requests.request')
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
     @patch('builtins.open', create=True)
     @patch('pathlib.Path.exists')
-    def test_e2e_config_file_authentication(self, mock_exists, mock_file, mock_run, mock_request):
+    def test_e2e_config_file_authentication(self, mock_exists, mock_file, mock_request):
         """
         End-to-end test: Load PAT from config file and make API call.
         """
         from skills.azure_devops.cli_wrapper import AzureCLI
         from unittest.mock import mock_open
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         # Mock successful API response
         mock_response = Mock()
@@ -354,18 +307,12 @@ work_tracking:
             expected_auth = f"Basic {base64.b64encode(f':{test_token}'.encode()).decode()}"
             assert auth_header == expected_auth
 
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_e2e_missing_token_error_flow(self, mock_run):
+    def test_e2e_missing_token_error_flow(self):
         """
         End-to-end test: Missing token raises helpful error.
         """
         from skills.azure_devops.cli_wrapper import AzureCLI, AuthenticationError
 
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/mycompany\nproject=MyProject"
-        mock_run.return_value = mock_config
 
         # No token available
         with patch.dict(os.environ, {}, clear=True):
@@ -383,18 +330,11 @@ work_tracking:
                 assert "https://dev.azure.com/mycompany/_usersSettings/tokens" in error_msg
 
     @patch('skills.azure_devops.cli_wrapper.requests.request')
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_e2e_token_caching_across_multiple_calls(self, mock_run, mock_request):
+    def test_e2e_token_caching_across_multiple_calls(self, mock_request):
         """
         End-to-end test: Token is cached and reused across multiple API calls.
         """
         from skills.azure_devops.cli_wrapper import AzureCLI
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         # Mock API responses
         mock_response = Mock()

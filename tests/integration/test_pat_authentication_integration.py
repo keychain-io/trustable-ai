@@ -17,16 +17,9 @@ class TestPATAuthenticationRESTAPI:
     """Test REST API calls with PAT authentication."""
 
     @patch('skills.azure_devops.cli_wrapper.requests.request')
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_make_request_uses_pat_authentication(self, mock_run, mock_request):
+    def test_make_request_uses_pat_authentication(self, mock_request):
         """Test that _make_request uses PAT token in Basic authentication header."""
         from skills.azure_devops.cli_wrapper import AzureCLI
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         # Mock successful API response
         mock_response = Mock()
@@ -61,16 +54,9 @@ class TestPATAuthenticationRESTAPI:
             assert decoded_auth == f":{test_token}"
 
     @patch('skills.azure_devops.cli_wrapper.requests.request')
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_get_work_item_with_pat_auth(self, mock_run, mock_request):
+    def test_get_work_item_with_pat_auth(self, mock_request):
         """Test get_work_item uses PAT authentication."""
         from skills.azure_devops.cli_wrapper import AzureCLI
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         # Mock work item response
         mock_response = Mock()
@@ -97,16 +83,9 @@ class TestPATAuthenticationRESTAPI:
             assert auth_header.startswith('Basic ')
 
     @patch('skills.azure_devops.cli_wrapper.requests.request')
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_create_work_item_with_pat_auth(self, mock_run, mock_request):
+    def test_create_work_item_with_pat_auth(self, mock_request):
         """Test create_work_item uses PAT authentication."""
         from skills.azure_devops.cli_wrapper import AzureCLI
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         # Mock create response
         mock_response = Mock()
@@ -139,16 +118,9 @@ class TestPATAuthenticationRESTAPI:
             assert call_kwargs['headers']['Content-Type'] == 'application/json-patch+json'
 
     @patch('skills.azure_devops.cli_wrapper.requests.request')
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_query_work_items_with_pat_auth(self, mock_run, mock_request):
+    def test_query_work_items_with_pat_auth(self, mock_request):
         """Test query_work_items uses PAT authentication."""
         from skills.azure_devops.cli_wrapper import AzureCLI
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         # Mock query response (returns IDs)
         mock_query_response = Mock()
@@ -195,16 +167,9 @@ class TestPATAuthenticationErrorHandling:
     """Test error handling with PAT authentication."""
 
     @patch('skills.azure_devops.cli_wrapper.requests.request')
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_authentication_failure_401_response(self, mock_run, mock_request):
+    def test_authentication_failure_401_response(self, mock_request):
         """Test that 401 response indicates authentication failure."""
         from skills.azure_devops.cli_wrapper import AzureCLI
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         # Mock 401 unauthorized response
         mock_response = Mock()
@@ -222,16 +187,9 @@ class TestPATAuthenticationErrorHandling:
 
             assert "401" in str(excinfo.value)
 
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_no_token_raises_authentication_error(self, mock_run):
+    def test_no_token_raises_authentication_error(self):
         """Test that missing token raises AuthenticationError."""
         from skills.azure_devops.cli_wrapper import AzureCLI, AuthenticationError
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         with patch.dict(os.environ, {}, clear=True):
             with patch('pathlib.Path.exists', return_value=False):
@@ -245,16 +203,9 @@ class TestPATAuthenticationErrorHandling:
 class TestPATAuthenticationMultipleSources:
     """Test PAT authentication from multiple sources with priority."""
 
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
-    def test_env_var_takes_priority_over_config(self, mock_run):
+    def test_env_var_takes_priority_over_config(self):
         """Test that AZURE_DEVOPS_EXT_PAT env var takes priority over config."""
         from skills.azure_devops.cli_wrapper import AzureCLI
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         env_token = "envtoken1234567890abcdefghijklmnopqrstuvwxyz1234"
         config_token = "configtoken1234567890abcdefghijklmnopqrstuv1234"
@@ -274,19 +225,12 @@ work_tracking:
                     # Should use env var, not config
                     assert token == env_token
 
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
     @patch('builtins.open', create=True)
     @patch('pathlib.Path.exists')
-    def test_config_used_when_env_not_set(self, mock_exists, mock_file, mock_run):
+    def test_config_used_when_env_not_set(self, mock_exists, mock_file):
         """Test that config is used when AZURE_DEVOPS_EXT_PAT not set."""
         from skills.azure_devops.cli_wrapper import AzureCLI
         from unittest.mock import mock_open
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         mock_exists.return_value = True
 
@@ -316,19 +260,12 @@ class TestPATAuthenticationAttachments:
 
     @patch('skills.azure_devops.cli_wrapper.requests.post')
     @patch('skills.azure_devops.cli_wrapper.requests.patch')
-    @patch('skills.azure_devops.cli_wrapper.subprocess.run')
     @patch('builtins.open', create=True)
-    def test_attach_file_uses_pat_auth(self, mock_file, mock_run, mock_patch, mock_post):
+    def test_attach_file_uses_pat_auth(self, mock_file, mock_patch, mock_post):
         """Test that attach_file_to_work_item uses PAT authentication."""
         from skills.azure_devops.cli_wrapper import AzureCLI
         from pathlib import Path
         from unittest.mock import mock_open
-
-        # Mock config check
-        mock_config = Mock()
-        mock_config.returncode = 0
-        mock_config.stdout = "organization=https://dev.azure.com/test\nproject=Test"
-        mock_run.return_value = mock_config
 
         # Mock file upload response
         upload_response = Mock()
