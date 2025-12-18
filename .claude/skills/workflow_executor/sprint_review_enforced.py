@@ -55,17 +55,19 @@ class SprintReviewEnforcer:
     4. Comprehensive audit trail - All steps logged
     """
 
-    def __init__(self, sprint_name: str, use_claude_api: bool = False):
+    def __init__(self, sprint_name: str, use_claude_api: bool = False, interactive: bool = False):
         """
         Initialize the sprint review enforcer.
 
         Args:
             sprint_name: Name of sprint to review (e.g., "Sprint 7")
             use_claude_api: If True, use Claude API for AI analysis
-                           If False, use simplified local analysis
+            interactive: If True, use interactive Claude in current session
+                        (for Claude Code - uses subscription, not API)
         """
         self.sprint_name = sprint_name
         self.use_claude_api = use_claude_api
+        self.interactive = interactive
         self.steps_completed: List[str] = []
         self.step_evidence: Dict[str, Any] = {}
         self.start_time = datetime.now()
@@ -329,10 +331,10 @@ class SprintReviewEnforcer:
         print("👥 STEP 5: Multi-Agent Review")
         print(f"{'─' * 70}")
 
-        # This is where we'd call Claude API for real agent reviews
-        # For POC, we'll do simplified local analysis
-
-        if self.claude_client:
+        if self.interactive:
+            print("Using INTERACTIVE CLAUDE for agent reviews...")
+            reviews = self._interactive_reviews()
+        elif self.claude_client:
             print("Using Claude API for agent reviews...")
             reviews = self._claude_api_reviews()
         else:
@@ -346,6 +348,83 @@ class SprintReviewEnforcer:
         self.step_evidence[step_id] = reviews
         self.steps_completed.append(step_id)
         print(f"✅ Step 5 complete - All reviews done")
+
+    def _interactive_reviews(self) -> Dict[str, Any]:
+        """Request analysis from interactive Claude in the current session."""
+
+        # Prepare analysis request data
+        analysis_request = {
+            "sprint": self.sprint_name,
+            "timestamp": datetime.now().isoformat(),
+            "metrics": self.step_evidence.get("1-metrics", {}),
+            "analysis": self.step_evidence.get("2-analysis", {}),
+            "epics": self.step_evidence.get("3-epics", {}),
+            "tests": self.step_evidence.get("4-tests", {}),
+            "request": "Please provide QA, Security, and Engineering reviews for this sprint"
+        }
+
+        # Write request to file for Claude to analyze
+        request_file = Path(".claude/workflow-state/sprint-review-analysis-request.json")
+        request_file.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(request_file, 'w', encoding='utf-8') as f:
+            json.dump(analysis_request, f, indent=2)
+
+        print(f"\n📋 Analysis request written to: {request_file}")
+        print("\n" + "=" * 70)
+        print("WAITING FOR CLAUDE'S ANALYSIS")
+        print("=" * 70)
+        print("\nClaude, please analyze the sprint data and provide:")
+        print("1. QA Review (recommendation: APPROVE/BLOCK, notes)")
+        print("2. Security Review (recommendation: APPROVE/BLOCK, score)")
+        print("3. Engineering Review (recommendation: APPROVE/CONDITIONAL, readiness)")
+        print(f"\nSprint data: {request_file}")
+        print("\nWrite your analysis to:")
+        print("  .claude/workflow-state/sprint-review-analysis-response.json")
+        print("\nFormat:")
+        print('''{
+  "qa": {"recommendation": "APPROVE", "notes": "..."},
+  "security": {"recommendation": "APPROVE", "score": "5/5"},
+  "engineering": {"recommendation": "APPROVE", "readiness": "9.5/10"}
+}''')
+        print("\n" + "=" * 70)
+
+        # Wait for Claude to write the response
+        response_file = Path(".claude/workflow-state/sprint-review-analysis-response.json")
+
+        print("\n⏸️  Waiting for analysis response...")
+        print(f"   Watching for: {response_file}")
+
+        # Poll for response file (with timeout)
+        import time
+        timeout = 300  # 5 minutes
+        start = time.time()
+
+        while not response_file.exists():
+            if time.time() - start > timeout:
+                print("\n⚠️  Timeout waiting for analysis - using fallback")
+                return self._local_reviews()
+
+            time.sleep(2)  # Check every 2 seconds
+            print(".", end="", flush=True)
+
+        print("\n✓ Analysis response received!")
+
+        # Read Claude's analysis
+        try:
+            with open(response_file, 'r', encoding='utf-8') as f:
+                reviews = json.load(f)
+
+            # Clean up files
+            response_file.unlink()
+            request_file.unlink()
+
+            return reviews
+
+        except Exception as e:
+            print(f"\n⚠️  Error reading analysis: {e}")
+            print("   Using fallback analysis")
+            return self._local_reviews()
 
     def _claude_api_reviews(self) -> Dict[str, Any]:
         """Use Claude API for agent reviews."""
@@ -390,6 +469,11 @@ class SprintReviewEnforcer:
 
         reviews = self.step_evidence.get("5-reviews", {})
         metrics = self.step_evidence.get("1-metrics", {})
+
+        if self.interactive:
+            # In interactive mode, Step 5 already got Claude's reviews
+            # Step 6 can be simple synthesis
+            print("Synthesizing Claude's reviews...")
 
         # Synthesize recommendation from reviews
         all_approve = all(
@@ -620,13 +704,19 @@ def main():
         action="store_true",
         help="Use Claude API for AI analysis (requires ANTHROPIC_API_KEY)"
     )
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Use interactive Claude in current session (for Claude Code - uses subscription)"
+    )
 
     args = parser.parse_args()
 
     # Create enforcer and execute
     enforcer = SprintReviewEnforcer(
         sprint_name=args.sprint,
-        use_claude_api=args.use_api
+        use_claude_api=args.use_api,
+        interactive=args.interactive
     )
 
     success = enforcer.execute()

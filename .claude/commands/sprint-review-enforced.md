@@ -32,7 +32,7 @@ I'm now executing the external enforcement script. You'll see:
 **IMPORTANT**: When you see the approval prompt, you must type your response directly in the terminal. The script will wait for your input - this is a genuine blocking gate that I cannot bypass.
 
 ```bash
-python3 .claude/skills/workflow_executor/sprint_review_enforced.py --sprint "{{sprint_name}}"
+python3 .claude/skills/workflow_executor/sprint_review_enforced.py --sprint "{{sprint_name}}" --interactive
 ```
 
 This demonstrates the breakthrough design: **Combining Claude's reasoning with external enforcement creates reliable, trustworthy AI-assisted development.**
