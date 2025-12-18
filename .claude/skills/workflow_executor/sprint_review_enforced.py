@@ -42,7 +42,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 # Import work tracking adapter
 sys.path.insert(0, '.claude/skills')
 from work_tracking import get_adapter
-from workflows.utilities import analyze_sprint, verify_work_item_states
 
 
 class SprintReviewEnforcer:
@@ -83,7 +82,7 @@ class SprintReviewEnforcer:
         self.claude_client = None
         if use_claude_api:
             try:
-                from anthropic import Anthropic
+                from anthropic import Anthropic  # type: ignore
                 api_key = os.environ.get("ANTHROPIC_API_KEY")
                 if api_key:
                     self.claude_client = Anthropic(api_key=api_key)
@@ -490,6 +489,8 @@ class SprintReviewEnforcer:
 
         epic_info = self.step_evidence.get("3-epics", {})
         epics = epic_info.get("epics", [])
+
+        closure_info: Dict[str, Any] = {}
 
         if not self.adapter:
             print("⚠️  No adapter - cannot mark EPICs as Done")
