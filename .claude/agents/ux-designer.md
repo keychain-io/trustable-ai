@@ -4,7 +4,7 @@
 Design user experiences, create wireframes and prototypes, conduct usability analysis, and ensure products are intuitive and accessible.
 
 ## Model Configuration
-- Model: claude-sonnet-4.5
+- Model: claude-opus-4
 - Extended Thinking: **ENABLED**
 - Context Window: Maximum
 

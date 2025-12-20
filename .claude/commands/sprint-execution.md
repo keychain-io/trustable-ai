@@ -17,11 +17,12 @@
 │  SPRINT EXECUTION - Implementation & Monitoring                             │
 │                                                                             │
 │  IMPLEMENTATION CYCLE (for each task):                                     │
-│    1. /engineer → Implement code + unit tests                              │
-│    2. Run unit tests                                                       │
-│    3. /tester → Evaluate tests, run integration tests                      │
-│    4. If tests pass with high confidence → Auto-commit                     │
-│    5. Update work item status                                              │
+│    1. Select task → Mark as "In Progress"                                  │
+│    2. /engineer → Implement code + unit tests                              │
+│    3. Run unit tests                                                       │
+│    4. /tester → Evaluate tests, run integration tests                      │
+│    5. If tests pass with high confidence → Auto-commit                     │
+│    6. Update work item status to "Done"                                    │
 │                                                                             │
 │  MONITORING CYCLE (daily):                                                 │
 │    1. Collect sprint status data                                           │
@@ -87,7 +88,7 @@ For each task in the sprint, follow this cycle:
 ready_tasks = [
     item for item in sprint_items
     if item.get('state') in ['New', 'Approved', 'Ready']
-    and item.get('type') == 'Task'
+    and (item.get('type') or item.get('fields', {}).get('System.WorkItemType')) == 'Task'
 ]
 
 if not ready_tasks:
@@ -113,6 +114,116 @@ else:
         except (ValueError, IndexError):
             print("❌ Invalid selection, skipping implementation")
             selected_task = None
+```
+
+---
+
+### Step A1.5: Mark Task In Progress and Cascade to Parent Feature/Epic
+
+**IF A TASK IS SELECTED**, update its state to "In Progress" and cascade state to parent Feature and Epic:
+
+```python
+# Mark task as In Progress when work starts
+if selected_task:
+    try:
+        # Step 1: Update Task to "In Progress"
+        adapter.update_work_item(
+            work_item_id=selected_task['id'],
+            fields={
+                'System.State': 'In Progress',
+                'System.History': f"""Work started on this task.
+
+Assigned to implementation cycle.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+"""
+            }
+        )
+        print(f"✅ Updated task #{selected_task['id']} to In Progress")
+
+        # Step 2: Query Task for parent relations (cascade upward)
+        try:
+            task_details = adapter.get_work_item(selected_task['id'])
+            relations = task_details.get('relations', [])
+
+            # Find parent Feature (Hierarchy-Reverse)
+            parent_feature_id = None
+            for relation in relations:
+                if relation.get('rel') == 'System.LinkTypes.Hierarchy-Reverse':
+                    # Extract ID from URL: .../workitems/123
+                    url = relation.get('url', '')
+                    parent_feature_id = int(url.split('/')[-1])
+                    break
+
+            if parent_feature_id:
+                # Step 3: Update parent Feature to "In Progress" (if not already)
+                parent_feature = adapter.get_work_item(parent_feature_id)
+                parent_feature_state = parent_feature.get('fields', {}).get('System.State')
+                parent_feature_title = parent_feature.get('fields', {}).get('System.Title')
+
+                if parent_feature_state in ['New', 'To Do']:
+                    adapter.update_work_item(
+                        work_item_id=parent_feature_id,
+                        fields={
+                            'System.State': 'In Progress',
+                            'System.History': f"""Auto-updated to In Progress because child Task #{selected_task['id']} started.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+"""
+                        }
+                    )
+                    print(f"✅ Updated parent Feature #{parent_feature_id} ({parent_feature_title}) to In Progress")
+                else:
+                    print(f"ℹ️  Parent Feature #{parent_feature_id} already in state: {parent_feature_state}")
+
+                # Step 4: Query parent Feature for its parent Epic
+                parent_feature_relations = parent_feature.get('relations', [])
+                parent_epic_id = None
+
+                for relation in parent_feature_relations:
+                    if relation.get('rel') == 'System.LinkTypes.Hierarchy-Reverse':
+                        url = relation.get('url', '')
+                        parent_epic_id = int(url.split('/')[-1])
+                        break
+
+                if parent_epic_id:
+                    # Step 5: Update parent Epic to "In Progress" (if not already)
+                    parent_epic = adapter.get_work_item(parent_epic_id)
+                    parent_epic_state = parent_epic.get('fields', {}).get('System.State')
+                    parent_epic_title = parent_epic.get('fields', {}).get('System.Title')
+
+                    if parent_epic_state in ['New', 'To Do']:
+                        adapter.update_work_item(
+                            work_item_id=parent_epic_id,
+                            fields={
+                                'System.State': 'In Progress',
+                                'System.History': f"""Auto-updated to In Progress because child Feature #{parent_feature_id} started.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+"""
+                            }
+                        )
+                        print(f"✅ Updated parent Epic #{parent_epic_id} ({parent_epic_title}) to In Progress")
+                    else:
+                        print(f"ℹ️  Parent Epic #{parent_epic_id} already in state: {parent_epic_state}")
+                else:
+                    print(f"ℹ️  Parent Feature #{parent_feature_id} has no parent Epic")
+            else:
+                print(f"ℹ️  Task #{selected_task['id']} has no parent Feature")
+
+        except Exception as e:
+            print(f"⚠️ Failed to cascade state to parents: {e}")
+            print(f"   Task state updated, but parent state update failed. This is non-blocking.")
+
+    except Exception as e:
+        print(f"⚠️ Failed to update task state: {e}")
+        print(f"   Continuing with implementation anyway...")
 ```
 
 ---
@@ -257,6 +368,146 @@ Return JSON with:
 - Parse validation result JSON
 - Check confidence level
 - Handle test failures with fault attribution and bug creation
+
+---
+
+### Step A4.5: Generate and Attach Test Report
+
+**CRITICAL**: Regardless of test pass/fail, tester must generate and attach test report to Task work item.
+
+This implements the "External Source of Truth" pattern - test results must be persisted to the work tracking system.
+
+```python
+# Generate test report (pass or fail)
+if selected_task:
+    from datetime import datetime
+    from pathlib import Path
+
+    # Create test report directory
+    test_reports_dir = Path('.claude/test-reports')
+    test_reports_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate test report filename
+    task_id = selected_task['id']
+    timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+    report_filename = f"task-{task_id}-{timestamp}-test-report.md"
+    report_filepath = test_reports_dir / report_filename
+
+    # Build test report content
+    validation_status = validation_result.get('validation_status', 'unknown')
+    confidence = validation_result.get('confidence', 'unknown')
+    test_results = validation_result.get('test_results', {})
+    unit_tests_pass = test_results.get('unit_tests_pass', False)
+    integration_tests_pass = test_results.get('integration_tests_pass', False)
+    coverage_percent = test_results.get('coverage_percent', 0)
+    coverage_meets_standard = test_results.get('coverage_meets_standard', False)
+    issues_found = validation_result.get('issues_found', [])
+    recommendation = validation_result.get('recommendation', 'unknown')
+
+    report_content = f"""# Test Report: Task #{task_id}
+
+**Task**: {selected_task['title']}
+**Generated**: {datetime.now().isoformat()}
+
+## Test Results Summary
+
+- **Validation Status**: {validation_status.upper()}
+- **Confidence Level**: {confidence.upper()}
+- **Recommendation**: {recommendation.upper()}
+
+## Test Execution Results
+
+### Unit Tests
+- **Status**: {'✅ PASS' if unit_tests_pass else '❌ FAIL'}
+
+### Integration Tests
+- **Status**: {'✅ PASS' if integration_tests_pass else '❌ FAIL'}
+
+### Code Coverage
+- **Coverage**: {coverage_percent}%
+- **Meets Standard**: {'✅ YES (80%)' if coverage_meets_standard else '❌ NO (< 80%)'}
+
+## Issues Found
+
+"""
+
+    if issues_found:
+        for idx, issue in enumerate(issues_found, 1):
+            report_content += f"{idx}. {issue}\n"
+    else:
+        report_content += "No issues found.\n"
+
+    report_content += f"""
+
+## Test Validation Details
+
+{validation_result}
+
+---
+
+*Generated by sprint-execution workflow*
+*Test validation performed by /tester agent*
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+"""
+
+    # Write test report to file
+    try:
+        with open(report_filepath, 'w', encoding='utf-8') as f:
+            f.write(report_content)
+        print(f"✅ Generated test report: {report_filepath}")
+    except Exception as e:
+        print(f"⚠️ Failed to write test report: {e}")
+
+    # Attach test report to Task work item
+    try:
+        # Check if adapter supports file attachments (Azure DevOps)
+        if hasattr(adapter, 'attach_file_to_work_item'):
+            attach_result = adapter.attach_file_to_work_item(
+                work_item_id=task_id,
+                file_path=report_filepath,
+                comment=f"Test Report - {validation_status.upper()} - Generated {datetime.now().isoformat()}"
+            )
+
+            if attach_result.get('success'):
+                print(f"✅ Attached test report to Task #{task_id}")
+
+                # Verify attachment exists (external source of truth)
+                attachment_exists = adapter.verify_attachment_exists(task_id, report_filename)
+                if attachment_exists:
+                    print(f"✅ Verified: Test report attachment exists in Azure DevOps")
+                else:
+                    print(f"⚠️ Warning: Could not verify attachment existence")
+            else:
+                print(f"⚠️ Failed to attach test report: {attach_result.get('error', 'Unknown error')}")
+
+        else:
+            # File-based adapter: Add comment with test report path
+            adapter.add_comment(
+                work_item_id=task_id,
+                comment=f"""Test Report: {report_filepath}
+
+Test validation completed.
+- Status: {validation_status.upper()}
+- Confidence: {confidence.upper()}
+- Coverage: {coverage_percent}%
+- Recommendation: {recommendation.upper()}
+
+Full test report: {report_filepath}
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+"""
+            )
+            print(f"✅ Added test report comment to Task #{task_id}")
+
+    except Exception as e:
+        print(f"⚠️ Failed to attach/link test report: {e}")
+        print(f"   Test report saved locally at: {report_filepath}")
+```
 
 ---
 
@@ -416,12 +667,13 @@ Changes NOT committed. Review issues and re-run validation.
 
 ---
 
-### Step A6: Update Work Item Status
+### Step A6: Update Work Item Status and Cascade Feature Completion
 
 ```python
 # Update task status to Done (only if committed)
 if committed:
     try:
+        # Step 1: Update Task to Done
         adapter.update_work_item(
             work_item_id=selected_task['id'],
             fields={
@@ -439,6 +691,108 @@ Commit: {git_commit_hash}
             }
         )
         print(f"✅ Updated work item #{selected_task['id']} to Done")
+
+        # Step 2: Check if parent Feature should be marked Done
+        # Query Task for parent Feature
+        try:
+            task_details = adapter.get_work_item(selected_task['id'])
+            relations = task_details.get('relations', [])
+
+            # Find parent Feature (Hierarchy-Reverse)
+            parent_feature_id = None
+            for relation in relations:
+                if relation.get('rel') == 'System.LinkTypes.Hierarchy-Reverse':
+                    url = relation.get('url', '')
+                    parent_feature_id = int(url.split('/')[-1])
+                    break
+
+            if parent_feature_id:
+                # Step 3: Query all child Tasks of parent Feature
+                parent_feature = adapter.get_work_item(parent_feature_id)
+                parent_feature_title = parent_feature.get('fields', {}).get('System.Title')
+                parent_feature_relations = parent_feature.get('relations', [])
+
+                # Extract child Task IDs
+                child_task_ids = []
+                for relation in parent_feature_relations:
+                    if relation.get('rel') == 'System.LinkTypes.Hierarchy-Forward':
+                        url = relation.get('url', '')
+                        child_id = int(url.split('/')[-1])
+                        child_task_ids.append(child_id)
+
+                if child_task_ids:
+                    # Step 4: Query state of all child Tasks
+                    all_tasks_done = True
+                    tasks_done_count = 0
+                    tasks_not_done_count = 0
+
+                    for child_task_id in child_task_ids:
+                        try:
+                            child_task = adapter.get_work_item(child_task_id)
+                            child_task_state = child_task.get('fields', {}).get('System.State')
+                            child_task_title = child_task.get('fields', {}).get('System.Title')
+
+                            print(f"  Task #{child_task_id}: {child_task_title} - State: {child_task_state}")
+
+                            if child_task_state == 'Done':
+                                tasks_done_count += 1
+                            else:
+                                tasks_not_done_count += 1
+                                all_tasks_done = False
+
+                        except Exception as e:
+                            print(f"  ⚠️ Failed to query Task #{child_task_id}: {e}")
+                            all_tasks_done = False
+
+                    print(f"\n📊 Feature #{parent_feature_id} ({parent_feature_title})")
+                    print(f"  Total Tasks: {len(child_task_ids)}")
+                    print(f"  Tasks Done: {tasks_done_count}")
+                    print(f"  Tasks Not Done: {tasks_not_done_count}")
+
+                    # Step 5: If all Tasks Done, mark Feature Done
+                    if all_tasks_done:
+                        parent_feature_state = parent_feature.get('fields', {}).get('System.State')
+
+                        if parent_feature_state != 'Done':
+                            adapter.update_work_item(
+                                work_item_id=parent_feature_id,
+                                fields={
+                                    'System.State': 'Done',
+                                    'System.History': f"""Auto-updated to Done because all child Tasks are Done.
+
+Total Tasks: {len(child_task_ids)}
+Tasks Completed: {tasks_done_count}
+
+All acceptance criteria met and implementation complete.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+"""
+                                }
+                            )
+                            print(f"✅ Updated parent Feature #{parent_feature_id} ({parent_feature_title}) to Done")
+
+                            # Verify Feature state update (external source of truth)
+                            verify_feature = adapter.get_work_item(parent_feature_id)
+                            verify_state = verify_feature.get('fields', {}).get('System.State')
+                            if verify_state == 'Done':
+                                print(f"✅ Verified: Feature #{parent_feature_id} is Done in Azure DevOps")
+                            else:
+                                print(f"⚠️ Warning: Feature state verification failed - expected Done, got {verify_state}")
+                        else:
+                            print(f"ℹ️  Parent Feature #{parent_feature_id} already Done")
+                    else:
+                        print(f"ℹ️  Parent Feature #{parent_feature_id} not ready for completion ({tasks_not_done_count} Tasks remaining)")
+                else:
+                    print(f"ℹ️  Parent Feature #{parent_feature_id} has no child Tasks")
+            else:
+                print(f"ℹ️  Task #{selected_task['id']} has no parent Feature")
+
+        except Exception as e:
+            print(f"⚠️ Failed to check Feature completion: {e}")
+            print(f"   Task marked Done, but Feature completion check failed. This is non-blocking.")
+
     except Exception as e:
         print(f"⚠️ Failed to update work item: {e}")
         print(f"   Manual update required for #{selected_task['id']}")

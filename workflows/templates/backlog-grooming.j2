@@ -62,7 +62,8 @@ epics.extend([item for item in large_items if item not in epics])
 
 print(f"📦 Found {len(epics)} Epic-sized items requiring decomposition")
 for epic in epics:
-    print(f"  WI-{epic['id']}: {epic.get('title', 'Untitled')} [{epic.get('type', 'Unknown')}]")
+    epic_type = epic.get('type') or epic.get('fields', {}).get('System.WorkItemType', 'Unknown')
+    print(f"  WI-{epic['id']}: {epic.get('title', 'Untitled')} [{epic_type}]")
 ```
 
 **For each Epic, decompose into Features and Tasks:**
@@ -86,17 +87,40 @@ Analyze the following Epic and break it down into a hierarchy of Features and Ta
 
 ### Decomposition Requirements
 
-1. **Feature Extraction**: Identify 3-7 Features that comprise this Epic
-   - Each Feature should represent a cohesive capability that is measurable, testable, and valuable
+1. **Feature Extraction**: Identify Features that comprise this Epic
+   - Each Feature should represent the minimum logically-related functionality that requires at least 50 estimated hours (~1 week, ~10 story points) to complete in aggregate
+   - Features should be cohesive capabilities that are measurable, testable, and valuable
    - Features should be independently deliverable
-   - Estimate story points for each Feature (5-20 pts ideal)
+   - If remaining uncovered Epic functionality totals less than 50 hours, bundle the remaining functionality into one Feature
+   - Estimate story points for each Feature (minimum 10 pts, typically 10-30 pts)
 
 2. **Task Breakdown**: For each Feature, identify 2-5 Tasks that implement the Feature
    - Each Task should be a specific, actionable work item (1-5 story points)
    - Include implementation tasks, testing tasks, and deployment tasks
    - Tasks must have clear acceptance criteria
-   - Exactly one task should request the complete implementation of the Feature code and comprehensive tests, and it should contain enough context for an engineer to implement both the code and the tests solely based on the Task description and, if any, attachments. The Task should include detailed function specification of each testable technical task for an engineer to implement. The tests should be falsifiable and comprehensive relative to the scope and goals of the Feature. The test type and requirements should be project-stage aware, be labelled according to the project's test classification taxonomy, and be designed to provide evidence that the feature was implemented completely.
-   - Exactly one tasks should request the running of the tests created in the implementation task, collecting results, verifying falsifiable of the tests, confirming code coverage, and confirming feature coverage of the tests.
+   - Exactly one task should request the complete implementation of the Feature code and comprehensive tests. This Implementation Task should:
+     * Contain enough context for an engineer to implement both the code and the tests solely based on the Task description and attachments
+     * Include detailed function specification of each testable technical component
+     * Specify required test types:
+       - **Unit tests**: Test individual functions/methods in isolation with code coverage targets ({{ quality_standards.test_coverage_min }}% minimum)
+       - **Integration tests**: Test component interactions and external dependencies with code coverage targets
+       - **Edge-case whitebox testing**: Validate boundary conditions, error handling, and edge cases that black-box testing might miss
+       - **Acceptance tests**: Validate all acceptance criteria listed in the Feature are met
+     * Require tests to be falsifiable (tests must be able to detect actual failures, not just assert true)
+     * Require tests to be comprehensive relative to the scope and goals of the Feature
+     * Specify tests should be labeled according to the project's test classification taxonomy
+     * Require evidence that the feature was implemented completely
+   - Exactly one task should request validation of test quality and completeness. This Testing Task should:
+     * Validate presence of all required test types (unit, integration, edge-case, acceptance)
+     * Validate completeness of test coverage across all acceptance criteria from the Feature
+     * Validate falsifiability of tests by:
+       - Introducing intentional bugs/failures into the implementation
+       - Confirming tests detect these failures
+       - Removing the intentional bugs
+     * Confirm code coverage meets or exceeds {{ quality_standards.test_coverage_min }}% minimum
+     * Confirm feature coverage: all acceptance criteria have corresponding passing tests
+     * Run all tests and collect results
+     * Report verification results with evidence
    - Deployment tasks if Feature requires deployment
    - All Tasks should be non-overlapping and completable within one sprint
 
@@ -106,10 +130,12 @@ Analyze the following Epic and break it down into a hierarchy of Features and Ta
    - Are there external dependencies (APIs, data, infrastructure)?
 
 4. **Verification**: Ensure decomposition is complete
+   - Each Feature must have at least 10 story points (50 hours minimum) to avoid over-granular decomposition
    - Sum of Task story points within each Feature should equal Feature estimate
    - Sum of Feature story points should approximate Epic estimate
    - All Epic acceptance criteria covered by Feature/Task breakdown
    - No orphaned requirements (everything has a Feature and Tasks)
+   - If final remaining Epic functionality < 10 story points, it should be bundled with an existing Feature or into one final Feature
 
 ### Output Format
 
@@ -132,27 +158,31 @@ Return JSON with Epic decomposition:
       ],
       "tasks": [
         {
-          "title": "Implement OAuth2 integration and JWT token service",
-          "description": "Integrate Google/GitHub OAuth providers and create JWT token generation service. Configure OAuth callback endpoints, implement JWT signing with RS256, and create token validation logic.",
+          "title": "Implement OAuth2 integration and JWT token service with comprehensive tests",
+          "description": "Integrate Google/GitHub OAuth providers and create JWT token generation service. Configure OAuth callback endpoints, implement JWT signing with RS256, and create token validation logic.\n\nImplementation Requirements:\n- OAuth callback endpoints for Google and GitHub\n- Provider SDK configuration\n- JWT service with RS256 signing\n- Token validation logic\n\nTest Requirements:\n- **Unit tests**: Test individual functions (JWT generation, token parsing, signature verification) with {{ quality_standards.test_coverage_min }}% minimum coverage\n- **Integration tests**: Test full OAuth flow with provider SDKs, token lifecycle (issue, validate, refresh, revoke)\n- **Edge-case whitebox testing**: Validate boundary conditions (expired tokens, malformed tokens, invalid signatures, missing claims, concurrent token operations)\n- **Acceptance tests**: Verify all acceptance criteria (Google/GitHub login, JWT issuance, token refresh, failed auth logging, token revocation)\n\nTests must be falsifiable and comprehensive relative to OAuth security requirements.",
           "story_points": 8,
           "acceptance_criteria": [
             "OAuth callback endpoints created for Google and GitHub",
             "Provider SDKs configured and tested",
             "JWT service generates valid tokens with user claims",
             "Token validation correctly rejects invalid/expired tokens",
-            "Unit tests achieve >80% coverage for auth components"
+            "Unit tests achieve >{{ quality_standards.test_coverage_min }}% coverage for auth components",
+            "Integration tests verify full OAuth flow end-to-end",
+            "Edge-case tests validate boundary conditions and error handling",
+            "Acceptance tests verify all Feature acceptance criteria"
           ]
         },
         {
-          "title": "Run and verify authentication tests",
-          "description": "Execute all authentication tests (unit, integration, security), verify test falsifiability, confirm code coverage meets standards, and validate feature completeness.",
+          "title": "Validate authentication test quality and completeness",
+          "description": "Validate presence, completeness, and falsifiability of all authentication tests.\n\nValidation Requirements:\n- **Validate presence**: Confirm unit tests, integration tests, edge-case tests, and acceptance tests exist\n- **Validate completeness**: Verify all Feature acceptance criteria have corresponding tests (Google/GitHub login, JWT issuance, token refresh, failed auth logging, token revocation)\n- **Validate falsifiability**: Introduce intentional bugs (e.g., disable signature verification, remove rate limiting, break token refresh) and confirm tests detect failures, then remove bugs\n- **Confirm code coverage**: Verify coverage meets {{ quality_standards.test_coverage_min }}% minimum\n- **Confirm feature coverage**: All acceptance criteria have passing tests\n- **Run all tests**: Execute complete test suite and collect results\n- **Report results**: Provide evidence of test quality with coverage reports and falsifiability verification",
           "story_points": 3,
           "acceptance_criteria": [
-            "All unit tests pass for OAuth and JWT components",
-            "Integration tests verify full OAuth flow",
-            "Security tests confirm token validation robustness",
-            "Code coverage meets project minimum (80%)",
-            "Tests are falsifiable (can detect actual failures)"
+            "All required test types present (unit, integration, edge-case, acceptance)",
+            "All Feature acceptance criteria have corresponding tests",
+            "Falsifiability verified: intentional bugs detected by tests",
+            "Code coverage meets {{ quality_standards.test_coverage_min }}% minimum",
+            "Feature coverage: all acceptance criteria have passing tests",
+            "Test results collected and reported with evidence"
           ]
         },
         {
@@ -635,7 +665,7 @@ if orphaned_features:
    backlog_items = [
        item for item in all_items
        if item.get('state') in ['New', 'Proposed']
-       and item.get('type') in ['User Story', 'Feature', '{{ work_tracking.work_item_types.story }}']
+       and (item.get('type') or item.get('fields', {}).get('System.WorkItemType')) in ['User Story', 'Feature', '{{ work_tracking.work_item_types.story }}']
    ]
 
    print(f"📋 Backlog Items for Grooming ({len(backlog_items)}):")

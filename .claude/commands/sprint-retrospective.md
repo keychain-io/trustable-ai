@@ -41,9 +41,31 @@ sprint_name = "Sprint X"  # Replace with actual sprint
 ### Step 1: Collect Sprint Metrics
 
 1. **Query sprint work items:**
-   ```bash
+   ```python
    # Get all work items from the sprint
-   az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [Microsoft.VSTS.Scheduling.StoryPoints] FROM WorkItems WHERE [System.TeamProject] = 'Trusted AI Development Workbench' AND [System.IterationPath] = 'Trusted AI Development Workbench\\SPRINT_NAME'" --output json
+   sprint_items = adapter.query_sprint_work_items(sprint_name)
+   summary = adapter.get_sprint_summary(sprint_name)
+
+   print(f"📊 Sprint {sprint_name} Summary:")
+   print(f"  Total items: {summary['total_items']}")
+   print(f"  Total points: {summary['total_points']}")
+   print(f"  Completed points: {summary['completed_points']}")
+   print(f"  Completion rate: {(summary['completed_points']/max(summary['total_points'],1))*100:.1f}%")
+   print(f"\n  By state: {summary['by_state']}")
+   print(f"  By type: {summary['by_type']}")
+
+   # List completed items
+   completed_states = ['Done', 'Closed', 'Resolved', 'Completed']
+   completed = [i for i in sprint_items if i.get('state') in completed_states]
+   incomplete = [i for i in sprint_items if i.get('state') not in completed_states]
+
+   print(f"\n✅ Completed ({len(completed)}):")
+   for item in completed:
+       print(f"  WI-{item['id']}: {item['title']}")
+
+   print(f"\n⏳ Not Completed ({len(incomplete)}):")
+   for item in incomplete:
+       print(f"  WI-{item['id']}: {item['title']} [{item['state']}]")
    ```
 
 2. **Calculate metrics:**
@@ -71,7 +93,7 @@ sprint_name = "Sprint X"  # Replace with actual sprint
    - Identify process improvements
    - Highlight what went well
    - Document what needs improvement"
-3. **Spawn agent** using Task tool with model `claude-sonnet-4.5`
+3. **Spawn agent** using Task tool with model `claude-opus-4`
 4. **Input:** Sprint metrics from Step 1
 5. **Display output** to user
 6. **Collect:**
@@ -90,7 +112,7 @@ sprint_name = "Sprint X"  # Replace with actual sprint
    - Identify technical improvements needed
    - Review development tooling and practices
    - Recommend technical process improvements"
-3. **Spawn agent** using Task tool with model `claude-sonnet-4.5`
+3. **Spawn agent** using Task tool with model `claude-opus-4`
 4. **Input:** Sprint metrics and quality data
 5. **Display output** to user
 6. **Collect:**
@@ -108,7 +130,7 @@ sprint_name = "Sprint X"  # Replace with actual sprint
    - Evaluate security practices followed
    - Identify security improvements
    - Review security incidents or near-misses"
-3. **Spawn agent** using Task tool with model `claude-sonnet-4.5`
+3. **Spawn agent** using Task tool with model `claude-opus-4`
 4. **Input:** Security metrics from sprint
 5. **Display output** to user
 6. **Collect:**

@@ -35,6 +35,12 @@ This lightweight workflow generates daily standup reports showing what was compl
 import sys
 sys.path.insert(0, ".claude/skills")
 from work_tracking import get_adapter
+from workflows.utilities import (
+    analyze_sprint,
+    verify_work_item_states,
+    get_recent_activity,
+    identify_blockers
+)
 from datetime import datetime, timedelta
 
 adapter = get_adapter()
@@ -49,10 +55,22 @@ current_sprint = "Sprint 1"  # Update this
 ### Step 1: Gather Yesterday's Activity
 
 1. **Query completed work (last 24 hours):**
-   ```bash
-   # Get work items completed or updated yesterday
-   yesterday=$(date -d "yesterday" +%Y-%m-%d)
-   az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo] FROM WorkItems WHERE [System.TeamProject] = 'Trusted AI Development Workbench' AND [System.IterationPath] UNDER 'Trusted AI Development Workbench\\CURRENT_SPRINT' AND [System.ChangedDate] >= '$yesterday'" --output json
+   ```python
+   # Use workflow utility to get recent activity
+   activity_result = get_recent_activity(adapter, current_sprint, hours=24)
+
+   recent_items = activity_result['recent_items']
+   print(f"Found {activity_result['recent_count']} items updated since yesterday")
+   print(f"Total items in sprint: {activity_result['total_items']}")
+
+   for item in recent_items:
+       print(f"  WI-{item['id']}: {item['title']} [{item['state']}]")
+
+   # Check for errors
+   if activity_result['errors']:
+       print(f"⚠️ Errors during activity query:")
+       for error in activity_result['errors']:
+           print(f"  - {error}")
    ```
 
 2. **Categorize changes:**
@@ -62,12 +80,74 @@ current_sprint = "Sprint 1"  # Update this
    - 🚫 Blocked: Items marked as blocked
    - 💬 Discussed: Items with new comments
 
+### Step 1.5: Verify Work Item States Against External Source of Truth
+
+**CRITICAL**: This step implements the "External Source of Truth" pattern from VISION.md. AI agents often claim work is complete when it isn't. This verification step catches divergence immediately.
+
+1. **Use workflow utility to verify states against adapter:**
+   ```python
+   # Use workflow utility for external source of truth verification
+   print("\n🔍 Verifying work item states against external source of truth...")
+
+   verification_result = verify_work_item_states(adapter, recent_items)
+
+   print(f"Verified {verification_result['verified_count']} work items")
+   ```
+
+2. **Display divergence warnings (informational only - workflow continues):**
+   ```python
+   # Display divergence summary
+   if verification_result['divergence_count'] > 0:
+       print(f"\n⚠️ DIVERGENCE DETECTED: {verification_result['divergence_count']} work item(s) need attention")
+       print("=" * 80)
+
+       for div in verification_result['divergences']:
+           if div['severity'] == 'ERROR':
+               print(f"  ❌ {div['id']}: {div['title']}")
+               print(f"     {div['message']}")
+           else:
+               print(f"  ⚠️ {div['id']}: {div['title']}")
+               print(f"     CLAIMED: {div['claimed_state']} | ACTUAL: {div['actual_state']}")
+
+       print(f"\n📊 Divergence Summary:")
+       print(f"   - {verification_result['summary']['errors']} ERROR(s)")
+       print(f"   - {verification_result['summary']['warnings']} WARNING(s)")
+       print(f"   - Action: Review work items and sync states in {adapter.platform}")
+       print("=" * 80)
+   else:
+       print("✅ No divergence detected - all work item states match external source of truth")
+
+   # Check for verification errors
+   if verification_result['errors']:
+       print(f"\n⚠️ Verification errors occurred:")
+       for error in verification_result['errors']:
+           print(f"  - {error}")
+
+   # Store divergences for inclusion in report (Step 5)
+   divergence_summary = {
+       'count': verification_result['divergence_count'],
+       'errors': verification_result['divergences'],
+       'warnings': [d for d in verification_result['divergences'] if d['severity'] == 'WARNING']
+   }
+   ```
+
 ### Step 2: Identify Today's Focus
 
 1. **Query active work items:**
-   ```bash
-   # Get currently active work items
-   az boards query --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo], [Microsoft.VSTS.Scheduling.StoryPoints] FROM WorkItems WHERE [System.TeamProject] = 'Trusted AI Development Workbench' AND [System.IterationPath] UNDER 'Trusted AI Development Workbench\\CURRENT_SPRINT' AND [System.State] IN ('Active', 'In Progress', 'Doing')" --output json
+   ```python
+   # Get active work items for current sprint
+   active_states = ['Active', 'In Progress', 'Doing']
+   active_items = [
+       item for item in adapter.query_sprint_work_items(current_sprint)
+       if item.get('state') in active_states
+   ]
+
+   print(f"\n📋 Active Work Items ({len(active_items)}):")
+   for item in active_items:
+       points = item.get('story_points', item.get('fields', {}).get('Microsoft.VSTS.Scheduling.StoryPoints', '-'))
+       assignee = item.get('assigned_to', 'Unassigned')
+       print(f"  WI-{item['id']}: {item['title']}")
+       print(f"    State: {item['state']} | Points: {points} | Assigned: {assignee}")
    ```
 
 2. **Group by team member:**
@@ -77,35 +157,152 @@ current_sprint = "Sprint 1"  # Update this
 
 ### Step 3: Detect Blockers
 
-1. **Find blocked items:**
+1. **Use workflow utility to identify blockers:**
+   ```python
+   # Use workflow utility to identify blockers
+   blocker_result = identify_blockers(adapter, current_sprint, stale_threshold_days=3)
+
+   print(f"\n🚫 Blocker Analysis:")
+   print(f"Total blockers detected: {blocker_result['total_blockers']}")
+   print(f"Blocked state: {len(blocker_result['blocked_items'])}")
+   print(f"Tagged as blocker: {len(blocker_result['tagged_items'])}")
+   print(f"Stale (no updates 3+ days): {len(blocker_result['stale_items'])}")
+
+   # Display impact
+   print(f"\n📊 Impact:")
+   print(f"Affected people: {blocker_result['impact']['affected_people']}")
+   print(f"Story points at risk: {blocker_result['impact']['story_points_at_risk']}")
+
+   # Display blocker details
+   if blocker_result['blocked_items']:
+       print(f"\n🔴 Blocked Items:")
+       for item in blocker_result['blocked_items']:
+           print(f"  - {item['id']}: {item['title']} ({item['story_points']} pts)")
+
+   if blocker_result['stale_items']:
+       print(f"\n⏰ Stale Items (no updates in 3+ days):")
+       for item in blocker_result['stale_items']:
+           print(f"  - {item['id']}: {item['title']} ({item['days_stale']} days stale)")
+
+   # Check for errors
+   if blocker_result['errors']:
+       print(f"\n⚠️ Errors during blocker detection:")
+       for error in blocker_result['errors']:
+           print(f"  - {error}")
+   ```
+
+2. **Blocker detection includes:**
    - Items with "Blocked" state
    - Items tagged with "blocker"
    - Items with no updates in 3+ days
-   - Items mentioned in comments as blocked
+   - Impact analysis (affected people, story points at risk)
 
-2. **Analyze blocker impact:**
-   - Number of people affected
-   - Story points at risk
-   - Sprint goal impact
+### Step 4: Analyze Sprint Progress
 
-### Step 4: Generate Standup Report
+1. **Use workflow utility to analyze sprint:**
+   ```python
+   # Use workflow utility for comprehensive sprint analysis
+   sprint_stats = analyze_sprint(adapter, current_sprint)
+
+   print(f"\n📊 Sprint Progress:")
+   print(f"Total items: {sprint_stats['total_items']}")
+   print(f"Completion rate: {sprint_stats['completion_rate']:.1f}%")
+   print(f"Velocity (completed points): {sprint_stats['velocity']}")
+
+   print(f"\nBy State:")
+   for state, count in sprint_stats['by_state'].items():
+       print(f"  {state}: {count}")
+
+   print(f"\nStory Points:")
+   print(f"  Total: {sprint_stats['story_points']['total']}")
+   print(f"  Completed: {sprint_stats['story_points']['completed']}")
+   print(f"  In Progress: {sprint_stats['story_points']['in_progress']}")
+   print(f"  Not Started: {sprint_stats['story_points']['not_started']}")
+
+   # Check for errors
+   if sprint_stats['errors']:
+       print(f"\n⚠️ Errors during sprint analysis:")
+       for error in sprint_stats['errors']:
+           print(f"  - {error}")
+   ```
+
+### Step 5: Generate Standup Report
 
 1. **Read agent definition:** `.claude/agents/scrum-master.md`
 2. **Task:** "Generate a concise daily standup report:
-   - Summarize yesterday's accomplishments
-   - List today's planned work by team member
-   - Highlight blockers requiring attention
-   - Note sprint progress toward goal
+   - Summarize yesterday's accomplishments (from activity_result)
+   - List today's planned work by team member (from active_items)
+   - Highlight blockers requiring attention (from blocker_result)
+   - Include work item state verification results (from divergence_summary)
+   - Note sprint progress toward goal (from sprint_stats)
    - Keep it brief and action-oriented"
-3. **Spawn agent** using Task tool with model `claude-sonnet-4.5`
-4. **Input:** Yesterday's activity, today's active items, blockers
+3. **Spawn agent** using Task tool with model `claude-opus-4`
+4. **Input:** activity_result, active_items, blocker_result, divergence_summary, sprint_stats
 5. **Display output** to user
 
-### Step 5: Format and Distribute Report
+### Step 6: Format and Distribute Report
 
 Generate report in markdown format (template shown below with placeholder data that would be filled at runtime).
 
-### Step 6: Distribute Report
+**IMPORTANT**: Include divergence summary section if any divergences were detected:
+
+```python
+# Generate report with divergence section
+report = f"""
+# Daily Standup Report
+**Date**: {datetime.now().strftime('%Y-%m-%d')}
+**Sprint**: {current_sprint}
+
+## Yesterday's Accomplishments
+- Found {activity_result['recent_count']} items updated in last 24 hours
+[List completed work items from activity_result['recent_items']]
+
+## Work Item State Verification
+"""
+
+# Add divergence section
+if divergence_summary['count'] > 0:
+    report += f"⚠️ **DIVERGENCE DETECTED**: {divergence_summary['count']} work item(s) need attention\n\n"
+
+    error_count = len([d for d in divergence_summary['errors'] if d['severity'] == 'ERROR'])
+    warning_count = len(divergence_summary['warnings'])
+
+    if error_count > 0:
+        report += f"### Errors ({error_count})\n"
+        for error in divergence_summary['errors']:
+            if error['severity'] == 'ERROR':
+                report += f"- ❌ **{error['id']}**: {error['title']}\n"
+                report += f"  - {error['message']}\n"
+        report += "\n"
+
+    if warning_count > 0:
+        report += f"### Warnings ({warning_count})\n"
+        for warning in divergence_summary['warnings']:
+            report += f"- ⚠️ **{warning['id']}**: {warning['title']}\n"
+            report += f"  - Claimed: {warning['claimed_state']} | Actual: {warning['actual_state']}\n"
+        report += "\n"
+
+    report += f"**Action Required**: Review and sync work item states in {adapter.platform}\n\n"
+else:
+    report += "✅ **All work item states verified** - no divergence detected\n\n"
+
+report += f"""
+## Today's Focus
+[List planned work items from active_items]
+
+## Blockers
+- Total blockers: {blocker_result['total_blockers']}
+- Affected people: {blocker_result['impact']['affected_people']}
+- Story points at risk: {blocker_result['impact']['story_points_at_risk']}
+
+## Sprint Progress
+- Total items: {sprint_stats['total_items']}
+- Completion rate: {sprint_stats['completion_rate']:.1f}%
+- Velocity: {sprint_stats['velocity']} story points completed
+"""
+```
+
+### Step 7: Distribute Report
 
 1. **Save to file:**
    ```bash

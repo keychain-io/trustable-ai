@@ -163,17 +163,17 @@ def render_agent(agent_name: str, output: Optional[str], show: bool):
 @click.option("--output-dir", "-o", type=click.Path(), default=".claude/agents", help="Output directory")
 @click.option("--with-commands", is_flag=True, help="Also render agent slash commands to .claude/commands")
 def render_all_agents(output_dir: str, with_commands: bool):
-    """Render all enabled agents."""
+    """Render all available agents (regardless of enabled status)."""
     try:
         config = load_config()
         registry = AgentRegistry(config)
 
         output_path = Path(output_dir)
-        enabled_agents = registry.get_enabled_agents()
+        all_agents = registry.list_agents()
 
-        click.echo(f"\n📝 Rendering {len(enabled_agents)} agents to {output_path}\n")
+        click.echo(f"\n📝 Rendering {len(all_agents)} agents to {output_path}\n")
 
-        for agent_name in enabled_agents:
+        for agent_name in all_agents:
             try:
                 output_file = registry.save_rendered_agent(agent_name, output_path)
                 click.echo(f"  ✓ {agent_name} → {output_file}")
@@ -188,7 +188,7 @@ def render_all_agents(output_dir: str, with_commands: bool):
             commands_dir = Path(".claude/commands")
             click.echo(f"📝 Rendering agent slash commands to {commands_dir}\n")
 
-            for agent_name in enabled_agents:
+            for agent_name in all_agents:
                 try:
                     output_file = registry.save_agent_slash_command(agent_name, commands_dir)
                     click.echo(f"  ✓ /{agent_name} → {output_file}")

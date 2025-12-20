@@ -113,7 +113,7 @@ class TestAgentRenderCommand:
             assert 'not found' in result.output.lower()
 
     def test_render_all_agents(self, sample_config_yaml):
-        """Test rendering all enabled agents."""
+        """Test rendering all available agents regardless of enabled status."""
         runner = CliRunner()
 
         with runner.isolated_filesystem():
@@ -130,8 +130,19 @@ class TestAgentRenderCommand:
             ])
 
             assert result.exit_code == 0
-            # Should create files for enabled agents
+            # Should create files for ALL available agents, not just enabled ones
+            # At minimum, we expect the core agents to be rendered
             assert Path('.claude/agents/business-analyst.md').exists()
+            assert Path('.claude/agents/architect.md').exists()
+            assert Path('.claude/agents/senior-engineer.md').exists()
+            assert Path('.claude/agents/engineer.md').exists()
+            assert Path('.claude/agents/tester.md').exists()
+            assert Path('.claude/agents/security-specialist.md').exists()
+            assert Path('.claude/agents/scrum-master.md').exists()
+
+            # Count rendered agents - should be all non-deprecated agents
+            agent_files = list(Path('.claude/agents').glob('*.md'))
+            assert len(agent_files) >= 7  # At least the 7 core agents
 
 
 @pytest.mark.integration
@@ -237,6 +248,44 @@ class TestAgentRenderAll:
             assert result.exit_code == 0
             assert 'Rendering' in result.output or '✓' in result.output
 
-            # Verify files were created (8 non-deprecated agents in v2.0)
+            # Verify files were created (7+ non-deprecated agents in v2.0)
             agent_files = list(Path('.claude/agents').glob('*.md'))
-            assert len(agent_files) >= 8
+            assert len(agent_files) >= 7
+
+    def test_render_all_renders_disabled_agents(self, sample_config_yaml):
+        """Test that render-all renders agents that are NOT enabled (Bug #1077)."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            config_path = Path('.claude/config.yaml')
+            config_path.parent.mkdir(parents=True)
+            config_path.write_text(sample_config_yaml)
+
+            # Verify the architect agent is NOT in the enabled list initially
+            from config.loader import ConfigLoader
+            loader = ConfigLoader(config_path)
+            config = loader.load()
+            assert 'architect' not in config.agent_config.enabled_agents
+
+            # Create output directory
+            Path('.claude/agents').mkdir(parents=True)
+
+            # Run render-all command
+            result = runner.invoke(cli, ['agent', 'render-all', '-o', '.claude/agents'])
+
+            assert result.exit_code == 0
+
+            # Verify that architect agent was rendered even though it's not enabled
+            assert Path('.claude/agents/architect.md').exists()
+            assert Path('.claude/agents/engineer.md').exists()
+            assert Path('.claude/agents/tester.md').exists()
+
+            # Verify we rendered ALL available agents, not just enabled ones
+            from agents import AgentRegistry
+            registry = AgentRegistry(config)
+            all_available = registry.list_agents()
+
+            # Check that all available agents were rendered
+            for agent_name in all_available:
+                agent_file = Path(f'.claude/agents/{agent_name}.md')
+                assert agent_file.exists(), f"Agent {agent_name} should be rendered but file doesn't exist"

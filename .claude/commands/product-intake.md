@@ -62,9 +62,26 @@ from work_tracking import get_adapter
 from pathlib import Path
 from datetime import datetime
 
-# Initialize
-adapter = get_adapter()
-print(f":clipboard: Work Tracking: {adapter.platform}")
+# Initialize and validate platform
+try:
+    adapter = get_adapter()
+    print(f":clipboard: Work Tracking: {adapter.platform}")
+except ValueError as e:
+    print(f":x: ERROR: {e}")
+    print("\n:arrow_right: Fix: Configure work tracking platform in .claude/config.yaml")
+    print("   Example:")
+    print("   work_tracking:")
+    print("     platform: 'azure-devops'  # or 'file-based'")
+    sys.exit(1)
+
+# Validate platform matches configuration
+configured_platform = "azure-devops"
+if adapter.platform != configured_platform:
+    print(f":warning: WARNING: Adapter platform mismatch!")
+    print(f"   Configured: {configured_platform}")
+    print(f"   Actual: {adapter.platform}")
+    print("\n:x: This indicates a configuration error. Aborting.")
+    sys.exit(1)
 
 # Initialize state
 intake_id = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -340,6 +357,67 @@ if action == 'q':
 
 ## Phase 4: Work Item Creation
 
+### Step 4.0: Duplicate Detection
+
+```python
+if action in ['c', 'e']:
+    # Check for recent duplicates before creating work item
+    print(f"\n:mag: Checking for duplicate work items...")
+
+    # Import duplicate detection from Azure DevOps CLI wrapper
+    import sys
+    sys.path.insert(0, ".claude/skills/azure_devops")
+    from cli_wrapper import check_recent_duplicates
+
+    # Check for duplicates in last 1 hour with 95% similarity threshold
+    duplicate = check_recent_duplicates(
+        title=suggested_title or title,
+        work_item_type=work_item_type,
+        hours=1,
+        similarity_threshold=0.95
+    )
+
+    if duplicate:
+        print(f"\n:warning: DUPLICATE DETECTED!")
+        print(f"   Found similar work item: #{duplicate['id']}")
+        print(f"   Title: {duplicate['title']}")
+        print(f"   Similarity: {duplicate['similarity']:.1%}")
+        print(f"   Created: {duplicate['created_date']}")
+        print(f"   State: {duplicate['state']}")
+        print(f"   URL: {duplicate['url']}")
+
+        print(f"\n:question: This work item appears to be a duplicate. What would you like to do?")
+        print(f"   [u] Use existing work item #{duplicate['id']}")
+        print(f"   [c] Create new work item anyway")
+        print(f"   [x] Cancel and exit")
+
+        dup_action = input("\nSelect action: ").lower()
+
+        if dup_action == 'u':
+            # Use existing work item
+            work_item_id = duplicate['id']
+            print(f"\n:white_check_mark: Using existing work item #{work_item_id}")
+
+            # Skip to completion phase
+            state.set_metadata("duplicate_handled", True)
+            state.set_metadata("used_existing_item", work_item_id)
+            action = 'skip_creation'
+
+        elif dup_action == 'x':
+            # Cancel workflow
+            print(f"\n:x: Workflow cancelled by user (duplicate detected)")
+            state.complete_workflow()
+            exit()
+
+        elif dup_action == 'c':
+            # Continue with creation
+            print(f"\n:arrow_forward: Continuing with work item creation...")
+            # action remains 'c' or 'e', proceed to creation
+
+    else:
+        print(f":white_check_mark: No duplicates found")
+```
+
 ### Step 4.1: Create Work Item
 
 ```python
@@ -516,35 +594,41 @@ print("\n" + "=" * 80)
 print(":white_check_mark: INTAKE COMPLETE")
 print("=" * 80)
 
-# Route based on work item type created
-if work_item_type == 'Epic':
-    print(f"\n:arrow_right: Epic {work_item_id} created: {suggested_title or title}")
-    print(f"   Size: {size} | Urgency: {validated_urgency}")
-    print(f"\n:arrow_right: Next step: Run /backlog-grooming to decompose into Features and Tasks")
-elif work_item_type == 'Feature':
-    print(f"\n:arrow_right: Feature {work_item_id} created: {suggested_title or title}")
-    print(f"   Size: {size} ({technical_assessment.get('story_points', 'N/A')} pts) | Urgency: {validated_urgency}")
-    if validated_urgency == 'Critical':
-        print(f"\n:fire: CRITICAL Feature - add to sprint immediately")
-    else:
-        print(f"\n:arrow_right: Ready for /sprint-planning (Feature will be broken into Tasks)")
-elif work_item_type == 'Task':
-    print(f"\n:arrow_right: Task {work_item_id} created: {suggested_title or title}")
-    print(f"   Size: Small | Urgency: {validated_urgency}")
-    if validated_urgency == 'Critical':
-        print(f"\n:fire: CRITICAL Task - add to current sprint")
-    else:
-        print(f"\n:arrow_right: Ready for /sprint-planning")
-elif work_item_type == 'Bug':
-    print(f"\n:bug: Bug {work_item_id} created: {suggested_title or title}")
-    print(f"   Urgency: {validated_urgency}")
-    if validated_urgency == 'Critical':
-        print(f"\n:fire: CRITICAL Bug - immediate action required!")
-        print("   1. Notify on-call engineer")
-        print("   2. Add to current sprint")
-        print("   3. Begin investigation")
-    else:
-        print(f"\n:arrow_right: Added to bug backlog for triage and prioritization")
+# Check if this was a duplicate that was handled
+if action == 'skip_creation':
+    print(f"\n:recycle: Used existing work item #{work_item_id}")
+    print(f"   No new work item created (duplicate avoided)")
+    print(f"\n:white_check_mark: Workflow completed successfully")
+else:
+    # Route based on work item type created
+    if work_item_type == 'Epic':
+        print(f"\n:arrow_right: Epic {work_item_id} created: {suggested_title or title}")
+        print(f"   Size: {size} | Urgency: {validated_urgency}")
+        print(f"\n:arrow_right: Next step: Run /backlog-grooming to decompose into Features and Tasks")
+    elif work_item_type == 'Feature':
+        print(f"\n:arrow_right: Feature {work_item_id} created: {suggested_title or title}")
+        print(f"   Size: {size} ({technical_assessment.get('story_points', 'N/A')} pts) | Urgency: {validated_urgency}")
+        if validated_urgency == 'Critical':
+            print(f"\n:fire: CRITICAL Feature - add to sprint immediately")
+        else:
+            print(f"\n:arrow_right: Ready for /sprint-planning (Feature will be broken into Tasks)")
+    elif work_item_type == 'Task':
+        print(f"\n:arrow_right: Task {work_item_id} created: {suggested_title or title}")
+        print(f"   Size: Small | Urgency: {validated_urgency}")
+        if validated_urgency == 'Critical':
+            print(f"\n:fire: CRITICAL Task - add to current sprint")
+        else:
+            print(f"\n:arrow_right: Ready for /sprint-planning")
+    elif work_item_type == 'Bug':
+        print(f"\n:bug: Bug {work_item_id} created: {suggested_title or title}")
+        print(f"   Urgency: {validated_urgency}")
+        if validated_urgency == 'Critical':
+            print(f"\n:fire: CRITICAL Bug - immediate action required!")
+            print("   1. Notify on-call engineer")
+            print("   2. Add to current sprint")
+            print("   3. Begin investigation")
+        else:
+            print(f"\n:arrow_right: Added to bug backlog for triage and prioritization")
 
 state.complete_workflow()
 profiler.save_report()

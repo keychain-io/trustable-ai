@@ -164,10 +164,104 @@ Workflows are invoked via slash commands in Claude Code:
 /workflow-resume           # Resume interrupted workflow
 ```
 
+## Workflow Utilities
+
+Production utility functions in `workflows/utilities.py` provide reusable functionality across workflows:
+
+### analyze_sprint(adapter, sprint_name, config=None)
+**Purpose**: Comprehensive sprint analysis and statistics
+
+**Returns**: Dict with total items, state distribution, type distribution, assignee distribution, story points (total/completed/in_progress/not_started), completion rate, and velocity
+
+**Example Usage**:
+```python
+from workflows.utilities import analyze_sprint
+sprint_stats = analyze_sprint(adapter, "Sprint 6")
+print(f"Completion: {sprint_stats['completion_rate']:.1f}%")
+print(f"Velocity: {sprint_stats['velocity']} points")
+```
+
+### verify_work_item_states(adapter, work_items, terminal_states=None)
+**Purpose**: External source of truth verification (VISION.md pattern)
+
+Detects divergence between claimed work item states and actual states in the work tracking system. Critical for catching AI agents claiming work is complete when it isn't.
+
+**Returns**: Dict with verified count, divergence count, divergences list (with severity ERROR/WARNING), and summary counts
+
+**Example Usage**:
+```python
+from workflows.utilities import verify_work_item_states
+verification = verify_work_item_states(adapter, recent_items)
+if verification['divergence_count'] > 0:
+    print(f"⚠️ {verification['divergence_count']} divergences detected")
+```
+
+### get_recent_activity(adapter, sprint_name, hours=24, config=None)
+**Purpose**: Filter sprint items by recent updates (time window)
+
+**Returns**: Dict with total items, recent items list, recent count
+
+**Example Usage**:
+```python
+from workflows.utilities import get_recent_activity
+activity = get_recent_activity(adapter, "Sprint 6", hours=24)
+print(f"Found {activity['recent_count']} items updated in last 24h")
+```
+
+### identify_blockers(adapter, sprint_name, stale_threshold_days=3, config=None)
+**Purpose**: Identify blocked work items through multiple signals
+
+Detects blockers via: Blocked state, blocker tag, or stale (no updates in N+ days). Calculates impact (affected people, story points at risk).
+
+**Returns**: Dict with total blockers, blocked items, tagged items, stale items, and impact analysis
+
+**Example Usage**:
+```python
+from workflows.utilities import identify_blockers
+blockers = identify_blockers(adapter, "Sprint 6", stale_threshold_days=3)
+print(f"Total blockers: {blockers['total_blockers']}")
+print(f"Story points at risk: {blockers['impact']['story_points_at_risk']}")
+```
+
+## Work Tracking: Adapter Required
+
+**⚠️ CRITICAL: All workflows must use the work tracking adapter via Python. `az boards` CLI is deprecated.**
+
+### Correct Pattern
+```python
+# ✅ ALWAYS use adapter
+import sys
+sys.path.insert(0, '.claude/skills')
+from work_tracking import get_adapter
+from workflows.utilities import analyze_sprint, verify_work_item_states
+
+adapter = get_adapter()
+items = adapter.query_sprint_work_items("Sprint 6")
+sprint_stats = analyze_sprint(adapter, "Sprint 6")
+```
+
+### Deprecated Pattern
+```bash
+# ❌ NEVER use az boards CLI
+az boards work-item show --id 1234  # DEPRECATED
+az boards query                      # DEPRECATED
+```
+
+### Why Adapter is Mandatory for Workflows
+- **External source of truth**: REST API calls, not subprocess output parsing
+- **Platform abstraction**: Works with Azure DevOps, file-based, Jira, GitHub
+- **Verification pattern**: Required for VISION.md verification gates
+- **State persistence**: Adapter results serialize cleanly for checkpoints
+- **Error recovery**: Unified error handling across all platforms
+
+**All workflow templates use the adapter. Do not deviate from this pattern.**
+
 ## Important Notes
 
 - **Workflows are re-entrant**: Always checkpoint after significant steps
-- **Verify, don't trust**: Query external systems (Azure DevOps), don't trust AI claims
+- **Verify, don't trust**: Query external systems via adapter, don't trust AI claims
+- **Use workflow utilities**: Instead of ad-hoc scripts, use production utilities in `workflows/utilities.py`
+- **Use adapter, not CLI**: All work tracking operations must use Python adapter from `.claude/skills/work_tracking.py`
 - **Human gates**: Critical steps (sprint approval, work item creation) require human confirmation
 - **Fresh agent contexts**: Each agent spawns with clean context via Task tool
 - **State cleanup**: Old workflow states accumulate in `.claude/workflow-state/` - clean periodically
@@ -195,3 +289,5 @@ Workflows are invoked via slash commands in Claude Code:
 - **agents/CLAUDE.md**: Agents that workflows orchestrate
 - **core/CLAUDE.md**: State management and profiling used by workflows
 - **templates/workflows/**: Workflow template source files
+- **workflows/utilities.py**: Production utility functions for sprint analysis and verification
+- **workflows/validators.py**: Verification checklist validators for workflows

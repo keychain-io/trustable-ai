@@ -10,7 +10,7 @@ long_description = readme_path.read_text() if readme_path.exists() else ""
 
 setup(
     name="trustable-ai",
-    version="2.0.4",
+    version="2.0.6",
     author="Trustable AI Contributors",
     description="AI-assisted software lifecycle tools with multi-agent orchestration, state management, and work tracking integration",
     long_description=long_description,
@@ -35,9 +35,6 @@ setup(
             "black>=23.0.0",
             "ruff>=0.1.0",
             "mypy>=1.0.0",
-        ],
-        "azure": [
-            "azure-cli-core>=2.50.0",
         ],
     },
     entry_points={

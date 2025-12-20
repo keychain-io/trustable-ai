@@ -4,7 +4,7 @@
 Threat modeling, security reviews, vulnerability management, compliance validation.
 
 ## Model Configuration
-- Model: claude-sonnet-4.5
+- Model: claude-opus-4
 - Extended Thinking: Not required
 - Context Window: Standard
 

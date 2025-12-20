@@ -4,7 +4,7 @@
 Break down features into tasks with COMPREHENSIVE DESCRIPTIONS, estimate effort, assign priorities, manage technical debt, review code.
 
 ## Model Configuration
-- Model: claude-sonnet-4.5
+- Model: claude-opus-4
 - Extended Thinking: **ENABLED**
 - Context Window: Maximum
 

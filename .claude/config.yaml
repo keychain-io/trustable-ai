@@ -14,7 +14,7 @@ work_tracking:
   platform: azure-devops
   organization: https://dev.azure.com/keychainio/
   project: Trusted AI Development Workbench
-  credentials_source: cli
+  credentials_source: env:CLAUDE_AZURE_DEVELOPMENT_API_KEY
   work_items_directory: .claude/work-items
   work_item_types:
     epic: Epic

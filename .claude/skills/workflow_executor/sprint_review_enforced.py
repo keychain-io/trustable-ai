@@ -190,7 +190,7 @@ class SprintReviewEnforcer:
                 items = self.adapter.query_sprint_work_items(self.sprint_name)
 
                 total = len(items)
-                completed = len([i for i in items if i.get("state") == "Done"])
+                completed = len([i for i in items if i.get("fields", {}).get("System.State") == "Done"])
 
                 metrics = {
                     "total_tasks": total,
@@ -225,13 +225,13 @@ class SprintReviewEnforcer:
             # Analyze by type
             by_type = {}
             for item in items:
-                item_type = item.get("type", "Unknown")
+                item_type = item.get("fields", {}).get("System.WorkItemType", "Unknown")
                 by_type[item_type] = by_type.get(item_type, 0) + 1
 
             # Analyze by state
             by_state = {}
             for item in items:
-                state = item.get("state", "Unknown")
+                state = item.get("fields", {}).get("System.State", "Unknown")
                 by_state[state] = by_state.get(state, 0) + 1
 
             analysis = {
@@ -271,13 +271,14 @@ class SprintReviewEnforcer:
             # Find EPICs that are Done
             epics = [
                 item for item in items
-                if item.get("type") == "Epic" and item.get("state") == "Done"
+                if item.get("fields", {}).get("System.WorkItemType") == "Epic"
+                and item.get("fields", {}).get("System.State") == "Done"
             ]
 
             print(f"Found {len(epics)} completed EPIC(s):")
             for epic in epics:
                 epic_id = epic.get("id", "Unknown")
-                epic_title = epic.get("title", "Untitled")
+                epic_title = epic.get("fields", {}).get("System.Title", "Untitled")
                 print(f"  - EPIC #{epic_id}: {epic_title}")
 
             epic_info = {

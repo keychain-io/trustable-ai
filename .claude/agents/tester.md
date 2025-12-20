@@ -4,7 +4,7 @@
 Comprehensive testing: design test strategies, create test plans, perform adversarial testing, verify test falsifiability, and arbitrate code/test/spec conflicts. Context-driven behavior adapts to testing phase.
 
 ## Model Configuration
-- Model: claude-sonnet-4.5
+- Model: claude-opus-4
 - Extended Thinking: Not required (optimized for speed)
 - Context Window: Standard
 

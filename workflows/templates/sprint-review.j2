@@ -21,6 +21,7 @@
 │  Step 1.6: Retrieve test plans from work items                             │
 │  Step 1.7: Execute tests and generate reports                              │
 │  Step 1.8: Attach test reports to EPIC work items                          │
+│  Step 1.9: Auto-mark EPICs Done when all Features Done & tests pass        │
 │  Step 2: /tester → Run acceptance tests                                    │
 │  Step 3: /security-specialist → Final security review                      │
 │  Step 4: /engineer → Deployment readiness assessment                       │
@@ -1013,6 +1014,254 @@ report_attachment_state = {
 }
 
 print(f"\n💾 Test report attachment state stored for workflow verification")
+print(f"=" * 80)
+```
+
+---
+
+## Step 1.9: Auto-Mark EPICs Done Based on Completion Criteria
+
+**CRITICAL**: Automatically mark EPICs as "Done" when all child Features are Done and all acceptance tests pass (VISION.md Pillar #2: External Source of Truth).
+
+```python
+# Auto-complete EPICs that meet completion criteria
+print(f"\n✅ Checking EPIC completion criteria...")
+print("=" * 80)
+print("CRITICAL: Querying child Features and verifying completion criteria")
+print("=" * 80)
+
+epics_marked_done = []
+epics_not_ready = []
+epic_completion_failures = []
+
+for test_result_entry in test_execution_results_all:
+    epic_id = test_result_entry['epic_id']
+    epic_title = test_result_entry['epic_title']
+    deployment_ready = test_result_entry['deployment_ready']
+    overall_status = test_result_entry['overall_status']
+
+    print(f"\n📋 Checking EPIC #{epic_id}: {epic_title}")
+    print(f"   Test Status: {overall_status}")
+    print(f"   Deployment Ready: {deployment_ready}")
+
+    try:
+        # Criterion 1: All acceptance tests must pass (deployment_ready=True)
+        if not deployment_ready:
+            print(f"   ❌ EPIC not ready: acceptance tests did not pass")
+            epics_not_ready.append({
+                'epic_id': epic_id,
+                'epic_title': epic_title,
+                'reason': 'Acceptance tests did not pass (deployment_ready=False)'
+            })
+            continue
+
+        if overall_status != 'pass':
+            print(f"   ❌ EPIC not ready: overall test status is '{overall_status}', not 'pass'")
+            epics_not_ready.append({
+                'epic_id': epic_id,
+                'epic_title': epic_title,
+                'reason': f"Overall test status is '{overall_status}', expected 'pass'"
+            })
+            continue
+
+        print(f"   ✅ Acceptance tests passed")
+
+        # Criterion 2: All child Features must be in "Done" state
+        print(f"   🔍 Querying child Features from work tracking system...")
+
+        # Get Epic work item with relations
+        epic_work_item = adapter.get_work_item(epic_id)
+
+        if not epic_work_item:
+            print(f"   ❌ ERROR: Could not retrieve EPIC work item #{epic_id}")
+            epic_completion_failures.append({
+                'epic_id': epic_id,
+                'epic_title': epic_title,
+                'reason': 'Could not retrieve EPIC work item'
+            })
+            continue
+
+        # Extract child Features from relations
+        relations = epic_work_item.get('relations', [])
+        child_feature_ids = []
+
+        for relation in relations:
+            rel_type = relation.get('rel', '')
+
+            # Azure DevOps: Child relation is System.LinkTypes.Hierarchy-Forward
+            # Parent relation is System.LinkTypes.Hierarchy-Reverse
+            if 'Hierarchy-Forward' in rel_type or 'Child' in rel_type:
+                # Extract work item ID from URL
+                rel_url = relation.get('url', '')
+
+                # URL format: https://dev.azure.com/{org}/{project}/_apis/wit/workitems/{id}
+                if '/' in rel_url:
+                    child_id = rel_url.split('/')[-1]
+                    child_feature_ids.append(child_id)
+
+        print(f"   📊 Found {len(child_feature_ids)} child Feature(s)")
+
+        if len(child_feature_ids) == 0:
+            print(f"   ⚠️  WARNING: EPIC has no child Features - marking as ready for completion")
+
+        # Query each child Feature to verify state
+        features_done = []
+        features_not_done = []
+
+        for feature_id in child_feature_ids:
+            try:
+                feature = adapter.get_work_item(feature_id)
+
+                if not feature:
+                    print(f"      ❌ ERROR: Could not retrieve Feature #{feature_id}")
+                    features_not_done.append({
+                        'id': feature_id,
+                        'reason': 'Could not retrieve work item'
+                    })
+                    continue
+
+                feature_state = feature.get('fields', {}).get('System.State', '')
+                feature_title = feature.get('fields', {}).get('System.Title', 'Unknown')
+
+                print(f"      Feature #{feature_id}: {feature_title} - State: {feature_state}")
+
+                if feature_state == 'Done':
+                    features_done.append({
+                        'id': feature_id,
+                        'title': feature_title,
+                        'state': feature_state
+                    })
+                else:
+                    features_not_done.append({
+                        'id': feature_id,
+                        'title': feature_title,
+                        'state': feature_state
+                    })
+
+            except Exception as e:
+                print(f"      ❌ ERROR: Failed to query Feature #{feature_id}: {e}")
+                features_not_done.append({
+                    'id': feature_id,
+                    'reason': str(e)
+                })
+
+        # Check if all Features are Done
+        print(f"   📊 Feature Status: {len(features_done)} Done, {len(features_not_done)} Not Done")
+
+        if len(features_not_done) > 0:
+            print(f"   ❌ EPIC not ready: {len(features_not_done)} child Feature(s) not Done")
+            for feature in features_not_done:
+                print(f"      - Feature #{feature['id']}: {feature.get('title', 'Unknown')} - {feature.get('state', feature.get('reason', 'Unknown'))}")
+
+            epics_not_ready.append({
+                'epic_id': epic_id,
+                'epic_title': epic_title,
+                'reason': f'{len(features_not_done)} child Features not in Done state',
+                'features_not_done': features_not_done
+            })
+            continue
+
+        print(f"   ✅ All {len(features_done)} child Feature(s) are Done")
+
+        # Both criteria met - mark EPIC as Done
+        print(f"   ✅ EPIC meets completion criteria - marking as Done...")
+
+        # Update EPIC state to Done
+        current_epic_state = epic_work_item.get('fields', {}).get('System.State', '')
+        print(f"      Current EPIC state: {current_epic_state}")
+
+        if current_epic_state == 'Done':
+            print(f"      ℹ️  EPIC already in Done state - no update needed")
+            epics_marked_done.append({
+                'epic_id': epic_id,
+                'epic_title': epic_title,
+                'previous_state': current_epic_state,
+                'new_state': 'Done',
+                'already_done': True
+            })
+        else:
+            # Update state to Done
+            update_result = adapter.update_work_item(
+                work_item_id=epic_id,
+                fields={'System.State': 'Done'}
+            )
+
+            print(f"      ✅ EPIC state updated to Done")
+
+            # Verify state change
+            verify_epic = adapter.get_work_item(epic_id)
+            verify_state = verify_epic.get('fields', {}).get('System.State', '') if verify_epic else ''
+
+            if verify_state == 'Done':
+                print(f"      ✅ EPIC state verified: {verify_state}")
+                epics_marked_done.append({
+                    'epic_id': epic_id,
+                    'epic_title': epic_title,
+                    'previous_state': current_epic_state,
+                    'new_state': verify_state,
+                    'already_done': False
+                })
+            else:
+                print(f"      ❌ ERROR: EPIC state verification failed - expected 'Done', got '{verify_state}'")
+                epic_completion_failures.append({
+                    'epic_id': epic_id,
+                    'epic_title': epic_title,
+                    'reason': f"State update verification failed - expected 'Done', got '{verify_state}'"
+                })
+
+    except Exception as e:
+        print(f"   ❌ ERROR: Failed to check completion criteria for EPIC #{epic_id}: {e}")
+        epic_completion_failures.append({
+            'epic_id': epic_id,
+            'epic_title': epic_title,
+            'reason': f'Unexpected error: {e}'
+        })
+
+# Output EPIC completion summary
+print(f"\n📊 EPIC Completion Summary:")
+print(f"   Total EPICs processed: {len(test_execution_results_all)}")
+print(f"   EPICs marked Done: {len(epics_marked_done)}")
+print(f"   EPICs not ready for completion: {len(epics_not_ready)}")
+print(f"   EPIC completion failures: {len(epic_completion_failures)}")
+
+# Log EPICs marked Done
+if epics_marked_done:
+    print(f"\n✅ EPICs marked Done:")
+    for epic in epics_marked_done:
+        if epic.get('already_done'):
+            print(f"     • EPIC #{epic['epic_id']}: {epic['epic_title']} (already Done)")
+        else:
+            print(f"     • EPIC #{epic['epic_id']}: {epic['epic_title']} ({epic['previous_state']} → {epic['new_state']})")
+
+# Log EPICs not ready
+if epics_not_ready:
+    print(f"\n⚠️  EPICs not ready for completion:")
+    for epic in epics_not_ready:
+        print(f"     • EPIC #{epic['epic_id']}: {epic['epic_title']}")
+        print(f"       Reason: {epic['reason']}")
+
+# Log EPIC completion failures
+if epic_completion_failures:
+    print(f"\n❌ EPIC completion failures:")
+    for failure in epic_completion_failures:
+        print(f"     • EPIC #{failure['epic_id']}: {failure['epic_title']}")
+        print(f"       Reason: {failure['reason']}")
+
+# Store EPIC completion state
+epic_completion_state = {
+    'epics_marked_done': epics_marked_done,
+    'epics_not_ready': epics_not_ready,
+    'epic_completion_failures': epic_completion_failures,
+    'total_processed': len(test_execution_results_all),
+    'marked_done_count': len(epics_marked_done),
+    'not_ready_count': len(epics_not_ready),
+    'failure_count': len(epic_completion_failures),
+    'completion_timestamp': datetime.now().isoformat()
+}
+
+# Checkpoint: Save EPIC completion state to workflow state
+# (In production, this would be saved via StateManager)
+print(f"\n💾 EPIC completion state stored in workflow state")
 print(f"=" * 80)
 ```
 

@@ -63,10 +63,43 @@ trustable-ai workflow render-all  # Renders to .claude/commands/
 - **profiling/*.md**: Reports named `{workflow}-{timestamp}.md`
 - **learnings/*.md**: Categorized learning documents
 
+## Work Tracking: Use Adapter, Not CLI
+
+**⚠️ CRITICAL: Always use the Python work tracking adapter, NEVER use `az boards` CLI commands**
+
+### Correct Approach
+```python
+# ✅ Use adapter from skills
+import sys
+sys.path.insert(0, '.claude/skills')
+from work_tracking import get_adapter
+from workflows.utilities import analyze_sprint, verify_work_item_states
+
+adapter = get_adapter()
+items = adapter.query_sprint_work_items("Sprint 6")
+```
+
+### Deprecated Approach
+```bash
+# ❌ DEPRECATED: Do not use az CLI
+az boards work-item show --id 1234
+az boards query
+```
+
+### Why Adapter is Mandatory
+- Platform-agnostic (Azure DevOps, file-based, Jira, GitHub)
+- REST API calls, not subprocess overhead
+- Type-safe Python interface
+- Testable and mockable
+- Unified error handling
+
+**See main CLAUDE.md for complete adapter documentation.**
+
 ## Important Notes
 
 - **Version Control**: Commit `config.yaml` and templates, gitignore runtime state
 - **State Persistence**: Workflow state enables resume after failures
 - **Template Customization**: Copy templates here to customize for your project
 - **Token Budget**: Context loading respects Claude's token limits
+- **Work Tracking**: Always use Python adapter from `.claude/skills/work_tracking.py`, never `az boards` CLI
 - trustable-ai must target Linux, Windows, and Macos. As such, all trustable-ai file writes (for example for rendering agents, workflows, and skills) must specify utf-8 encoding explicitly.
